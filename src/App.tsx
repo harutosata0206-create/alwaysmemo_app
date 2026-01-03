@@ -1,26 +1,33 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
-import {
-  currentMonitor,
-  getCurrentWindow,
-  PhysicalPosition,
-} from "@tauri-apps/api/window";
 import "./App.css";
 
 const SHORTCUT_LABEL = "Ctrl + Alt +";
 
 function App() {
   const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(true);
-  const [alwaysOnTop, setAlwaysOnTop] = useState(false);
+  const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
+  const setAlwaysOnTop = useCallback(
+    async (value: boolean) => {
+      try {
+        const confirmed = await invoke<boolean>("set_always_on_top", { value });
+        setAlwaysOnTopState(confirmed);
+        setStatus(confirmed ? "Always on top enabled" : "Always on top disabled");
+      } catch (error) {
+        console.error(error);
+        setStatus("Failed to set always on top");
+      }
+    },
+    [],
+  );
+
   const toggleAlwaysOnTop = useCallback(async () => {
-    const window = getCurrentWindow();
     try {
-      const current = await window.isAlwaysOnTop();
-      const next = !current;
-      await window.setAlwaysOnTop(next);
-      setAlwaysOnTop(next);
+      const next = await invoke<boolean>("toggle_always_on_top");
+      setAlwaysOnTopState(next);
       setStatus(next ? "Always on top enabled" : "Always on top disabled");
     } catch (error) {
       console.error(error);
@@ -29,17 +36,9 @@ function App() {
   }, []);
 
   const snapLeft = useCallback(async () => {
-    const window = getCurrentWindow();
     try {
-      const monitor = await currentMonitor();
-      if (!monitor) {
-        setStatus("No monitor information available");
-        return;
-      }
-      await window.setPosition(
-        new PhysicalPosition(monitor.position.x, monitor.position.y),
-      );
-      setStatus("Snapped to top-left");
+      await invoke("snap_left");
+      setStatus("Snapped to top-left (hotkey)");
     } catch (error) {
       console.error(error);
       setStatus("Failed to snap left");
@@ -47,18 +46,9 @@ function App() {
   }, []);
 
   const snapRight = useCallback(async () => {
-    const window = getCurrentWindow();
     try {
-      const monitor = await currentMonitor();
-      if (!monitor) {
-        setStatus("No monitor information available");
-        return;
-      }
-      const windowSize = await window.outerSize();
-      const offset = Math.max(monitor.size.width - windowSize.width, 0);
-      const x = monitor.position.x + offset;
-      await window.setPosition(new PhysicalPosition(x, monitor.position.y));
-      setStatus("Snapped to top-right");
+      await invoke("snap_right");
+      setStatus("Snapped to top-right (hotkey)");
     } catch (error) {
       console.error(error);
       setStatus("Failed to snap right");
@@ -77,8 +67,8 @@ function App() {
   useEffect(() => {
     const initState = async () => {
       try {
-        const current = await getCurrentWindow().isAlwaysOnTop();
-        setAlwaysOnTop(current);
+        const current = await invoke<boolean>("get_always_on_top");
+        setAlwaysOnTopState(current);
       } catch (error) {
         console.error(error);
         setStatus("Failed to read always on top state");
@@ -88,33 +78,36 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const attachLocalListeners = () => {
-      const handler = (event: KeyboardEvent) => {
-        if (!event.ctrlKey || !event.altKey) return;
-        switch (event.code) {
-          case "KeyT": {
-            event.preventDefault();
-            void toggleAlwaysOnTop();
-            break;
-          }
-          case "ArrowLeft": {
-            event.preventDefault();
-            void snapLeft();
-            break;
-          }
-          case "ArrowRight": {
-            event.preventDefault();
-            void snapRight();
-            break;
-          }
-          default:
-            break;
+    const handler = (event: KeyboardEvent) => {
+      if (!event.ctrlKey || !event.altKey) return;
+      switch (event.code) {
+        case "KeyT": {
+          event.preventDefault();
+          setStatus("Hotkey: toggle always on top");
+          void toggleAlwaysOnTop();
+          break;
         }
-      };
-      window.addEventListener("keydown", handler);
-      return () => window.removeEventListener("keydown", handler);
+        case "ArrowLeft": {
+          event.preventDefault();
+          setStatus("Hotkey: snap left");
+          void snapLeft();
+          break;
+        }
+        case "ArrowRight": {
+          event.preventDefault();
+          setStatus("Hotkey: snap right");
+          void snapRight();
+          break;
+        }
+        default:
+          break;
+      }
     };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [snapLeft, snapRight, toggleAlwaysOnTop]);
 
+  useEffect(() => {
     const registerGlobalShortcuts = async () => {
       const attemptRegister = async () => {
         await Promise.all(
@@ -132,21 +125,19 @@ function App() {
           await unregisterAll();
           await attemptRegister();
         } else {
+          setStatus(`Global shortcut error: ${message}`);
           throw error;
         }
       }
       setStatus("Global shortcuts active");
     };
 
-    let cleanupLocal: (() => void) | undefined;
-    const setup = async () => {
+    const configure = async () => {
       try {
         if (useGlobalShortcuts) {
-          cleanupLocal?.();
           await registerGlobalShortcuts();
         } else {
           await unregisterAll();
-          cleanupLocal = attachLocalListeners();
           setStatus("Local shortcuts active (window focused)");
         }
       } catch (error) {
@@ -155,13 +146,12 @@ function App() {
       }
     };
 
-    void setup();
+    void configure();
 
     return () => {
       void unregisterAll().catch((error) => {
         console.error("Failed to unregister shortcuts", error);
       });
-      cleanupLocal?.();
     };
   }, [shortcutActions, useGlobalShortcuts]);
 
@@ -186,6 +176,14 @@ function App() {
         <p className="hint">
           Toggle off to limit `Ctrl + Alt + T / Left / Right` to when this window is focused.
         </p>
+        <div className="actions">
+          <button type="button" onClick={() => void setAlwaysOnTop(true)}>
+            Force ON
+          </button>
+          <button type="button" onClick={() => void setAlwaysOnTop(false)}>
+            Force OFF
+          </button>
+        </div>
       </section>
 
       <section className="card shortcuts">
