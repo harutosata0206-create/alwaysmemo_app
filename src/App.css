@@ -7,7 +7,7 @@
 }
 
 .app {
-  max-width: 640px;
+  max-width: 720px;
   margin: 32px auto;
   padding: 24px;
   background: #ffffff;
@@ -44,11 +44,99 @@ header {
   margin-bottom: 12px;
 }
 
+.memo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  background: #eef2f7;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.tab-title {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.add-tab {
+  border: 1px dashed #94a3b8;
+  background: transparent;
+  color: #0f172a;
+}
+
+.editor {
+  border: 1px solid #e3e8ef;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
 .toggle {
   display: flex;
   align-items: center;
   gap: 10px;
   font-weight: 600;
+}
+
+.toggles {
+  display: flex;
+  gap: 12px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 320px;
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 15px;
+  line-height: 1.5;
+  font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+  resize: vertical;
+  background: #fdfefe;
 }
 
 .hint {
@@ -73,6 +161,12 @@ header {
 
 .label {
   color: #111827;
+}
+
+.actions.inline {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 button {

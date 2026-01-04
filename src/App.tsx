@@ -4,11 +4,35 @@ import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import "./App.css";
 
 const SHORTCUT_LABEL = "Ctrl + Alt +";
+const STORAGE_KEY = "alwaysmemo-state";
+
+type Tab = {
+  id: string;
+  title: string;
+  content: string;
+};
+
+type SnapPosition = "left" | "right" | null;
+
+type PersistedState = {
+  tabs: Tab[];
+  activeTabId: string | null;
+  alwaysOnTop: boolean;
+  snap: SnapPosition;
+  useGlobalShortcuts: boolean;
+};
 
 function App() {
   const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(true);
   const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [tabs, setTabs] = useState<Tab[]>([
+    { id: "initial", title: "メモ 1", content: "" },
+  ]);
+  const [activeTabId, setActiveTabId] = useState<string>("initial");
+  const [snap, setSnap] = useState<SnapPosition>(null);
+
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
 
   const setAlwaysOnTop = useCallback(
     async (value: boolean) => {
@@ -38,6 +62,7 @@ function App() {
   const snapLeft = useCallback(async () => {
     try {
       await invoke("snap_left");
+      setSnap("left");
       setStatus("Snapped to top-left (hotkey)");
     } catch (error) {
       console.error(error);
@@ -48,6 +73,7 @@ function App() {
   const snapRight = useCallback(async () => {
     try {
       await invoke("snap_right");
+      setSnap("right");
       setStatus("Snapped to top-right (hotkey)");
     } catch (error) {
       console.error(error);
@@ -69,6 +95,30 @@ function App() {
       try {
         const current = await invoke<boolean>("get_always_on_top");
         setAlwaysOnTopState(current);
+        const stored = window.localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as PersistedState;
+          const restoredTabs = parsed.tabs.length
+            ? parsed.tabs
+            : [{ id: "initial", title: "メモ 1", content: "" }];
+          setTabs(restoredTabs);
+          const validActive =
+            parsed.activeTabId && restoredTabs.some((t) => t.id === parsed.activeTabId)
+              ? parsed.activeTabId
+              : restoredTabs[0]?.id ?? "initial";
+          setActiveTabId(validActive);
+          setUseGlobalShortcuts(parsed.useGlobalShortcuts ?? true);
+          setSnap(parsed.snap ?? null);
+          setAlwaysOnTopState(parsed.alwaysOnTop ?? current);
+          if (parsed.alwaysOnTop) {
+            await invoke("set_always_on_top", { value: true });
+          }
+          if (parsed.snap === "left") {
+            await snapLeft();
+          } else if (parsed.snap === "right") {
+            await snapRight();
+          }
+        }
       } catch (error) {
         console.error(error);
         setStatus("Failed to read always on top state");
@@ -106,6 +156,17 @@ function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [snapLeft, snapRight, toggleAlwaysOnTop]);
+
+  useEffect(() => {
+    const state: PersistedState = {
+      tabs,
+      activeTabId,
+      alwaysOnTop,
+      snap,
+      useGlobalShortcuts,
+    };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [activeTabId, alwaysOnTop, snap, tabs, useGlobalShortcuts]);
 
   useEffect(() => {
     const registerGlobalShortcuts = async () => {
@@ -155,34 +216,108 @@ function App() {
     };
   }, [shortcutActions, useGlobalShortcuts]);
 
+  const addTab = () => {
+    const id = crypto.randomUUID();
+    const newTab: Tab = { id, title: `メモ ${tabs.length + 1}`, content: "" };
+    setTabs((prev) => [...prev, newTab]);
+    setActiveTabId(id);
+  };
+
+  const removeTab = (id: string) => {
+    const tab = tabs.find((t) => t.id === id);
+    if (!tab) return;
+    if (!window.confirm(`「${tab.title}」を削除しますか？`)) return;
+    setTabs((prev) => {
+      const nextTabs = prev.filter((t) => t.id !== id);
+      if (nextTabs.length === 0) {
+        const fallback: Tab = { id: "initial", title: "メモ 1", content: "" };
+        setActiveTabId(fallback.id);
+        return [fallback];
+      }
+      if (activeTabId === id) {
+        setActiveTabId(nextTabs[0]?.id ?? nextTabs[0].id);
+      }
+      return nextTabs;
+    });
+  };
+
+  const renameTab = (id: string, title: string) => {
+    setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
+  };
+
+  const updateContent = (content: string) => {
+    if (!activeTab) return;
+    setTabs((prev) =>
+      prev.map((t) => (t.id === activeTab.id ? { ...t, content } : t)),
+    );
+  };
+
   return (
     <div className="app">
       <header>
-        <div className="title">AlwaysMemo — Shortcuts</div>
+        <div className="title">AlwaysMemo</div>
         <div className="status">
           Always on top: <span className={alwaysOnTop ? "on" : "off"}>{alwaysOnTop ? "ON" : "OFF"}</span>
         </div>
       </header>
 
-      <section className="card">
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={useGlobalShortcuts}
-            onChange={(event) => setUseGlobalShortcuts(event.target.checked)}
+      <section className="card memo">
+        <div className="tab-bar">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              className={`tab ${tab.id === activeTabId ? "active" : ""}`}
+              onClick={() => setActiveTabId(tab.id)}
+              onDoubleClick={() => {
+                const next = window.prompt("タブ名を変更", tab.title);
+                if (next?.trim()) renameTab(tab.id, next.trim());
+              }}
+            >
+              <span className="tab-title">{tab.title}</span>
+              <span
+                className="tab-close"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  removeTab(tab.id);
+                }}
+              >
+                ×
+              </span>
+            </button>
+          ))}
+          <button className="add-tab" onClick={addTab}>
+            ＋ 新規タブ
+          </button>
+        </div>
+
+        <div className="editor">
+          <div className="editor-header">
+            <div className="editor-title">{activeTab?.title ?? "No tab"}</div>
+            <div className="toggles">
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={alwaysOnTop}
+                  onChange={(event) => void setAlwaysOnTop(event.target.checked)}
+                />
+                <span>Always on top</span>
+              </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={useGlobalShortcuts}
+                  onChange={(event) => setUseGlobalShortcuts(event.target.checked)}
+                />
+                <span>Global shortcuts</span>
+              </label>
+            </div>
+          </div>
+
+          <textarea
+            value={activeTab?.content ?? ""}
+            onChange={(event) => updateContent(event.target.value)}
+            placeholder="ここにメモを書く"
           />
-          <span>Use global shortcuts (works without focus)</span>
-        </label>
-        <p className="hint">
-          Toggle off to limit `Ctrl + Alt + T / Left / Right` to when this window is focused.
-        </p>
-        <div className="actions">
-          <button type="button" onClick={() => void setAlwaysOnTop(true)}>
-            Force ON
-          </button>
-          <button type="button" onClick={() => void setAlwaysOnTop(false)}>
-            Force OFF
-          </button>
         </div>
       </section>
 
@@ -206,6 +341,14 @@ function App() {
           <div className="label">Snap to top-right</div>
           <button type="button" onClick={() => void snapRight()}>
             Run
+          </button>
+        </div>
+        <div className="actions inline">
+          <button type="button" onClick={() => void setAlwaysOnTop(true)}>
+            Force ON
+          </button>
+          <button type="button" onClick={() => void setAlwaysOnTop(false)}>
+            Force OFF
           </button>
         </div>
       </section>
