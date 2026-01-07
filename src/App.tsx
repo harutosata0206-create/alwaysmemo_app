@@ -33,6 +33,7 @@ function App() {
   const [activeTabId, setActiveTabId] = useState<string>("initial");
   const [snap, setSnap] = useState<SnapPosition>(null);
   const toggleLockRef = useRef(0);
+  const tabsScrollerRef = useRef<HTMLDivElement | null>(null);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
@@ -289,50 +290,76 @@ function App() {
     await windowHandle.close();
   };
 
+  const scrollTabs = (direction: -1 | 1) => {
+    const scroller = tabsScrollerRef.current;
+    if (!scroller) return;
+    scroller.scrollBy({ left: direction * 180, behavior: "smooth" });
+  };
+
   return (
     <div className="app">
       <div className="titlebar">
         <div className="titlebar-row top">
-          <div className="tabs">
-            {tabs.map((tab) => (
+          <div className="tabs-area">
+            <div className="tabs-bar">
               <button
-                key={tab.id}
-                className={`tab ${tab.id === activeTabId ? "active" : ""} ${draggedTabId === tab.id ? "dragging" : ""}`}
-                onClick={() => setActiveTabId(tab.id)}
-                onDoubleClick={() => {
-                  const next = window.prompt("タブ名を変更", tab.title);
-                  if (next?.trim()) renameTab(tab.id, next.trim());
-                }}
-                draggable
-                onDragStart={(event) => {
-                  event.dataTransfer.setData("text/plain", tab.id);
-                  event.dataTransfer.effectAllowed = "move";
-                  setDraggedTabId(tab.id);
-                }}
-                onDragEnd={() => setDraggedTabId(null)}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = "move";
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const fromId = event.dataTransfer.getData("text/plain");
-                  moveTab(fromId, tab.id);
-                  setDraggedTabId(null);
-                }}
+                type="button"
+                className="tab-scroll-button"
+                onClick={() => scrollTabs(-1)}
+                aria-label="Scroll tabs left"
               >
-                <span className="tab-title">{tab.title}</span>
-                <span
-                  className="tab-close"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    removeTab(tab.id);
-                  }}
-                >
-                  ×
-                </span>
+                ◀
               </button>
-            ))}
+              <div className="tabs" ref={tabsScrollerRef}>
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    className={`tab ${tab.id === activeTabId ? "active" : ""} ${draggedTabId === tab.id ? "dragging" : ""}`}
+                    onClick={() => setActiveTabId(tab.id)}
+                    onDoubleClick={() => {
+                      const next = window.prompt("タブ名を変更", tab.title);
+                      if (next?.trim()) renameTab(tab.id, next.trim());
+                    }}
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData("text/plain", tab.id);
+                      event.dataTransfer.effectAllowed = "move";
+                      setDraggedTabId(tab.id);
+                    }}
+                    onDragEnd={() => setDraggedTabId(null)}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const fromId = event.dataTransfer.getData("text/plain");
+                      moveTab(fromId, tab.id);
+                      setDraggedTabId(null);
+                    }}
+                  >
+                    <span className="tab-title">{tab.title}</span>
+                    <span
+                      className="tab-close"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        removeTab(tab.id);
+                      }}
+                    >
+                      ×
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="tab-scroll-button"
+                onClick={() => scrollTabs(1)}
+                aria-label="Scroll tabs right"
+              >
+                ▶
+              </button>
+            </div>
             <button className="add-tab" onClick={addTab} title="新規タブ">
               ＋
             </button>
