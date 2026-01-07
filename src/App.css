@@ -120,6 +120,10 @@
   box-shadow: none;
 }
 
+.tab.dragging {
+  opacity: 0.6;
+}
+
 .tab-title {
   max-width: 140px;
   white-space: nowrap;

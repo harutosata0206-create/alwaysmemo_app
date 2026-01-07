@@ -33,6 +33,7 @@ function App() {
   const [activeTabId, setActiveTabId] = useState<string>("initial");
   const [snap, setSnap] = useState<SnapPosition>(null);
   const toggleLockRef = useRef(0);
+  const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
@@ -258,6 +259,19 @@ function App() {
     );
   };
 
+  const moveTab = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    setTabs((prev) => {
+      const fromIndex = prev.findIndex((t) => t.id === fromId);
+      const toIndex = prev.findIndex((t) => t.id === toId);
+      if (fromIndex === -1 || toIndex === -1) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
+
   const minimizeWindow = async () => {
     await windowHandle.minimize();
   };
@@ -283,11 +297,28 @@ function App() {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                className={`tab ${tab.id === activeTabId ? "active" : ""}`}
+                className={`tab ${tab.id === activeTabId ? "active" : ""} ${draggedTabId === tab.id ? "dragging" : ""}`}
                 onClick={() => setActiveTabId(tab.id)}
                 onDoubleClick={() => {
                   const next = window.prompt("タブ名を変更", tab.title);
                   if (next?.trim()) renameTab(tab.id, next.trim());
+                }}
+                draggable
+                onDragStart={(event) => {
+                  event.dataTransfer.setData("text/plain", tab.id);
+                  event.dataTransfer.effectAllowed = "move";
+                  setDraggedTabId(tab.id);
+                }}
+                onDragEnd={() => setDraggedTabId(null)}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const fromId = event.dataTransfer.getData("text/plain");
+                  moveTab(fromId, tab.id);
+                  setDraggedTabId(null);
                 }}
               >
                 <span className="tab-title">{tab.title}</span>
