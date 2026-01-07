@@ -35,6 +35,7 @@ function App() {
   const toggleLockRef = useRef(0);
   const tabsScrollerRef = useRef<HTMLDivElement | null>(null);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
+  const [showTabArrows, setShowTabArrows] = useState(false);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
@@ -134,6 +135,21 @@ function App() {
     };
     void initState();
   }, []);
+
+  useEffect(() => {
+    const scroller = tabsScrollerRef.current;
+    if (!scroller) {
+      setShowTabArrows(false);
+      return;
+    }
+    const updateOverflow = () => {
+      setShowTabArrows(scroller.scrollWidth > scroller.clientWidth + 1);
+    };
+    updateOverflow();
+    const observer = new ResizeObserver(updateOverflow);
+    observer.observe(scroller);
+    return () => observer.disconnect();
+  }, [tabs]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -302,14 +318,16 @@ function App() {
         <div className="titlebar-row top">
           <div className="tabs-area">
             <div className="tabs-bar">
-              <button
-                type="button"
-                className="tab-scroll-button"
-                onClick={() => scrollTabs(-1)}
-                aria-label="Scroll tabs left"
-              >
-                ◀
-              </button>
+              {showTabArrows ? (
+                <button
+                  type="button"
+                  className="tab-scroll-button"
+                  onClick={() => scrollTabs(-1)}
+                  aria-label="Scroll tabs left"
+                >
+                  ◀
+                </button>
+              ) : null}
               <div className="tabs" ref={tabsScrollerRef}>
                 {tabs.map((tab) => (
                   <button
@@ -351,14 +369,16 @@ function App() {
                   </button>
                 ))}
               </div>
-              <button
-                type="button"
-                className="tab-scroll-button"
-                onClick={() => scrollTabs(1)}
-                aria-label="Scroll tabs right"
-              >
-                ▶
-              </button>
+              {showTabArrows ? (
+                <button
+                  type="button"
+                  className="tab-scroll-button"
+                  onClick={() => scrollTabs(1)}
+                  aria-label="Scroll tabs right"
+                >
+                  ▶
+                </button>
+              ) : null}
             </div>
             <button className="add-tab" onClick={addTab} title="新規タブ">
               ＋

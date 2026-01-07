@@ -98,8 +98,8 @@ body::-webkit-scrollbar-thumb,
   align-items: center;
   gap: 4px;
   min-width: 0;
-  background: #e2e8f0;
-  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   border-bottom: 0;
   border-radius: 10px 10px 0 0;
   padding: 2px 4px;
@@ -126,7 +126,7 @@ body::-webkit-scrollbar-thumb,
 }
 
 .tabs::-webkit-scrollbar {
-  height: 6px;
+  height: 5px;
 }
 
 .tabs::-webkit-scrollbar-track {
@@ -134,19 +134,19 @@ body::-webkit-scrollbar-thumb,
 }
 
 .tabs::-webkit-scrollbar-thumb {
-  background-color: #d5dde7;
+  background-color: #e2e8f0;
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
 .tab-scroll-button {
-  width: 24px;
-  height: 24px;
-  border: 1px solid #cbd5e1;
+  width: 22px;
+  height: 22px;
+  border: 0;
   border-radius: 6px;
-  background: #f8fafc;
-  color: #475569;
+  background: transparent;
+  color: #64748b;
   font-weight: 700;
   padding: 0;
   cursor: pointer;
