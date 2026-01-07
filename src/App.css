@@ -8,6 +8,8 @@
 
 body {
   margin: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
 #root {
@@ -23,6 +25,26 @@ body {
   border-radius: 12px;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
   min-height: 100vh;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+body::-webkit-scrollbar,
+.app::-webkit-scrollbar {
+  width: 8px;
+}
+
+body::-webkit-scrollbar-track,
+.app::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body::-webkit-scrollbar-thumb,
+.app::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 .card {
