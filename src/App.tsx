@@ -408,7 +408,6 @@ function App() {
       <section className="card memo">
         <div className="editor">
           <div className="editor-header">
-            <div className="editor-title">{activeTab?.title ?? ""}</div>
           </div>
 
           <textarea
