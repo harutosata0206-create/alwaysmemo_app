@@ -31,7 +31,7 @@ function App() {
   ]);
   const [activeTabId, setActiveTabId] = useState<string>("initial");
   const [snap, setSnap] = useState<SnapPosition>(null);
-  const toggleLockRef = useRef(false);
+  const toggleLockRef = useRef(0);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
 
@@ -50,11 +50,9 @@ function App() {
   );
 
   const toggleAlwaysOnTop = useCallback(async () => {
-    if (toggleLockRef.current) return;
-    toggleLockRef.current = true;
-    window.setTimeout(() => {
-      toggleLockRef.current = false;
-    }, 350);
+    const now = performance.now();
+    if (now - toggleLockRef.current < 300) return;
+    toggleLockRef.current = now;
     try {
       const next = await invoke<boolean>("toggle_always_on_top");
       setAlwaysOnTopState(next);
@@ -260,45 +258,43 @@ function App() {
 
   return (
     <div className="app">
-      <header>
-        <div className="title">AlwaysMemo</div>
-        <div className="status">
-          Always on top: <span className={alwaysOnTop ? "on" : "off"}>{alwaysOnTop ? "ON" : "OFF"}</span>
-        </div>
-      </header>
-
       <section className="card memo">
         <div className="tab-bar">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              className={`tab ${tab.id === activeTabId ? "active" : ""}`}
-              onClick={() => setActiveTabId(tab.id)}
-              onDoubleClick={() => {
-                const next = window.prompt("タブ名を変更", tab.title);
-                if (next?.trim()) renameTab(tab.id, next.trim());
-              }}
-            >
-              <span className="tab-title">{tab.title}</span>
-              <span
-                className="tab-close"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  removeTab(tab.id);
+          <div className="tabs">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                className={`tab ${tab.id === activeTabId ? "active" : ""}`}
+                onClick={() => setActiveTabId(tab.id)}
+                onDoubleClick={() => {
+                  const next = window.prompt("タブ名を変更", tab.title);
+                  if (next?.trim()) renameTab(tab.id, next.trim());
                 }}
               >
-                ×
-              </span>
-            </button>
-          ))}
-          <button className="add-tab" onClick={addTab}>
-            ＋ 新規タブ
+                <span className="tab-title">{tab.title}</span>
+                <span
+                  className="tab-close"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    removeTab(tab.id);
+                  }}
+                >
+                  ×
+                </span>
+              </button>
+            ))}
+          </div>
+          <button className="add-tab" onClick={addTab} title="新規タブ">
+            ＋
           </button>
         </div>
 
         <div className="editor">
           <div className="editor-header">
-            <div className="editor-title">{activeTab?.title ?? "No tab"}</div>
+            <div className="editor-title">AlwaysMemo</div>
+            <div className="status">
+              Always on top: <span className={alwaysOnTop ? "on" : "off"}>{alwaysOnTop ? "ON" : "OFF"}</span>
+            </div>
             <div className="toggles">
               <label className="toggle">
                 <input
