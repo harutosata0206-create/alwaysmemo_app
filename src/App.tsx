@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import "./App.css";
@@ -31,6 +31,7 @@ function App() {
   ]);
   const [activeTabId, setActiveTabId] = useState<string>("initial");
   const [snap, setSnap] = useState<SnapPosition>(null);
+  const toggleLockRef = useRef(false);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
 
@@ -49,6 +50,11 @@ function App() {
   );
 
   const toggleAlwaysOnTop = useCallback(async () => {
+    if (toggleLockRef.current) return;
+    toggleLockRef.current = true;
+    window.setTimeout(() => {
+      toggleLockRef.current = false;
+    }, 350);
     try {
       const next = await invoke<boolean>("toggle_always_on_top");
       setAlwaysOnTopState(next);
