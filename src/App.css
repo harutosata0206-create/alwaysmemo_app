@@ -30,13 +30,27 @@
   gap: 0;
 }
 
-.tab-bar {
+.titlebar {
+  border-bottom: 1px solid #e2e8f0;
+  background: #f1f5f9;
+}
+
+.titlebar-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px 0;
-  background: #f1f5f9;
-  border-bottom: 1px solid #e2e8f0;
+  gap: 12px;
+  padding: 6px 10px;
+}
+
+.titlebar-row.top {
+  padding: 6px 10px 0;
+}
+
+.titlebar-row.toolbar {
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  padding: 6px 12px;
 }
 
 .tabs {
@@ -66,6 +80,39 @@
   background: #ffffff;
   color: #0f172a;
   border-color: #cbd5e1;
+}
+
+.drag-region {
+  flex: 1;
+  height: 30px;
+}
+
+.window-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.window-button {
+  width: 36px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #0f172a;
+  font-weight: 700;
+  box-shadow: none;
+  transform: none;
+}
+
+.window-button:hover {
+  background: #e2e8f0;
+  transform: none;
+  box-shadow: none;
+}
+
+.window-button.close:hover {
+  background: #ef4444;
+  color: #ffffff;
 }
 
 .tab:hover {
@@ -124,6 +171,65 @@
   font-weight: 700;
   font-size: 15px;
   color: #0f172a;
+}
+
+.menu-group,
+.format-group,
+.right-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-button {
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  font-weight: 600;
+  padding: 4px 6px;
+  box-shadow: none;
+  transform: none;
+}
+
+.menu-button:hover {
+  background: #e2e8f0;
+  border-radius: 6px;
+  transform: none;
+  box-shadow: none;
+}
+
+.chip {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-weight: 600;
+  min-width: 34px;
+  box-shadow: none;
+  transform: none;
+}
+
+.icon-button {
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  padding: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.icon-button:hover {
+  background: #e2e8f0;
+  transform: none;
+  box-shadow: none;
+}
+
+.icon-button.account {
+  background: #e2e8f0;
 }
 
 .status span.on {

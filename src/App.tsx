@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
 
 const SHORTCUT_LABEL = "Ctrl + Alt +";
@@ -34,6 +35,7 @@ function App() {
   const toggleLockRef = useRef(0);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
+  const windowHandle = getCurrentWindow();
 
   const setAlwaysOnTop = useCallback(
     async (value: boolean) => {
@@ -256,10 +258,27 @@ function App() {
     );
   };
 
+  const minimizeWindow = async () => {
+    await windowHandle.minimize();
+  };
+
+  const toggleMaximizeWindow = async () => {
+    const isMaximized = await windowHandle.isMaximized();
+    if (isMaximized) {
+      await windowHandle.unmaximize();
+    } else {
+      await windowHandle.maximize();
+    }
+  };
+
+  const closeWindow = async () => {
+    await windowHandle.close();
+  };
+
   return (
     <div className="app">
-      <section className="card memo">
-        <div className="tab-bar">
+      <div className="titlebar">
+        <div className="titlebar-row top">
           <div className="tabs">
             {tabs.map((tab) => (
               <button
@@ -283,15 +302,82 @@ function App() {
                 </span>
               </button>
             ))}
+            <button className="add-tab" onClick={addTab} title="新規タブ">
+              ＋
+            </button>
           </div>
-          <button className="add-tab" onClick={addTab} title="新規タブ">
-            ＋
-          </button>
+          <div className="drag-region" data-tauri-drag-region />
+          <div className="window-controls">
+            <button
+              type="button"
+              className="window-button"
+              onClick={minimizeWindow}
+              aria-label="Minimize"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className="window-button"
+              onClick={toggleMaximizeWindow}
+              aria-label="Maximize"
+            >
+              □
+            </button>
+            <button
+              type="button"
+              className="window-button close"
+              onClick={closeWindow}
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
         </div>
+        <div className="titlebar-row toolbar">
+          <div className="menu-group">
+            <button type="button" className="menu-button">
+              ファイル
+            </button>
+            <button type="button" className="menu-button">
+              編集
+            </button>
+            <button type="button" className="menu-button">
+              表示
+            </button>
+          </div>
+          <div className="format-group">
+            <button type="button" className="chip">
+              H1
+            </button>
+            <button type="button" className="chip">
+              ≡
+            </button>
+            <button type="button" className="chip">
+              B
+            </button>
+            <button type="button" className="chip">
+              …
+            </button>
+          </div>
+          <div className="right-group">
+            <button type="button" className="icon-button" aria-label="Theme">
+              ◎
+            </button>
+            <button type="button" className="icon-button account" aria-label="Account">
+              ●
+            </button>
+            <button type="button" className="icon-button" aria-label="Settings">
+              ⚙
+            </button>
+          </div>
+        </div>
+      </div>
 
+      <section className="card memo">
         <div className="editor">
           <div className="editor-header">
-            <div className="editor-title">AlwaysMemo</div>
+            <div className="editor-title">{activeTab?.title ?? ""}</div>
             <div className="status">
               Always on top: <span className={alwaysOnTop ? "on" : "off"}>{alwaysOnTop ? "ON" : "OFF"}</span>
             </div>
