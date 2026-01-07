@@ -40,11 +40,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 10px;
+  padding: 0 10px;
 }
 
 .titlebar-row.top {
-  padding: 6px 10px 0;
+  padding: 0 10px;
 }
 
 .titlebar-row.toolbar {
@@ -64,7 +64,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 7px 12px;
   border: 1px solid #cbd5e1;
   border-bottom: 0;
   border-radius: 8px 8px 0 0;
@@ -84,7 +84,7 @@
 
 .drag-region {
   flex: 1;
-  height: 30px;
+  height: 34px;
 }
 
 .window-controls {
@@ -144,7 +144,7 @@
   background: #ffffff;
   color: #0f172a;
   width: 34px;
-  height: 30px;
+  height: 28px;
   padding: 0;
   box-shadow: none;
   transform: none;
