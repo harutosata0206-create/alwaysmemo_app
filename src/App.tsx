@@ -409,27 +409,6 @@ function App() {
         <div className="editor">
           <div className="editor-header">
             <div className="editor-title">{activeTab?.title ?? ""}</div>
-            <div className="status">
-              Always on top: <span className={alwaysOnTop ? "on" : "off"}>{alwaysOnTop ? "ON" : "OFF"}</span>
-            </div>
-            <div className="toggles">
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={alwaysOnTop}
-                  onChange={(event) => void setAlwaysOnTop(event.target.checked)}
-                />
-                <span>Always on top</span>
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={useGlobalShortcuts}
-                  onChange={(event) => setUseGlobalShortcuts(event.target.checked)}
-                />
-                <span>Global shortcuts</span>
-              </label>
-            </div>
           </div>
 
           <textarea
@@ -469,6 +448,32 @@ function App() {
           <button type="button" onClick={() => void setAlwaysOnTop(false)}>
             Force OFF
           </button>
+        </div>
+      </section>
+
+      <section className="card settings">
+        <div className="settings-row">
+          <div className="status">
+            Always on top: <span className={alwaysOnTop ? "on" : "off"}>{alwaysOnTop ? "ON" : "OFF"}</span>
+          </div>
+          <div className="toggles">
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={alwaysOnTop}
+                onChange={(event) => void setAlwaysOnTop(event.target.checked)}
+              />
+              <span>Always on top</span>
+            </label>
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={useGlobalShortcuts}
+                onChange={(event) => setUseGlobalShortcuts(event.target.checked)}
+              />
+              <span>Global shortcuts</span>
+            </label>
+          </div>
         </div>
       </section>
 
