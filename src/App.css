@@ -6,6 +6,11 @@
   min-height: 100vh;
 }
 
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
 body {
   margin: 0;
   scrollbar-width: thin;
@@ -29,16 +34,19 @@ body {
   scrollbar-color: #cbd5e1 transparent;
 }
 
+html::-webkit-scrollbar,
 body::-webkit-scrollbar,
 .app::-webkit-scrollbar {
   width: 8px;
 }
 
+html::-webkit-scrollbar-track,
 body::-webkit-scrollbar-track,
 .app::-webkit-scrollbar-track {
   background: transparent;
 }
 
+html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb,
 .app::-webkit-scrollbar-thumb {
   background-color: #cbd5e1;
