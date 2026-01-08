@@ -315,20 +315,21 @@ function App() {
   return (
     <div className="app">
       <div className="titlebar">
-        <div className="titlebar-row top">
-          <div className="tabs-area">
-            <div className="tabs-bar">
+        <div className="titlebar-row top" data-tauri-drag-region>
+          <div className="tabs-area" data-tauri-drag-region>
+            <div className="tabs-bar" data-tauri-drag-region>
               {showTabArrows ? (
                 <button
                   type="button"
                   className="tab-scroll-button"
                   onClick={() => scrollTabs(-1)}
                   aria-label="Scroll tabs left"
+                  data-tauri-drag-region="false"
                 >
                   ◀
                 </button>
               ) : null}
-              <div className="tabs" ref={tabsScrollerRef}>
+              <div className="tabs" ref={tabsScrollerRef} data-tauri-drag-region>
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
@@ -355,6 +356,7 @@ function App() {
                       moveTab(fromId, tab.id);
                       setDraggedTabId(null);
                     }}
+                    data-tauri-drag-region="false"
                   >
                     <span className="tab-title">{tab.title}</span>
                     <span
@@ -363,6 +365,7 @@ function App() {
                         event.stopPropagation();
                         removeTab(tab.id);
                       }}
+                      data-tauri-drag-region="false"
                     >
                       ×
                     </span>
@@ -375,22 +378,28 @@ function App() {
                   className="tab-scroll-button"
                   onClick={() => scrollTabs(1)}
                   aria-label="Scroll tabs right"
+                  data-tauri-drag-region="false"
                 >
                   ▶
                 </button>
               ) : null}
             </div>
-            <button className="add-tab" onClick={addTab} title="新規タブ">
+            <button
+              className="add-tab"
+              onClick={addTab}
+              title="新規タブ"
+              data-tauri-drag-region="false"
+            >
               ＋
             </button>
           </div>
-          <div className="drag-region" data-tauri-drag-region />
           <div className="window-controls">
             <button
               type="button"
               className="window-button"
               onClick={minimizeWindow}
               aria-label="Minimize"
+              data-tauri-drag-region="false"
             >
               −
             </button>
@@ -399,6 +408,7 @@ function App() {
               className="window-button"
               onClick={toggleMaximizeWindow}
               aria-label="Maximize"
+              data-tauri-drag-region="false"
             >
               □
             </button>
@@ -407,6 +417,7 @@ function App() {
               className="window-button close"
               onClick={closeWindow}
               aria-label="Close"
+              data-tauri-drag-region="false"
             >
               ×
             </button>
