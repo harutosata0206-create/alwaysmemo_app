@@ -497,9 +497,9 @@ button:active {
   position: sticky;
   bottom: 0;
   z-index: 15;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 14.5% 14.5% 12.5% 12.5% 8% 16.5% 15.5% 8%;
+  gap: 8px;
   padding: 6px 12px;
   border-top: 1px solid #e2e8f0;
   background: #ffffff;
@@ -507,9 +507,16 @@ button:active {
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
+  align-items: center;
 }
 
 .bottom-item + .bottom-item {
   border-left: 1px solid #e2e8f0;
   padding-left: 10px;
+}
+
+.bottom-item {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
