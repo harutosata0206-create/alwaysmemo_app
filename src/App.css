@@ -10,16 +10,20 @@
 html {
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
+  overflow: hidden;
 }
 
 body {
   margin: 0;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
+  overflow: hidden;
 }
 
 #root {
   min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .app {
@@ -36,6 +40,7 @@ body {
   flex-direction: column;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
+  overflow: hidden;
 }
 
 html::-webkit-scrollbar,
@@ -207,7 +212,7 @@ body::-webkit-scrollbar-thumb,
   border-radius: 0;
   background: #f8fafc;
   color: #374151;
-  font-size: 17px;
+  font-size: 20px;
   line-height: 1;
   font-weight: 500;
   box-shadow: none;
