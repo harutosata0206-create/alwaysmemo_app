@@ -348,10 +348,6 @@ body::-webkit-scrollbar-thumb,
     display: none;
   }
 
-  .right-group .icon-button:not(.overflow) {
-    display: none;
-  }
-
   .icon-button.overflow {
     display: inline-flex;
     align-items: center;
