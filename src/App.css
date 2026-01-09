@@ -201,15 +201,15 @@ body::-webkit-scrollbar-thumb,
 }
 
 .window-button {
-  width: 46px;
-  height: 28px;
+  width: 54px;
+  height: 32px;
   border: 0;
   border-radius: 0;
-  background: transparent;
-  color: #4b5563;
-  font-size: 11px;
+  background: #f8fafc;
+  color: #374151;
+  font-size: 13px;
   line-height: 1;
-  font-weight: 600;
+  font-weight: 500;
   box-shadow: none;
   transform: none;
   display: inline-flex;
@@ -217,14 +217,18 @@ body::-webkit-scrollbar-thumb,
   justify-content: center;
 }
 
+.window-button + .window-button {
+  border-left: 1px solid #e2e8f0;
+}
+
 .window-button:hover {
-  background: #e5e7eb;
+  background: #e2e8f0;
   transform: none;
   box-shadow: none;
 }
 
 .window-button:active {
-  background: #d1d5db;
+  background: #cbd5e1;
 }
 
 .window-button.close:hover {
