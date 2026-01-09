@@ -505,7 +505,6 @@ function App() {
         </div>
       </section>
 
-      {status ? <div className="status-bar">{status}</div> : null}
       <div className="bottom-bar">
         <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
         <span className="bottom-item">{activeContent.length} 文字</span>
