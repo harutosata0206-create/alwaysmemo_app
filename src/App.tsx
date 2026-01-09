@@ -505,32 +505,6 @@ function App() {
         </div>
       </section>
 
-      <section className="card settings">
-        <div className="settings-row">
-          <div className="status">
-            Always on top: <span className={alwaysOnTop ? "on" : "off"}>{alwaysOnTop ? "ON" : "OFF"}</span>
-          </div>
-          <div className="toggles">
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={alwaysOnTop}
-                onChange={(event) => void setAlwaysOnTop(event.target.checked)}
-              />
-              <span>Always on top</span>
-            </label>
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={useGlobalShortcuts}
-                onChange={(event) => setUseGlobalShortcuts(event.target.checked)}
-              />
-              <span>Global shortcuts</span>
-            </label>
-          </div>
-        </div>
-      </section>
-
       {status ? <div className="status-bar">{status}</div> : null}
       <div className="bottom-bar">
         <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
