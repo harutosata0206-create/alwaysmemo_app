@@ -209,6 +209,8 @@ body::-webkit-scrollbar-thumb,
   align-items: stretch;
   align-self: stretch;
   height: 100%;
+  border-top-right-radius: 12px;
+  overflow: hidden;
 }
 
 .window-button {
@@ -220,7 +222,7 @@ body::-webkit-scrollbar-thumb,
   color: #374151;
   font-size: 22px;
   line-height: 1;
-  font-weight: 100;
+  font-weight: 50;
   box-shadow: none;
   transform: none;
   display: inline-flex;
@@ -249,6 +251,10 @@ body::-webkit-scrollbar-thumb,
 
 .window-button.close:active {
   background: #be123c;
+}
+
+.window-button.close {
+  border-top-right-radius: 12px;
 }
 
 .tab:hover {
