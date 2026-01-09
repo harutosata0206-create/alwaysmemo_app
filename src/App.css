@@ -94,6 +94,7 @@ body::-webkit-scrollbar-thumb,
   justify-content: space-between;
   gap: 12px;
   padding-left: 0 6px;
+  padding-right: 0 0px;
 }
 
 .titlebar-row.top {
