@@ -435,6 +435,9 @@ function App() {
               表示
             </button>
           </div>
+          <button type="button" className="icon-button overflow" aria-label="More">
+            ⋯
+          </button>
           <div className="format-group">
             <button type="button" className="chip">
               H1
@@ -452,9 +455,6 @@ function App() {
           <div className="right-group">
             <button type="button" className="icon-button account" aria-label="Account">
               ●
-            </button>
-            <button type="button" className="icon-button overflow" aria-label="More">
-              ⋯
             </button>
             <button type="button" className="icon-button" aria-label="Settings">
               ⚙
