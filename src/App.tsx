@@ -572,11 +572,11 @@ function App() {
         <span className="bottom-item">{lineEndingLabel}</span>
         <span className="bottom-item">UTF-8</span>
         <span className="bottom-item">
-          <span className="bottom-label">Always on top: </span>
+          <span className="bottom-label">Top: </span>
           <span className="bottom-value">{alwaysOnTop ? "ON" : "OFF"}</span>
         </span>
         <span className="bottom-item">
-          <span className="bottom-label">Global shortcuts: </span>
+          <span className="bottom-label">Shortcuts: </span>
           <span className="bottom-value">{useGlobalShortcuts ? "ON" : "OFF"}</span>
         </span>
       </div>
