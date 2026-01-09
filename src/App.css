@@ -222,7 +222,7 @@ body::-webkit-scrollbar-thumb,
   color: #374151;
   font-size: 22px;
   line-height: 1;
-  font-weight: 50;
+  font-weight: 0;
   box-shadow: none;
   transform: none;
   display: inline-flex;
