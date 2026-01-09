@@ -505,38 +505,6 @@ function App() {
         </div>
       </section>
 
-      <section className="card shortcuts">
-        <div className="shortcut-row">
-          <div className="keys">{SHORTCUT_LABEL} T</div>
-          <div className="label">Toggle always on top</div>
-          <button type="button" onClick={() => void toggleAlwaysOnTop()}>
-            Run
-          </button>
-        </div>
-        <div className="shortcut-row">
-          <div className="keys">{SHORTCUT_LABEL} Left</div>
-          <div className="label">Snap to top-left</div>
-          <button type="button" onClick={() => void snapLeft()}>
-            Run
-          </button>
-        </div>
-        <div className="shortcut-row">
-          <div className="keys">{SHORTCUT_LABEL} Right</div>
-          <div className="label">Snap to top-right</div>
-          <button type="button" onClick={() => void snapRight()}>
-            Run
-          </button>
-        </div>
-        <div className="actions inline">
-          <button type="button" onClick={() => void setAlwaysOnTop(true)}>
-            Force ON
-          </button>
-          <button type="button" onClick={() => void setAlwaysOnTop(false)}>
-            Force OFF
-          </button>
-        </div>
-      </section>
-
       <section className="card settings">
         <div className="settings-row">
           <div className="status">
