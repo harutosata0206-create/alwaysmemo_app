@@ -492,3 +492,24 @@ button:active {
   color: #1f2937;
   font-weight: 600;
 }
+
+.bottom-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 6px 12px;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bottom-item + .bottom-item {
+  border-left: 1px solid #e2e8f0;
+  padding-left: 10px;
+}

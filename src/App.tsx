@@ -34,11 +34,33 @@ function App() {
   const [snap, setSnap] = useState<SnapPosition>(null);
   const toggleLockRef = useRef(0);
   const tabsScrollerRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [showTabArrows, setShowTabArrows] = useState(false);
+  const [cursorIndex, setCursorIndex] = useState(0);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
+  const activeContent = activeTab?.content ?? "";
+
+  const cursorPosition = useMemo(() => {
+    const safeIndex = Math.min(cursorIndex, activeContent.length);
+    const before = activeContent.slice(0, safeIndex);
+    const lines = before.split(/\r?\n/);
+    return {
+      line: Math.max(lines.length, 1),
+      column: (lines[lines.length - 1]?.length ?? 0) + 1,
+    };
+  }, [activeContent, cursorIndex]);
+
+  const lineEndingLabel = useMemo(() => {
+    if (activeContent.includes("\r\n")) return "Windows (CRLF)";
+    return "LF";
+  }, [activeContent]);
+
+  const updateCursorIndex = useCallback((event: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    setCursorIndex(event.currentTarget.selectionStart ?? 0);
+  }, []);
 
   const setAlwaysOnTop = useCallback(
     async (value: boolean) => {
@@ -469,8 +491,15 @@ function App() {
           </div>
 
           <textarea
+            ref={textareaRef}
             value={activeTab?.content ?? ""}
-            onChange={(event) => updateContent(event.target.value)}
+            onChange={(event) => {
+              updateContent(event.target.value);
+              updateCursorIndex(event);
+            }}
+            onSelect={updateCursorIndex}
+            onKeyUp={updateCursorIndex}
+            onClick={updateCursorIndex}
             placeholder="ここにメモを書く"
           />
         </div>
@@ -535,6 +564,16 @@ function App() {
       </section>
 
       {status ? <div className="status-bar">{status}</div> : null}
+      <div className="bottom-bar">
+        <span className="bottom-item">Global shortcuts: {useGlobalShortcuts ? "ON" : "OFF"}</span>
+        <span className="bottom-item">Always on top: {alwaysOnTop ? "ON" : "OFF"}</span>
+        <span className="bottom-item">UTF-8</span>
+        <span className="bottom-item">{lineEndingLabel}</span>
+        <span className="bottom-item">100%</span>
+        <span className="bottom-item">テキスト</span>
+        <span className="bottom-item">{activeContent.length} 文字</span>
+        <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
+      </div>
     </div>
   );
 }
