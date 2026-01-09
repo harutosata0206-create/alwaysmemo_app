@@ -450,14 +450,14 @@ function App() {
             </button>
           </div>
           <div className="right-group">
-            <button type="button" className="icon-button" aria-label="Theme">
-              ◎
-            </button>
             <button type="button" className="icon-button account" aria-label="Account">
               ●
             </button>
             <button type="button" className="icon-button" aria-label="Settings">
               ⚙
+            </button>
+            <button type="button" className="icon-button overflow" aria-label="More">
+              ⋯
             </button>
           </div>
         </div>

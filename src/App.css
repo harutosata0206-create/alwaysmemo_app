@@ -112,6 +112,8 @@ body::-webkit-scrollbar-thumb,
   background: #ffffff;
   border-top: 1px solid #e2e8f0;
   padding: 6px 12px;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .tabs {
@@ -283,6 +285,8 @@ body::-webkit-scrollbar-thumb,
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .menu-button {
@@ -295,6 +299,7 @@ body::-webkit-scrollbar-thumb,
   padding: 4px 6px;
   box-shadow: none;
   transform: none;
+  white-space: nowrap;
 }
 
 .menu-button:hover {
@@ -328,10 +333,30 @@ body::-webkit-scrollbar-thumb,
   transform: none;
 }
 
+.icon-button.overflow {
+  display: none;
+}
+
 .icon-button:hover {
   background: #e2e8f0;
   transform: none;
   box-shadow: none;
+}
+
+@media (max-width: 560px) {
+  .format-group {
+    display: none;
+  }
+
+  .right-group .icon-button:not(.overflow) {
+    display: none;
+  }
+
+  .icon-button.overflow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 .icon-button.account {
