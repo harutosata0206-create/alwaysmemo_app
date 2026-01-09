@@ -72,6 +72,9 @@ body::-webkit-scrollbar-thumb,
 .titlebar {
   border-bottom: 1px solid #e2e8f0;
   background: #f1f5f9;
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .titlebar-row {
