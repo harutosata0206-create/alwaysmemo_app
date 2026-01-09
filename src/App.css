@@ -522,7 +522,7 @@ button:active {
   text-overflow: ellipsis;
 }
 
-@media (max-width: 880px) {
+@media (max-width: 500px) {
   .bottom-label {
     display: none;
   }
