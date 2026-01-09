@@ -222,12 +222,21 @@ body::-webkit-scrollbar-thumb,
   color: #374151;
   font-size: 22px;
   line-height: 1;
-  font-weight: 0;
+  font-weight: 200;
   box-shadow: none;
   transform: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.window-icon {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .window-button + .window-button {

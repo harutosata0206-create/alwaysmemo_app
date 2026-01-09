@@ -423,7 +423,9 @@ function App() {
               aria-label="Minimize"
               data-tauri-drag-region="false"
             >
-              −
+              <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
+                <line x1="2" y1="7" x2="8" y2="7" />
+              </svg>
             </button>
             <button
               type="button"
@@ -432,7 +434,9 @@ function App() {
               aria-label="Maximize"
               data-tauri-drag-region="false"
             >
-              □
+              <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
+                <rect x="2" y="2" width="6" height="6" fill="none" />
+              </svg>
             </button>
             <button
               type="button"
@@ -441,7 +445,10 @@ function App() {
               aria-label="Close"
               data-tauri-drag-region="false"
             >
-              ×
+              <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
+                <line x1="2.2" y1="2.2" x2="7.8" y2="7.8" />
+                <line x1="7.8" y1="2.2" x2="2.2" y2="7.8" />
+              </svg>
             </button>
           </div>
         </div>
