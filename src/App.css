@@ -520,3 +520,9 @@ button:active {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+@media (max-width: 560px) {
+  .bottom-label {
+    display: none;
+  }
+}
