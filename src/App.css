@@ -196,29 +196,31 @@ body::-webkit-scrollbar-thumb,
 
 .window-controls {
   display: flex;
-  gap: 4px;
+  gap: 0;
 }
 
 .window-button {
-  width: 33px;
-  height: 25px;
+  width: 42px;
+  height: 30px;
   border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #0f172a;
+  border-radius: 0;
+  background: #f1f5f9;
+  color: #111827;
+  font-size: 12px;
+  line-height: 1;
   font-weight: 600;
   box-shadow: none;
   transform: none;
 }
 
 .window-button:hover {
-  background: #e2e8f0;
+  background: #e5e7eb;
   transform: none;
   box-shadow: none;
 }
 
 .window-button.close:hover {
-  background: #ef4444;
+  background: #e11d48;
   color: #ffffff;
 }
 
