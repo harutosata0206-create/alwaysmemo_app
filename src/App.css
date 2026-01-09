@@ -1,9 +1,10 @@
 :root {
   font-family: "Segoe UI", Helvetica, Arial, sans-serif;
-  font-size: 15px;
+  font-size: 13px;
   color: #0d1117;
   background: #f1f5f9;
   min-height: 100vh;
+  font-weight: 400;
 }
 
 html {
@@ -152,7 +153,7 @@ body::-webkit-scrollbar-thumb,
   border-radius: 6px;
   background: transparent;
   color: #64748b;
-  font-weight: 700;
+  font-weight: 600;
   padding: 0;
   cursor: pointer;
 }
@@ -171,7 +172,7 @@ body::-webkit-scrollbar-thumb,
   border-radius: 8px 8px 0 0;
   background: #e2e8f0;
   color: #0f172a;
-  font-weight: 600;
+  font-weight: 500;
   box-shadow: none;
   transform: none;
   cursor: pointer;
@@ -200,7 +201,7 @@ body::-webkit-scrollbar-thumb,
   border-radius: 6px;
   background: transparent;
   color: #0f172a;
-  font-weight: 700;
+  font-weight: 600;
   box-shadow: none;
   transform: none;
 }
@@ -227,7 +228,7 @@ body::-webkit-scrollbar-thumb,
 
 .tab-title {
   max-width: 140px;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -235,7 +236,7 @@ body::-webkit-scrollbar-thumb,
 }
 
 .tab-close {
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   padding: 0 4px;
   color: #64748b;
@@ -276,8 +277,8 @@ body::-webkit-scrollbar-thumb,
 }
 
 .editor-title {
-  font-weight: 700;
-  font-size: 15px;
+  font-weight: 600;
+  font-size: 14px;
   color: #0f172a;
 }
 
@@ -296,7 +297,7 @@ body::-webkit-scrollbar-thumb,
   background: transparent;
   color: #0f172a;
   font-family: "Verdana", "Segoe UI", Helvetica, Arial, sans-serif;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 12px;
   padding: 1px 6px;
   box-shadow: none;
@@ -317,7 +318,7 @@ body::-webkit-scrollbar-thumb,
   color: #0f172a;
   border-radius: 8px;
   padding: 1px 6px;
-  font-weight: 600;
+  font-weight: 500;
   min-width: 34px;
   box-shadow: none;
   transform: none;
@@ -448,7 +449,7 @@ textarea::-webkit-scrollbar-thumb {
 
 .keys {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 13px;
+  font-size: 12px;
   color: #1f2937;
 }
 
@@ -468,7 +469,7 @@ button {
   padding: 8px 12px;
   background: #0f172a;
   color: #ffffff;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: transform 120ms ease, box-shadow 120ms ease;
 }
@@ -490,7 +491,7 @@ button:active {
   border: 1px solid #d8dde3;
   background: #f3f6fb;
   color: #1f2937;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .bottom-bar {
@@ -504,8 +505,8 @@ button:active {
   border-top: 1px solid #e2e8f0;
   background: #ffffff;
   color: #1f2937;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 500;
   white-space: nowrap;
   align-items: center;
 }
