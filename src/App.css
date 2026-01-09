@@ -99,6 +99,8 @@ body::-webkit-scrollbar-thumb,
 .titlebar-row.top {
   padding: 0;
   align-items: stretch;
+  height: 32px;
+  margin-top: -1px;
 }
 
 .tabs-area {
@@ -206,6 +208,7 @@ body::-webkit-scrollbar-thumb,
   gap: 0;
   align-items: stretch;
   align-self: stretch;
+  height: 100%;
 }
 
 .window-button {
