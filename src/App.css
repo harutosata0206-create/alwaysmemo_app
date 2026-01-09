@@ -31,6 +31,9 @@ body {
   border-radius: 12px;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
   min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
 }
@@ -68,6 +71,8 @@ body::-webkit-scrollbar-thumb,
   display: flex;
   flex-direction: column;
   gap: 0;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .titlebar {
@@ -267,6 +272,8 @@ body::-webkit-scrollbar-thumb,
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .editor-header {
@@ -384,15 +391,17 @@ body::-webkit-scrollbar-thumb,
 
 textarea {
   width: 100%;
-  min-height: 380px;
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
   border: 1px solid #d0d7de;
   border-radius: 8px;
   padding: 12px;
   box-sizing: border-box;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.5;
   font-family: "Segoe UI", Helvetica, Arial, sans-serif;
-  resize: vertical;
+  resize: none;
   background: #ffffff;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
