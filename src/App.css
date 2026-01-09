@@ -201,13 +201,13 @@ body::-webkit-scrollbar-thumb,
 }
 
 .window-button {
-  width: 54px;
-  height: 32px;
+  width: 46px;
+  height: 28px;
   border: 0;
   border-radius: 0;
   background: #f8fafc;
   color: #374151;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1;
   font-weight: 500;
   box-shadow: none;
