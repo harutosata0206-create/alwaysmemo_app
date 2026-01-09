@@ -286,7 +286,9 @@ body::-webkit-scrollbar-thumb,
   border: 0;
   background: transparent;
   color: #0f172a;
+  font-family: "Verdana", "Segoe UI", Helvetica, Arial, sans-serif;
   font-weight: 600;
+  font-size: 12px;
   padding: 4px 6px;
   box-shadow: none;
   transform: none;
