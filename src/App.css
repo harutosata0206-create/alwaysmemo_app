@@ -98,6 +98,7 @@ body::-webkit-scrollbar-thumb,
 
 .titlebar-row.top {
   padding: 0;
+  align-items: stretch;
 }
 
 .tabs-area {
@@ -204,18 +205,19 @@ body::-webkit-scrollbar-thumb,
   display: flex;
   gap: 0;
   align-items: stretch;
+  align-self: stretch;
 }
 
 .window-button {
   width: 46px;
-  height: 28px;
+  height: 100%;
   border: 0;
   border-radius: 0;
   background: #f8fafc;
   color: #374151;
   font-size: 22px;
   line-height: 1;
-  font-weight: 400;
+  font-weight: 100;
   box-shadow: none;
   transform: none;
   display: inline-flex;
