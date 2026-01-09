@@ -86,7 +86,7 @@ body::-webkit-scrollbar-thumb,
 }
 
 .titlebar-row.top {
-  padding: 3px 10px 0;
+  padding: 4px 10px 0;
 }
 
 .tabs-area {
@@ -111,7 +111,7 @@ body::-webkit-scrollbar-thumb,
 .titlebar-row.toolbar {
   background: #ffffff;
   border-top: 1px solid #e2e8f0;
-  padding: 3px 12px;
+  padding: 2px 12px;
   flex-wrap: nowrap;
   overflow: hidden;
 }
@@ -194,8 +194,8 @@ body::-webkit-scrollbar-thumb,
 }
 
 .window-button {
-  width: 32px;
-  height: 24px;
+  width: 33px;
+  height: 25px;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -298,7 +298,7 @@ body::-webkit-scrollbar-thumb,
   font-family: "Verdana", "Segoe UI", Helvetica, Arial, sans-serif;
   font-weight: 600;
   font-size: 12px;
-  padding: 2px 6px;
+  padding: 1px 6px;
   box-shadow: none;
   transform: none;
   white-space: nowrap;
@@ -316,7 +316,7 @@ body::-webkit-scrollbar-thumb,
   background: #f8fafc;
   color: #0f172a;
   border-radius: 8px;
-  padding: 2px 6px;
+  padding: 1px 6px;
   font-weight: 600;
   min-width: 34px;
   box-shadow: none;
