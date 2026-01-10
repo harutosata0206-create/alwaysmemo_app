@@ -128,10 +128,8 @@ function App() {
     const textarea = textareaRef.current;
     if (!textarea) return;
     try {
-      const monitor = await windowHandle.currentMonitor();
-      const scale = monitor?.scaleFactor ?? window.devicePixelRatio ?? 1;
-      const maxWidth = monitor ? Math.floor(monitor.size.width / scale) : window.innerWidth;
-      const maxHeight = monitor ? Math.floor(monitor.size.height / scale) : window.innerHeight;
+      const maxWidth = window.screen?.availWidth ?? window.innerWidth;
+      const maxHeight = window.screen?.availHeight ?? window.innerHeight;
       const computed = window.getComputedStyle(textarea);
       const font = `${computed.fontStyle} ${computed.fontVariant} ${computed.fontWeight} ${computed.fontSize} / ${computed.lineHeight} ${computed.fontFamily}`;
       const lines = (textarea.value ?? "").split(/\r?\n/);
