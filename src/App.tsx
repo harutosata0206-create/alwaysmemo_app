@@ -4,8 +4,8 @@ import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
 
-const MIN_WINDOW_WIDTH = 560;
-const MIN_WINDOW_HEIGHT = 400;
+const MIN_WINDOW_WIDTH = 280;
+const MIN_WINDOW_HEIGHT = 200;
 const STORAGE_KEY = "alwaysmemo-state";
 
 type Tab = {
@@ -128,6 +128,10 @@ function App() {
     const textarea = textareaRef.current;
     if (!textarea) return;
     try {
+      const monitor = await windowHandle.currentMonitor();
+      const scale = monitor?.scaleFactor ?? window.devicePixelRatio ?? 1;
+      const maxWidth = monitor ? Math.floor(monitor.size.width / scale) : window.innerWidth;
+      const maxHeight = monitor ? Math.floor(monitor.size.height / scale) : window.innerHeight;
       const computed = window.getComputedStyle(textarea);
       const font = `${computed.fontStyle} ${computed.fontVariant} ${computed.fontWeight} ${computed.fontSize} / ${computed.lineHeight} ${computed.fontFamily}`;
       const lines = (textarea.value ?? "").split(/\r?\n/);
@@ -161,7 +165,9 @@ function App() {
         Math.round(window.innerHeight + deltaHeight),
       );
 
-      await windowHandle.setSize(new LogicalSize(nextWidth, nextHeight));
+      await windowHandle.setSize(
+        new LogicalSize(Math.min(nextWidth, maxWidth), Math.min(nextHeight, maxHeight)),
+      );
       setStatus("Hotkey: resize to fit content");
     } catch (error) {
       console.error(error);
