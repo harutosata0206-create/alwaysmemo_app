@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
 
-const SHORTCUT_LABEL = "Ctrl + Alt +";
+const MIN_WINDOW_WIDTH = 280;
+const MIN_WINDOW_HEIGHT = 200;
 const STORAGE_KEY = "alwaysmemo-state";
 
 type Tab = {
@@ -38,6 +39,7 @@ function App() {
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [showTabArrows, setShowTabArrows] = useState(false);
   const [cursorIndex, setCursorIndex] = useState(0);
+  const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
@@ -112,13 +114,70 @@ function App() {
     }
   }, []);
 
+  const resizeToMinimum = useCallback(async () => {
+    try {
+      await windowHandle.setSize(new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT));
+      setStatus("Hotkey: resize to minimum");
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to resize to minimum");
+    }
+  }, [windowHandle]);
+
+  const resizeToFitContent = useCallback(async () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    try {
+      const computed = window.getComputedStyle(textarea);
+      const font = `${computed.fontStyle} ${computed.fontVariant} ${computed.fontWeight} ${computed.fontSize} / ${computed.lineHeight} ${computed.fontFamily}`;
+      const lines = (textarea.value ?? "").split(/\r?\n/);
+      if (!measureCanvasRef.current) {
+        measureCanvasRef.current = document.createElement("canvas");
+      }
+      const ctx = measureCanvasRef.current.getContext("2d");
+      const maxLineWidth = ctx
+        ? lines.reduce((max, line) => {
+            ctx.font = font;
+            return Math.max(max, ctx.measureText(line).width);
+          }, 0)
+        : textarea.scrollWidth;
+
+      const paddingX =
+        parseFloat(computed.paddingLeft) + parseFloat(computed.paddingRight);
+      const borderX =
+        parseFloat(computed.borderLeftWidth) + parseFloat(computed.borderRightWidth);
+      const targetTextWidth = Math.ceil(maxLineWidth + paddingX + borderX + 2);
+      const targetTextHeight = Math.ceil(textarea.scrollHeight);
+
+      const deltaWidth = targetTextWidth - textarea.clientWidth;
+      const deltaHeight = targetTextHeight - textarea.clientHeight;
+
+      const nextWidth = Math.max(
+        MIN_WINDOW_WIDTH,
+        Math.round(window.innerWidth + deltaWidth),
+      );
+      const nextHeight = Math.max(
+        MIN_WINDOW_HEIGHT,
+        Math.round(window.innerHeight + deltaHeight),
+      );
+
+      await windowHandle.setSize(new LogicalSize(nextWidth, nextHeight));
+      setStatus("Hotkey: resize to fit content");
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to resize to fit content");
+    }
+  }, [windowHandle]);
+
   const shortcutActions = useMemo(
     () => [
       { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: toggleAlwaysOnTop },
       { id: "snapLeft", combo: "Ctrl+Alt+Left", action: snapLeft },
       { id: "snapRight", combo: "Ctrl+Alt+Right", action: snapRight },
+      { id: "minimumSize", combo: "Ctrl+Alt+J", action: resizeToMinimum },
+      { id: "fitContent", combo: "Ctrl+Alt+L", action: resizeToFitContent },
     ],
-    [snapLeft, snapRight, toggleAlwaysOnTop],
+    [resizeToFitContent, resizeToMinimum, snapLeft, snapRight, toggleAlwaysOnTop],
   );
 
   useEffect(() => {
@@ -195,13 +254,23 @@ function App() {
           void snapRight();
           break;
         }
+        case "KeyJ": {
+          event.preventDefault();
+          void resizeToMinimum();
+          break;
+        }
+        case "KeyL": {
+          event.preventDefault();
+          void resizeToFitContent();
+          break;
+        }
         default:
           break;
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [snapLeft, snapRight, toggleAlwaysOnTop]);
+  }, [resizeToFitContent, resizeToMinimum, snapLeft, snapRight, toggleAlwaysOnTop]);
 
   useEffect(() => {
     const state: PersistedState = {
