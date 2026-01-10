@@ -4,8 +4,8 @@ import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
 
-const MIN_WINDOW_WIDTH = 280;
-const MIN_WINDOW_HEIGHT = 200;
+const MIN_WINDOW_WIDTH = 560;
+const MIN_WINDOW_HEIGHT = 400;
 const STORAGE_KEY = "alwaysmemo-state";
 
 type Tab = {
