@@ -14,6 +14,8 @@ type Tab = {
   content: string;
 };
 
+const DEFAULT_TITLE_REGEX = /^メモ\s+\d+$/;
+
 type SnapPosition = "left" | "right" | null;
 
 type PersistedState = {
@@ -419,6 +421,18 @@ function App() {
     scroller.scrollBy({ left: direction * 180, behavior: "smooth" });
   };
 
+  const getTabLabel = (tab: Tab) => {
+    if (!DEFAULT_TITLE_REGEX.test(tab.title)) return tab.title;
+    const trimmed = tab.content.trimStart();
+    if (!trimmed) return tab.title;
+    const firstLine = trimmed.split(/\r?\n/)[0] ?? "";
+    const maxLength = 20;
+    if (firstLine.length > maxLength) {
+      return `${firstLine.slice(0, maxLength)}...`;
+    }
+    return firstLine || tab.title;
+  };
+
   return (
     <div className="app">
       <div className="titlebar">
@@ -465,7 +479,7 @@ function App() {
                     }}
                     data-tauri-drag-region="false"
                   >
-                    <span className="tab-title">{tab.title}</span>
+                    <span className="tab-title">{getTabLabel(tab)}</span>
                     <span
                       className="tab-close"
                       onClick={(event) => {
