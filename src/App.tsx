@@ -133,6 +133,13 @@ function App() {
       const computed = window.getComputedStyle(textarea);
       const font = `${computed.fontStyle} ${computed.fontVariant} ${computed.fontWeight} ${computed.fontSize} / ${computed.lineHeight} ${computed.fontFamily}`;
       const lines = (textarea.value ?? "").split(/\r?\n/);
+      const lineCount = Math.max(lines.length, 1);
+      const fontSize = parseFloat(computed.fontSize) || 14;
+      const lineHeightValue =
+        computed.lineHeight === "normal"
+          ? Math.round(fontSize * 1.4)
+          : parseFloat(computed.lineHeight) || Math.round(fontSize * 1.4);
+
       if (!measureCanvasRef.current) {
         measureCanvasRef.current = document.createElement("canvas");
       }
@@ -140,27 +147,32 @@ function App() {
       const maxLineWidth = ctx
         ? lines.reduce((max, line) => {
             ctx.font = font;
-            return Math.max(max, ctx.measureText(line).width);
+            return Math.max(max, ctx.measureText(line || " ").width);
           }, 0)
         : textarea.scrollWidth;
 
       const paddingX =
         parseFloat(computed.paddingLeft) + parseFloat(computed.paddingRight);
+      const paddingY =
+        parseFloat(computed.paddingTop) + parseFloat(computed.paddingBottom);
       const borderX =
         parseFloat(computed.borderLeftWidth) + parseFloat(computed.borderRightWidth);
-      const targetTextWidth = Math.ceil(maxLineWidth + paddingX + borderX + 2);
-      const targetTextHeight = Math.ceil(textarea.scrollHeight);
+      const borderY =
+        parseFloat(computed.borderTopWidth) + parseFloat(computed.borderBottomWidth);
 
-      const deltaWidth = targetTextWidth - textarea.clientWidth;
-      const deltaHeight = targetTextHeight - textarea.clientHeight;
+      const targetTextWidth = Math.ceil(maxLineWidth + paddingX + borderX + 2);
+      const targetTextHeight = Math.ceil(lineCount * lineHeightValue + paddingY + borderY + 2);
+
+      const chromeWidth = window.innerWidth - textarea.clientWidth;
+      const chromeHeight = window.innerHeight - textarea.clientHeight;
 
       const nextWidth = Math.max(
         MIN_WINDOW_WIDTH,
-        Math.round(window.innerWidth + deltaWidth),
+        Math.round(targetTextWidth + chromeWidth),
       );
       const nextHeight = Math.max(
         MIN_WINDOW_HEIGHT,
-        Math.round(window.innerHeight + deltaHeight),
+        Math.round(targetTextHeight + chromeHeight),
       );
 
       await windowHandle.setSize(
