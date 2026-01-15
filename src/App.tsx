@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
@@ -123,8 +124,10 @@ function App() {
     if (!activeTab) return;
     try {
       const suggested = activeTab.title.trim() || "memo.txt";
-      const path = await invoke<string | null>("save_text_file_dialog", {
-        default_name: suggested.includes(".") ? suggested : `${suggested}.txt`,
+      const defaultPath = suggested.includes(".") ? suggested : `${suggested}.txt`;
+      const path = await save({
+        defaultPath,
+        filters: [{ name: "Text", extensions: ["txt", "md"] }],
       });
       if (!path) return;
       await invoke("write_text_file", { path, contents: activeTab.content });
