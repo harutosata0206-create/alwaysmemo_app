@@ -123,6 +123,7 @@ function App() {
   const saveActiveTabAs = useCallback(async () => {
     if (!activeTab) return;
     try {
+      setStatus("Opening save dialog...");
       const suggested = activeTab.title.trim() || "memo.txt";
       const defaultPath = suggested.includes(".") ? suggested : `${suggested}.txt`;
       let resolvedPath: string | null = null;
@@ -149,6 +150,7 @@ function App() {
         setStatus("Save canceled");
         return;
       }
+      setStatus("Saving...");
       await invoke("write_text_file", { path: resolvedPath, contents: activeTab.content });
       const nextTitle = getFileNameFromPath(resolvedPath);
       const nextTabs = tabs.map((tab) =>
@@ -941,6 +943,7 @@ function App() {
         <span className="bottom-item">100%</span>
         <span className="bottom-item">{lineEndingLabel}</span>
         <span className="bottom-item">UTF-8</span>
+        <span className="bottom-item">{status ?? "Ready"}</span>
         <span className="bottom-item">
           <span className="bottom-label">Top: </span>
           <span className="bottom-value">{alwaysOnTop ? "ON" : "OFF"}</span>
