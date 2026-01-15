@@ -755,7 +755,7 @@ function App() {
                 ファイル
               </button>
               {openMenu === "file" ? (
-                <div className="menu-panel">
+                <div className="menu-panel" onMouseDown={(event) => event.stopPropagation()}>
                   <button type="button" className="menu-item" onClick={() => { addTab(); closeMenus(); }}>
                     <span>新しいタブ</span>
                     <span className="menu-shortcut">Ctrl+N</span>
@@ -781,7 +781,14 @@ function App() {
                     <span>保存</span>
                     <span className="menu-shortcut">Ctrl+S</span>
                   </button>
-                  <button type="button" className="menu-item" onClick={() => void saveActiveTabAs()}>
+                  <button
+                    type="button"
+                    className="menu-item"
+                    onClick={() => {
+                      console.log("save as menu clicked");
+                      void saveActiveTabAs();
+                    }}
+                  >
                     <span>名前を付けて保存</span>
                     <span className="menu-shortcut">Ctrl+Shift+S</span>
                   </button>
@@ -838,7 +845,7 @@ function App() {
                 編集
               </button>
               {openMenu === "edit" ? (
-                <div className="menu-panel">
+                <div className="menu-panel" onMouseDown={(event) => event.stopPropagation()}>
                   <button type="button" className="menu-item disabled" aria-disabled="true">
                     <span>元に戻す</span>
                     <span className="menu-shortcut">Ctrl+Z</span>
@@ -872,7 +879,7 @@ function App() {
                 表示
               </button>
               {openMenu === "view" ? (
-                <div className="menu-panel">
+                <div className="menu-panel" onMouseDown={(event) => event.stopPropagation()}>
                   <button type="button" className="menu-item disabled" aria-disabled="true">
                     <span>ズームイン</span>
                     <span className="menu-shortcut">Ctrl++</span>
