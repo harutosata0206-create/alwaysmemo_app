@@ -42,8 +42,6 @@ function App() {
   const [showTabArrows, setShowTabArrows] = useState(false);
   const [cursorIndex, setCursorIndex] = useState(0);
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const saveTimeoutRef = useRef<number | null>(null);
-  const latestStateRef = useRef<PersistedState | null>(null);
   const savedTabsRef = useRef<Record<string, { title: string; content: string }>>({});
   const [, setSavedVersion] = useState(0);
 
@@ -69,6 +67,22 @@ function App() {
   const updateCursorIndex = useCallback((event: React.SyntheticEvent<HTMLTextAreaElement>) => {
     setCursorIndex(event.currentTarget.selectionStart ?? 0);
   }, []);
+
+  const saveState = useCallback(() => {
+    const state: PersistedState = {
+      tabs,
+      activeTabId,
+      alwaysOnTop,
+      snap,
+      useGlobalShortcuts,
+    };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    savedTabsRef.current = Object.fromEntries(
+      tabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
+    );
+    setSavedVersion((prev) => prev + 1);
+    setStatus("Saved");
+  }, [activeTabId, alwaysOnTop, snap, tabs, useGlobalShortcuts]);
 
   const setAlwaysOnTop = useCallback(
     async (value: boolean) => {
@@ -263,6 +277,11 @@ function App() {
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.code === "KeyS") {
+        event.preventDefault();
+        saveState();
+        return;
+      }
       if (!event.ctrlKey || !event.altKey) return;
       switch (event.code) {
         case "KeyT": {
@@ -299,48 +318,14 @@ function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [resizeToFitContent, resizeToMinimum, snapLeft, snapRight, toggleAlwaysOnTop]);
-
-  useEffect(() => {
-    const state: PersistedState = {
-      tabs,
-      activeTabId,
-      alwaysOnTop,
-      snap,
-      useGlobalShortcuts,
-    };
-    latestStateRef.current = state;
-
-    if (saveTimeoutRef.current) {
-      window.clearTimeout(saveTimeoutRef.current);
-    }
-    saveTimeoutRef.current = window.setTimeout(() => {
-      const latest = latestStateRef.current;
-      if (latest) {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(latest));
-        savedTabsRef.current = Object.fromEntries(
-          latest.tabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
-        );
-        setSavedVersion((prev) => prev + 1);
-      }
-    }, 400);
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        window.clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [activeTabId, alwaysOnTop, snap, tabs, useGlobalShortcuts]);
-
-  useEffect(() => {
-    const flush = () => {
-      if (latestStateRef.current) {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(latestStateRef.current));
-      }
-    };
-    window.addEventListener("beforeunload", flush);
-    return () => window.removeEventListener("beforeunload", flush);
-  }, []);
+  }, [
+    resizeToFitContent,
+    resizeToMinimum,
+    saveState,
+    snapLeft,
+    snapRight,
+    toggleAlwaysOnTop,
+  ]);
 
   useEffect(() => {
     const registerGlobalShortcuts = async () => {
