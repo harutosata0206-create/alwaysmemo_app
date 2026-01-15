@@ -44,6 +44,8 @@ function App() {
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const saveTimeoutRef = useRef<number | null>(null);
   const latestStateRef = useRef<PersistedState | null>(null);
+  const savedTabsRef = useRef<Record<string, { title: string; content: string }>>({});
+  const [, setSavedVersion] = useState(0);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
@@ -211,6 +213,9 @@ function App() {
           const restoredTabs = parsed.tabs.length
             ? parsed.tabs
             : [{ id: "initial", title: "メモ 1", content: "" }];
+          savedTabsRef.current = Object.fromEntries(
+            restoredTabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
+          );
           setTabs(restoredTabs);
           const validActive =
             parsed.activeTabId && restoredTabs.some((t) => t.id === parsed.activeTabId)
@@ -228,6 +233,10 @@ function App() {
           } else if (parsed.snap === "right") {
             await snapRight();
           }
+        } else {
+          savedTabsRef.current = {
+            initial: { title: "メモ 1", content: "" },
+          };
         }
       } catch (error) {
         console.error(error);
@@ -306,8 +315,13 @@ function App() {
       window.clearTimeout(saveTimeoutRef.current);
     }
     saveTimeoutRef.current = window.setTimeout(() => {
-      if (latestStateRef.current) {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(latestStateRef.current));
+      const latest = latestStateRef.current;
+      if (latest) {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(latest));
+        savedTabsRef.current = Object.fromEntries(
+          latest.tabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
+        );
+        setSavedVersion((prev) => prev + 1);
       }
     }, 400);
 
@@ -460,6 +474,12 @@ function App() {
     return firstLine || tab.title;
   };
 
+  const isTabDirty = (tab: Tab) => {
+    const saved = savedTabsRef.current[tab.id];
+    if (!saved) return true;
+    return saved.title !== tab.title || saved.content !== tab.content;
+  };
+
   return (
     <div className="app">
       <div className="titlebar">
@@ -508,14 +528,15 @@ function App() {
                   >
                     <span className="tab-title">{getTabLabel(tab)}</span>
                     <span
-                      className="tab-close"
+                      className={`tab-close ${isTabDirty(tab) ? "dirty" : ""}`}
                       onClick={(event) => {
                         event.stopPropagation();
                         removeTab(tab.id);
                       }}
                       data-tauri-drag-region="false"
+                      aria-label={isTabDirty(tab) ? "Unsaved" : "Close"}
                     >
-                      ×
+                      {isTabDirty(tab) ? "●" : "×"}
                     </span>
                   </button>
                 ))}

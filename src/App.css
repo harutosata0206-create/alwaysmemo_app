@@ -298,6 +298,10 @@ body::-webkit-scrollbar-thumb,
   color: #64748b;
 }
 
+.tab-close.dirty {
+  color: #1f2937;
+}
+
 .add-tab {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
