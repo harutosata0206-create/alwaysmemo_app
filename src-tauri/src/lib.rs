@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -77,6 +79,44 @@ fn snap_right(window: tauri::WebviewWindow) -> Result<(), String> {
         .map_err(|e| format!("set_position failed: {e}"))
 }
 
+#[derive(Serialize)]
+struct OpenedFile {
+    path: String,
+    contents: String,
+}
+
+#[tauri::command]
+fn open_text_file_dialog() -> Result<Option<OpenedFile>, String> {
+    let file = rfd::FileDialog::new()
+        .add_filter("Text", &["txt", "md"])
+        .pick_file();
+    let Some(path) = file else {
+        return Ok(None);
+    };
+    let contents =
+        std::fs::read_to_string(&path).map_err(|e| format!("read failed: {e}"))?;
+    Ok(Some(OpenedFile {
+        path: path.to_string_lossy().into_owned(),
+        contents,
+    }))
+}
+
+#[tauri::command]
+fn save_text_file_dialog(default_name: Option<String>) -> Result<Option<String>, String> {
+    let mut dialog = rfd::FileDialog::new();
+    if let Some(name) = default_name {
+        dialog = dialog.set_file_name(&name);
+    }
+    Ok(dialog
+        .save_file()
+        .map(|path| path.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+fn write_text_file(path: String, contents: String) -> Result<(), String> {
+    std::fs::write(&path, contents).map_err(|e| format!("write failed: {e}"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -88,7 +128,10 @@ pub fn run() {
             set_always_on_top,
             toggle_always_on_top,
             snap_left,
-            snap_right
+            snap_right,
+            open_text_file_dialog,
+            save_text_file_dialog,
+            write_text_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

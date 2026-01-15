@@ -12,6 +12,7 @@ type Tab = {
   id: string;
   title: string;
   content: string;
+  filePath?: string | null;
 };
 
 const DEFAULT_TITLE_REGEX = /^メモ\s+\d+$/;
@@ -46,7 +47,6 @@ function App() {
   const [, setSavedVersion] = useState(0);
   const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
@@ -71,69 +71,135 @@ function App() {
     setCursorIndex(event.currentTarget.selectionStart ?? 0);
   }, []);
 
-  const closeMenus = useCallback(() => setOpenMenu(null), []);
-
-  const saveState = useCallback(() => {
-    const state: PersistedState = {
-      tabs,
-      activeTabId,
-      alwaysOnTop,
-      snap,
-      useGlobalShortcuts,
-    };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    savedTabsRef.current = Object.fromEntries(
-      tabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
-    );
-    setSavedVersion((prev) => prev + 1);
-    setStatus("Saved");
-  }, [activeTabId, alwaysOnTop, snap, tabs, useGlobalShortcuts]);
-
-  const openFilePicker = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  const handleFileChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const content = String(reader.result ?? "");
-        const id = crypto.randomUUID();
-        const title = file.name || `メモ ${tabs.length + 1}`;
-        savedTabsRef.current = {
-          ...savedTabsRef.current,
-          [id]: { title, content },
-        };
-        setSavedVersion((prev) => prev + 1);
-        setTabs((prev) => [...prev, { id, title, content }]);
-        setActiveTabId(id);
-        setStatus(`Opened ${file.name}`);
-        closeMenus();
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
+  const persistState = useCallback(
+    (nextTabs: Tab[], nextActiveId = activeTabId) => {
+      const state: PersistedState = {
+        tabs: nextTabs,
+        activeTabId: nextActiveId,
+        alwaysOnTop,
+        snap,
+        useGlobalShortcuts,
       };
-      reader.readAsText(file);
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     },
-    [closeMenus, tabs.length],
+    [activeTabId, alwaysOnTop, snap, useGlobalShortcuts],
   );
 
-  const downloadActiveTab = useCallback(() => {
+  const closeMenus = useCallback(() => setOpenMenu(null), []);
+
+  const getFileNameFromPath = (path: string) => {
+    const normalized = path.replace(/\\/g, "/");
+    return normalized.split("/").pop() || path;
+  };
+
+  const openFilePicker = useCallback(async () => {
+    try {
+      const opened = await invoke<{ path: string; contents: string } | null>(
+        "open_text_file_dialog",
+      );
+      if (!opened) return;
+      const id = crypto.randomUUID();
+      const title = getFileNameFromPath(opened.path) || `メモ ${tabs.length + 1}`;
+      savedTabsRef.current = {
+        ...savedTabsRef.current,
+        [id]: { title, content: opened.contents },
+      };
+      setSavedVersion((prev) => prev + 1);
+      setTabs((prev) => {
+        const next = [...prev, { id, title, content: opened.contents, filePath: opened.path }];
+        persistState(next, id);
+        return next;
+      });
+      setActiveTabId(id);
+      setStatus(`Opened ${title}`);
+      closeMenus();
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to open file");
+    }
+  }, [closeMenus, persistState, tabs]);
+
+  const saveActiveTabAs = useCallback(async () => {
     if (!activeTab) return;
-    const blob = new Blob([activeTab.content], { type: "text/plain;charset=utf-8" });
-    const name = activeTab.title.trim() || "memo.txt";
-    const filename = name.includes(".") ? name : `${name}.txt`;
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setStatus(`Saved ${filename}`);
-    closeMenus();
+    try {
+      const suggested = activeTab.title.trim() || "memo.txt";
+      const path = await invoke<string | null>("save_text_file_dialog", {
+        defaultName: suggested.includes(".") ? suggested : `${suggested}.txt`,
+      });
+      if (!path) return;
+      await invoke("write_text_file", { path, contents: activeTab.content });
+      const nextTitle = getFileNameFromPath(path);
+      const nextTabs = tabs.map((tab) =>
+        tab.id === activeTab.id ? { ...tab, title: nextTitle, filePath: path } : tab,
+      );
+      setTabs(nextTabs);
+      savedTabsRef.current = {
+        ...savedTabsRef.current,
+        [activeTab.id]: { title: nextTitle, content: activeTab.content },
+      };
+      setSavedVersion((prev) => prev + 1);
+      persistState(nextTabs);
+      setStatus(`Saved ${nextTitle}`);
+      closeMenus();
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to save file");
+    }
   }, [activeTab, closeMenus]);
+
+  const saveActiveTab = useCallback(async () => {
+    if (!activeTab) return;
+    if (!activeTab.filePath) {
+      await saveActiveTabAs();
+      return;
+    }
+    try {
+      await invoke("write_text_file", {
+        path: activeTab.filePath,
+        contents: activeTab.content,
+      });
+      savedTabsRef.current = {
+        ...savedTabsRef.current,
+        [activeTab.id]: { title: activeTab.title, content: activeTab.content },
+      };
+      setSavedVersion((prev) => prev + 1);
+      persistState(tabs);
+      setStatus(`Saved ${activeTab.title}`);
+      closeMenus();
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to save file");
+    }
+  }, [activeTab, closeMenus, persistState, saveActiveTabAs, tabs]);
+
+  const saveAllTabs = useCallback(async () => {
+    const tabsWithPath = tabs.filter((tab) => tab.filePath);
+    if (tabsWithPath.length === 0) {
+      setStatus("No saved files to update");
+      closeMenus();
+      return;
+    }
+    try {
+      await Promise.all(
+        tabsWithPath.map((tab) =>
+          invoke("write_text_file", { path: tab.filePath, contents: tab.content }),
+        ),
+      );
+      savedTabsRef.current = {
+        ...savedTabsRef.current,
+        ...Object.fromEntries(
+          tabsWithPath.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
+        ),
+      };
+      setSavedVersion((prev) => prev + 1);
+      persistState(tabs);
+      setStatus("Saved all");
+      closeMenus();
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to save all");
+    }
+  }, [closeMenus, persistState, tabs]);
 
   const closeActiveTab = useCallback(() => {
     if (!activeTab) return;
@@ -336,7 +402,7 @@ function App() {
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.code === "KeyS") {
         event.preventDefault();
-        saveState();
+        void saveActiveTab();
         return;
       }
       if (!event.ctrlKey || !event.altKey) return;
@@ -378,7 +444,7 @@ function App() {
   }, [
     resizeToFitContent,
     resizeToMinimum,
-    saveState,
+    saveActiveTab,
     snapLeft,
     snapRight,
     toggleAlwaysOnTop,
@@ -684,15 +750,15 @@ function App() {
                     <span className="menu-shortcut">›</span>
                   </button>
                   <div className="menu-divider" />
-                  <button type="button" className="menu-item" onClick={() => { saveState(); closeMenus(); }}>
+                  <button type="button" className="menu-item" onClick={() => void saveActiveTab()}>
                     <span>保存</span>
                     <span className="menu-shortcut">Ctrl+S</span>
                   </button>
-                  <button type="button" className="menu-item" onClick={downloadActiveTab}>
+                  <button type="button" className="menu-item" onClick={() => void saveActiveTabAs()}>
                     <span>名前を付けて保存</span>
                     <span className="menu-shortcut">Ctrl+Shift+S</span>
                   </button>
-                  <button type="button" className="menu-item" onClick={() => { saveState(); closeMenus(); }}>
+                  <button type="button" className="menu-item" onClick={() => void saveAllTabs()}>
                     <span>すべて保存</span>
                     <span className="menu-shortcut">Ctrl+Alt+S</span>
                   </button>
@@ -795,13 +861,6 @@ function App() {
                 </div>
               ) : null}
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".txt,.md,text/plain,text/markdown"
-              className="file-input"
-              onChange={handleFileChange}
-            />
           </div>
           <button type="button" className="icon-button overflow" aria-label="More">
             ⋯
