@@ -1,5 +1,6 @@
 :root {
-  font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Meiryo", "Segoe UI",
+    "Helvetica Neue", Arial, sans-serif;
   font-size: 13px;
   color: #0d1117;
   background: #f1f5f9;
@@ -347,7 +348,7 @@ body::-webkit-scrollbar-thumb,
   border: 0;
   background: transparent;
   color: #0f172a;
-  font-family: "Verdana", "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: inherit;
   font-weight: 500;
   font-size: 12px;
   padding: 1px 6px;
@@ -444,7 +445,7 @@ textarea {
   box-sizing: border-box;
   font-size: 14px;
   line-height: 1.5;
-  font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: inherit;
   resize: none;
   background: #ffffff;
   scrollbar-width: thin;

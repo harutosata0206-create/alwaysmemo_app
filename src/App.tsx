@@ -42,6 +42,8 @@ function App() {
   const [showTabArrows, setShowTabArrows] = useState(false);
   const [cursorIndex, setCursorIndex] = useState(0);
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const saveTimeoutRef = useRef<number | null>(null);
+  const latestStateRef = useRef<PersistedState | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
@@ -193,7 +195,7 @@ function App() {
       { id: "snapLeft", combo: "Ctrl+Alt+Left", action: snapLeft },
       { id: "snapRight", combo: "Ctrl+Alt+Right", action: snapRight },
       { id: "minimumSize", combo: "Ctrl+Alt+J", action: resizeToMinimum },
-      { id: "fitContent", combo: "Ctrl+Alt+L", action: resizeToFitContent },
+      { id: "fitContent", combo: "Ctrl+Alt+K", action: resizeToFitContent },
     ],
     [resizeToFitContent, resizeToMinimum, snapLeft, snapRight, toggleAlwaysOnTop],
   );
@@ -277,7 +279,7 @@ function App() {
           void resizeToMinimum();
           break;
         }
-        case "KeyL": {
+        case "KeyK": {
           event.preventDefault();
           void resizeToFitContent();
           break;
@@ -298,8 +300,33 @@ function App() {
       snap,
       useGlobalShortcuts,
     };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    latestStateRef.current = state;
+
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = window.setTimeout(() => {
+      if (latestStateRef.current) {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(latestStateRef.current));
+      }
+    }, 400);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        window.clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, [activeTabId, alwaysOnTop, snap, tabs, useGlobalShortcuts]);
+
+  useEffect(() => {
+    const flush = () => {
+      if (latestStateRef.current) {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(latestStateRef.current));
+      }
+    };
+    window.addEventListener("beforeunload", flush);
+    return () => window.removeEventListener("beforeunload", flush);
+  }, []);
 
   useEffect(() => {
     const registerGlobalShortcuts = async () => {
