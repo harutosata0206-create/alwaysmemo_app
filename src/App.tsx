@@ -44,6 +44,9 @@ function App() {
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const savedTabsRef = useRef<Record<string, { title: string; content: string }>>({});
   const [, setSavedVersion] = useState(0);
+  const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
@@ -68,6 +71,8 @@ function App() {
     setCursorIndex(event.currentTarget.selectionStart ?? 0);
   }, []);
 
+  const closeMenus = useCallback(() => setOpenMenu(null), []);
+
   const saveState = useCallback(() => {
     const state: PersistedState = {
       tabs,
@@ -83,6 +88,58 @@ function App() {
     setSavedVersion((prev) => prev + 1);
     setStatus("Saved");
   }, [activeTabId, alwaysOnTop, snap, tabs, useGlobalShortcuts]);
+
+  const openFilePicker = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const content = String(reader.result ?? "");
+        const id = crypto.randomUUID();
+        const title = file.name || `メモ ${tabs.length + 1}`;
+        savedTabsRef.current = {
+          ...savedTabsRef.current,
+          [id]: { title, content },
+        };
+        setSavedVersion((prev) => prev + 1);
+        setTabs((prev) => [...prev, { id, title, content }]);
+        setActiveTabId(id);
+        setStatus(`Opened ${file.name}`);
+        closeMenus();
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      };
+      reader.readAsText(file);
+    },
+    [closeMenus, tabs.length],
+  );
+
+  const downloadActiveTab = useCallback(() => {
+    if (!activeTab) return;
+    const blob = new Blob([activeTab.content], { type: "text/plain;charset=utf-8" });
+    const name = activeTab.title.trim() || "memo.txt";
+    const filename = name.includes(".") ? name : `${name}.txt`;
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setStatus(`Saved ${filename}`);
+    closeMenus();
+  }, [activeTab, closeMenus]);
+
+  const closeActiveTab = useCallback(() => {
+    if (!activeTab) return;
+    removeTab(activeTab.id);
+    closeMenus();
+  }, [activeTab, closeMenus]);
 
   const setAlwaysOnTop = useCallback(
     async (value: boolean) => {
@@ -326,6 +383,16 @@ function App() {
     snapRight,
     toggleAlwaysOnTop,
   ]);
+
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (!menuRef.current) return;
+      if (menuRef.current.contains(event.target as Node)) return;
+      setOpenMenu(null);
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, []);
 
   useEffect(() => {
     const registerGlobalShortcuts = async () => {
@@ -585,16 +652,156 @@ function App() {
           </div>
         </div>
         <div className="titlebar-row toolbar">
-          <div className="menu-group">
-            <button type="button" className="menu-button">
-              ファイル
-            </button>
-            <button type="button" className="menu-button">
-              編集
-            </button>
-            <button type="button" className="menu-button">
-              表示
-            </button>
+          <div className="menu-group" ref={menuRef}>
+            <div className="menu-wrapper">
+              <button
+                type="button"
+                className={`menu-button ${openMenu === "file" ? "active" : ""}`}
+                onClick={() => setOpenMenu((prev) => (prev === "file" ? null : "file"))}
+              >
+                ファイル
+              </button>
+              {openMenu === "file" ? (
+                <div className="menu-panel">
+                  <button type="button" className="menu-item" onClick={() => { addTab(); closeMenus(); }}>
+                    <span>新しいタブ</span>
+                    <span className="menu-shortcut">Ctrl+N</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>新しいウィンドウ</span>
+                    <span className="menu-shortcut">Ctrl+Shift+N</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>新しいマークダウン タブ</span>
+                  </button>
+                  <div className="menu-divider" />
+                  <button type="button" className="menu-item" onClick={openFilePicker}>
+                    <span>開く</span>
+                    <span className="menu-shortcut">Ctrl+O</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>新着順</span>
+                    <span className="menu-shortcut">›</span>
+                  </button>
+                  <div className="menu-divider" />
+                  <button type="button" className="menu-item" onClick={() => { saveState(); closeMenus(); }}>
+                    <span>保存</span>
+                    <span className="menu-shortcut">Ctrl+S</span>
+                  </button>
+                  <button type="button" className="menu-item" onClick={downloadActiveTab}>
+                    <span>名前を付けて保存</span>
+                    <span className="menu-shortcut">Ctrl+Shift+S</span>
+                  </button>
+                  <button type="button" className="menu-item" onClick={() => { saveState(); closeMenus(); }}>
+                    <span>すべて保存</span>
+                    <span className="menu-shortcut">Ctrl+Alt+S</span>
+                  </button>
+                  <div className="menu-divider" />
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>ページ設定</span>
+                  </button>
+                  <button type="button" className="menu-item" onClick={() => { window.print(); closeMenus(); }}>
+                    <span>印刷</span>
+                    <span className="menu-shortcut">Ctrl+P</span>
+                  </button>
+                  <div className="menu-divider" />
+                  <button
+                    type="button"
+                    className="menu-item toggle"
+                    onClick={() => setAlwaysOnTop(!alwaysOnTop)}
+                  >
+                    <span>Always on top</span>
+                    <span className={`menu-toggle ${alwaysOnTop ? "on" : ""}`} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="menu-item toggle"
+                    onClick={() => setUseGlobalShortcuts((prev) => !prev)}
+                  >
+                    <span>Global shortcuts</span>
+                    <span className={`menu-toggle ${useGlobalShortcuts ? "on" : ""}`} aria-hidden="true" />
+                  </button>
+                  <div className="menu-divider" />
+                  <button type="button" className="menu-item" onClick={closeActiveTab}>
+                    <span>タブを閉じる</span>
+                    <span className="menu-shortcut">Ctrl+W</span>
+                  </button>
+                  <button type="button" className="menu-item" onClick={() => { closeWindow(); closeMenus(); }}>
+                    <span>ウィンドウを閉じる</span>
+                    <span className="menu-shortcut">Ctrl+Shift+W</span>
+                  </button>
+                  <button type="button" className="menu-item" onClick={() => { closeWindow(); closeMenus(); }}>
+                    <span>終了</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div className="menu-wrapper">
+              <button
+                type="button"
+                className={`menu-button ${openMenu === "edit" ? "active" : ""}`}
+                onClick={() => setOpenMenu((prev) => (prev === "edit" ? null : "edit"))}
+              >
+                編集
+              </button>
+              {openMenu === "edit" ? (
+                <div className="menu-panel">
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>元に戻す</span>
+                    <span className="menu-shortcut">Ctrl+Z</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>やり直す</span>
+                    <span className="menu-shortcut">Ctrl+Shift+Z</span>
+                  </button>
+                  <div className="menu-divider" />
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>切り取り</span>
+                    <span className="menu-shortcut">Ctrl+X</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>コピー</span>
+                    <span className="menu-shortcut">Ctrl+C</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>貼り付け</span>
+                    <span className="menu-shortcut">Ctrl+V</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div className="menu-wrapper">
+              <button
+                type="button"
+                className={`menu-button ${openMenu === "view" ? "active" : ""}`}
+                onClick={() => setOpenMenu((prev) => (prev === "view" ? null : "view"))}
+              >
+                表示
+              </button>
+              {openMenu === "view" ? (
+                <div className="menu-panel">
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>ズームイン</span>
+                    <span className="menu-shortcut">Ctrl++</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>ズームアウト</span>
+                    <span className="menu-shortcut">Ctrl+-</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>実際のサイズ</span>
+                    <span className="menu-shortcut">Ctrl+0</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.md,text/plain,text/markdown"
+              className="file-input"
+              onChange={handleFileChange}
+            />
           </div>
           <button type="button" className="icon-button overflow" aria-label="More">
             ⋯
