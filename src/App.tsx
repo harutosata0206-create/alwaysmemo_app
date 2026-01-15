@@ -123,6 +123,7 @@ function App() {
   const saveActiveTabAs = useCallback(async () => {
     if (!activeTab) return;
     try {
+      console.log("save as clicked");
       setStatus("Opening save dialog...");
       const suggested = activeTab.title.trim() || "memo.txt";
       const defaultPath = suggested.includes(".") ? suggested : `${suggested}.txt`;
