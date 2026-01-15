@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
@@ -124,9 +125,26 @@ function App() {
     try {
       const suggested = activeTab.title.trim() || "memo.txt";
       const defaultPath = suggested.includes(".") ? suggested : `${suggested}.txt`;
-      const resolvedPath = await invoke<string | null>("save_text_file_dialog", {
-        default_name: defaultPath,
-      });
+      let resolvedPath: string | null = null;
+      try {
+        const picked = await save({
+          defaultPath,
+          filters: [{ name: "Text", extensions: ["txt", "md"] }],
+        });
+        resolvedPath =
+          typeof picked === "string"
+            ? picked
+            : Array.isArray(picked)
+              ? picked[0]
+              : null;
+      } catch (error) {
+        console.error("dialog plugin save failed", error);
+      }
+      if (!resolvedPath) {
+        resolvedPath = await invoke<string | null>("save_text_file_dialog", {
+          default_name: defaultPath,
+        });
+      }
       if (!resolvedPath) {
         setStatus("Save canceled");
         return;
