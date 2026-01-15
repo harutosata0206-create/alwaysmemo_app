@@ -134,7 +134,7 @@ body::-webkit-scrollbar-thumb,
   border-top: 1px solid #e2e8f0;
   padding: 2px 12px;
   flex-wrap: nowrap;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .tabs {
