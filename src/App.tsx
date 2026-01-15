@@ -445,7 +445,7 @@ function App() {
   const scrollTabs = (direction: -1 | 1) => {
     const scroller = tabsScrollerRef.current;
     if (!scroller) return;
-    scroller.scrollBy({ left: direction * 180, behavior: "smooth" });
+    scroller.scrollBy({ left: direction * 110, behavior: "smooth" });
   };
 
   const getTabLabel = (tab: Tab) => {
