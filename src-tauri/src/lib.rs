@@ -103,14 +103,23 @@ fn open_text_file_dialog() -> Result<Option<OpenedFile>, String> {
 }
 
 #[tauri::command]
-fn save_text_file_dialog(default_name: Option<String>) -> Result<Option<String>, String> {
-    let mut dialog = rfd::FileDialog::new();
-    if let Some(name) = default_name {
-        dialog = dialog.set_file_name(&name);
-    }
-    Ok(dialog
-        .save_file()
-        .map(|path| path.to_string_lossy().into_owned()))
+fn save_text_file_dialog(
+    app: tauri::AppHandle,
+    default_name: Option<String>,
+) -> Result<Option<String>, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let mut dialog = rfd::FileDialog::new();
+        if let Some(name) = default_name {
+            dialog = dialog.set_file_name(&name);
+        }
+        let result = dialog
+            .save_file()
+            .map(|path| path.to_string_lossy().into_owned());
+        let _ = tx.send(result);
+    })
+    .map_err(|e| format!("dialog failed: {e}"))?;
+    rx.recv().map_err(|e| format!("dialog recv failed: {e}"))
 }
 
 #[tauri::command]
@@ -137,7 +146,6 @@ fn save_text_file_to_documents(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(tauri::generate_handler![

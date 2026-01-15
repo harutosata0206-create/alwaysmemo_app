@@ -18,7 +18,6 @@
     "global-shortcut:default",
     "global-shortcut:allow-unregister-all",
     "global-shortcut:allow-register",
-    "opener:default",
-    "dialog:default"
+    "opener:default"
   ]
 }

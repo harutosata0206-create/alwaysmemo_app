@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
@@ -125,39 +124,19 @@ function App() {
     try {
       const suggested = activeTab.title.trim() || "memo.txt";
       const defaultPath = suggested.includes(".") ? suggested : `${suggested}.txt`;
-      const picked = await save({
-        defaultPath,
-        filters: [{ name: "Text", extensions: ["txt", "md"] }],
+      const resolvedPath = await invoke<string | null>("save_text_file_dialog", {
+        default_name: defaultPath,
       });
-      const path =
-        typeof picked === "string"
-          ? picked
-          : Array.isArray(picked)
-            ? picked[0]
-            : null;
-      const resolvedPath =
-        path ??
-        (await invoke<string | null>("save_text_file_dialog", {
-          default_name: defaultPath,
-        }));
-      let finalPath = resolvedPath;
-      if (!finalPath) {
-        const manual = window.prompt("保存ファイル名", defaultPath);
-        if (!manual) {
-          setStatus("Save canceled");
-          return;
-        }
-        const normalized = manual.includes(".") ? manual : `${manual}.txt`;
-        finalPath = await invoke<string>("save_text_file_to_documents", {
-          filename: normalized,
-          contents: activeTab.content,
-        });
-      } else {
-        await invoke("write_text_file", { path: finalPath, contents: activeTab.content });
+      if (!resolvedPath) {
+        setStatus("Save canceled");
+        return;
       }
-      const nextTitle = getFileNameFromPath(finalPath);
+      await invoke("write_text_file", { path: resolvedPath, contents: activeTab.content });
+      const nextTitle = getFileNameFromPath(resolvedPath);
       const nextTabs = tabs.map((tab) =>
-        tab.id === activeTab.id ? { ...tab, title: nextTitle, filePath: finalPath } : tab,
+        tab.id === activeTab.id
+          ? { ...tab, title: nextTitle, filePath: resolvedPath }
+          : tab,
       );
       setTabs(nextTabs);
       savedTabsRef.current = {
