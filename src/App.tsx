@@ -125,15 +125,31 @@ function App() {
     try {
       const suggested = activeTab.title.trim() || "memo.txt";
       const defaultPath = suggested.includes(".") ? suggested : `${suggested}.txt`;
-      const path = await save({
+      const picked = await save({
         defaultPath,
         filters: [{ name: "Text", extensions: ["txt", "md"] }],
       });
-      if (!path) return;
-      await invoke("write_text_file", { path, contents: activeTab.content });
-      const nextTitle = getFileNameFromPath(path);
+      const path =
+        typeof picked === "string"
+          ? picked
+          : Array.isArray(picked)
+            ? picked[0]
+            : null;
+      const resolvedPath =
+        path ??
+        (await invoke<string | null>("save_text_file_dialog", {
+          default_name: defaultPath,
+        }));
+      if (!resolvedPath) {
+        setStatus("Save canceled");
+        return;
+      }
+      await invoke("write_text_file", { path: resolvedPath, contents: activeTab.content });
+      const nextTitle = getFileNameFromPath(resolvedPath);
       const nextTabs = tabs.map((tab) =>
-        tab.id === activeTab.id ? { ...tab, title: nextTitle, filePath: path } : tab,
+        tab.id === activeTab.id
+          ? { ...tab, title: nextTitle, filePath: resolvedPath }
+          : tab,
       );
       setTabs(nextTabs);
       savedTabsRef.current = {
