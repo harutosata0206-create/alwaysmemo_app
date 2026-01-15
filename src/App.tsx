@@ -124,7 +124,7 @@ function App() {
     try {
       const suggested = activeTab.title.trim() || "memo.txt";
       const path = await invoke<string | null>("save_text_file_dialog", {
-        defaultName: suggested.includes(".") ? suggested : `${suggested}.txt`,
+        default_name: suggested.includes(".") ? suggested : `${suggested}.txt`,
       });
       if (!path) return;
       await invoke("write_text_file", { path, contents: activeTab.content });
