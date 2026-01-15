@@ -140,16 +140,24 @@ function App() {
         (await invoke<string | null>("save_text_file_dialog", {
           default_name: defaultPath,
         }));
-      if (!resolvedPath) {
-        setStatus("Save canceled");
-        return;
+      let finalPath = resolvedPath;
+      if (!finalPath) {
+        const manual = window.prompt("保存ファイル名", defaultPath);
+        if (!manual) {
+          setStatus("Save canceled");
+          return;
+        }
+        const normalized = manual.includes(".") ? manual : `${manual}.txt`;
+        finalPath = await invoke<string>("save_text_file_to_documents", {
+          filename: normalized,
+          contents: activeTab.content,
+        });
+      } else {
+        await invoke("write_text_file", { path: finalPath, contents: activeTab.content });
       }
-      await invoke("write_text_file", { path: resolvedPath, contents: activeTab.content });
-      const nextTitle = getFileNameFromPath(resolvedPath);
+      const nextTitle = getFileNameFromPath(finalPath);
       const nextTabs = tabs.map((tab) =>
-        tab.id === activeTab.id
-          ? { ...tab, title: nextTitle, filePath: resolvedPath }
-          : tab,
+        tab.id === activeTab.id ? { ...tab, title: nextTitle, filePath: finalPath } : tab,
       );
       setTabs(nextTabs);
       savedTabsRef.current = {

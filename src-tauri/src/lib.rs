@@ -1,4 +1,5 @@
 use serde::Serialize;
+use tauri::{path::BaseDirectory, Manager};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -117,6 +118,22 @@ fn write_text_file(path: String, contents: String) -> Result<(), String> {
     std::fs::write(&path, contents).map_err(|e| format!("write failed: {e}"))
 }
 
+#[tauri::command]
+fn save_text_file_to_documents(
+    app: tauri::AppHandle,
+    filename: String,
+    contents: String,
+) -> Result<String, String> {
+    let mut dir = app
+        .path()
+        .resolve("alwaysmemo", BaseDirectory::Document)
+        .map_err(|e| format!("resolve documents failed: {e}"))?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("create dir failed: {e}"))?;
+    dir.push(filename);
+    std::fs::write(&dir, contents).map_err(|e| format!("write failed: {e}"))?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -132,7 +149,8 @@ pub fn run() {
             snap_right,
             open_text_file_dialog,
             save_text_file_dialog,
-            write_text_file
+            write_text_file,
+            save_text_file_to_documents
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
