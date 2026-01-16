@@ -777,7 +777,16 @@ function App() {
                     <span className="menu-shortcut">›</span>
                   </button>
                   <div className="menu-divider" />
-                  <button type="button" className="menu-item" onClick={() => void saveActiveTab()}>
+                  <button
+                    type="button"
+                    className="menu-item"
+                    onClick={() => {
+                      console.log("save clicked");
+                      setStatus("save clicked");
+                      void saveActiveTab();
+                    }}
+                    onPointerDown={() => console.log("save pointerdown")}
+                  >
                     <span>保存</span>
                     <span className="menu-shortcut">Ctrl+S</span>
                   </button>
