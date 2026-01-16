@@ -8,6 +8,7 @@ import "./App.css";
 const MIN_WINDOW_WIDTH = 280;
 const MIN_WINDOW_HEIGHT = 200;
 const STORAGE_KEY = "alwaysmemo-state";
+const BUILD_MARKER = "test-save-1";
 
 type Tab = {
   id: string;
@@ -770,12 +771,14 @@ function App() {
               </button>
               {openMenu === "file" ? (
                 <div className="menu-panel" onMouseDown={(event) => event.stopPropagation()}>
+                  <button type="button" className="menu-item" onClick={() => { void saveTestFile(); closeMenus(); }}>
+                    <span>テスト保存</span>
+                    <span className="menu-shortcut">Debug</span>
+                  </button>
+                  <div className="menu-divider" />
                   <button type="button" className="menu-item" onClick={() => { addTab(); closeMenus(); }}>
                     <span>新しいタブ</span>
                     <span className="menu-shortcut">Ctrl+N</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={() => { void saveTestFile(); closeMenus(); }}>
-                    <span>テスト保存</span>
                   </button>
                   <button type="button" className="menu-item disabled" aria-disabled="true">
                     <span>新しいウィンドウ</span>
@@ -962,6 +965,7 @@ function App() {
         <span className="bottom-item">{lineEndingLabel}</span>
         <span className="bottom-item">UTF-8</span>
         <span className="bottom-item">{status ?? "Ready"}</span>
+        <span className="bottom-item">Build {BUILD_MARKER}</span>
         <span className="bottom-item">
           <span className="bottom-label">Top: </span>
           <span className="bottom-value">{alwaysOnTop ? "ON" : "OFF"}</span>
