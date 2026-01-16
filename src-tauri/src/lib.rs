@@ -111,12 +111,13 @@ fn save_text_file_dialog(
     let was_on_top = window
         .is_always_on_top()
         .map_err(|e| format!("is_always_on_top failed: {e}"))?;
+    let window_clone = window.clone();
     window.run_on_main_thread(move || {
         if was_on_top {
-            let _ = window.set_always_on_top(false);
+            let _ = window_clone.set_always_on_top(false);
         }
-        let _ = window.set_focus();
-        let _ = window.show();
+        let _ = window_clone.set_focus();
+        let _ = window_clone.show();
         let mut dialog = rfd::FileDialog::new();
         if let Some(name) = default_name {
             dialog = dialog.set_file_name(&name);
@@ -125,7 +126,7 @@ fn save_text_file_dialog(
             .save_file()
             .map(|path| path.to_string_lossy().into_owned());
         if was_on_top {
-            let _ = window.set_always_on_top(true);
+            let _ = window_clone.set_always_on_top(true);
         }
         let _ = tx.send(result);
     })
