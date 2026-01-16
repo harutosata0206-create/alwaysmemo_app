@@ -148,7 +148,7 @@ function App() {
         });
       }
       if (!resolvedPath) {
-        setStatus("Save canceled");
+        setStatus("Save dialog returned no path");
         return;
       }
       setStatus("Saving...");
