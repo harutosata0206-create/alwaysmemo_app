@@ -200,6 +200,19 @@ function App() {
     }
   }, [activeTab, closeMenus, persistState, saveActiveTabAs, tabs]);
 
+  const saveTestFile = useCallback(async () => {
+    try {
+      const path = await invoke<string>("save_text_file_to_documents", {
+        filename: "alwaysmemo_test.txt",
+        contents: "alwaysmemo write test",
+      });
+      setStatus(`Test saved to ${path}`);
+    } catch (error) {
+      console.error(error);
+      setStatus(`Test save failed: ${String(error)}`);
+    }
+  }, []);
+
   const saveAllTabs = useCallback(async () => {
     const tabsWithPath = tabs.filter((tab) => tab.filePath);
     if (tabsWithPath.length === 0) {
@@ -772,6 +785,9 @@ function App() {
                   <button type="button" className="menu-item" onClick={openFilePicker}>
                     <span>開く</span>
                     <span className="menu-shortcut">Ctrl+O</span>
+                  </button>
+                  <button type="button" className="menu-item" onClick={() => { void saveTestFile(); closeMenus(); }}>
+                    <span>テスト保存</span>
                   </button>
                   <button type="button" className="menu-item disabled" aria-disabled="true">
                     <span>新着順</span>
