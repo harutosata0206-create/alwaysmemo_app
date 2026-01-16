@@ -777,29 +777,11 @@ function App() {
                     <span className="menu-shortcut">›</span>
                   </button>
                   <div className="menu-divider" />
-                  <button
-                    type="button"
-                    className="menu-item"
-                    onClick={() => {
-                      console.log("save clicked");
-                      setStatus("save clicked");
-                      void saveActiveTab();
-                    }}
-                    onPointerDown={() => console.log("save pointerdown")}
-                  >
+                  <button type="button" className="menu-item" onClick={() => void saveActiveTab()}>
                     <span>保存</span>
                     <span className="menu-shortcut">Ctrl+S</span>
                   </button>
-                  <button
-                    type="button"
-                    className="menu-item"
-                    onClick={() => {
-                      console.log("save as menu clicked");
-                      setStatus("save as clicked");
-                      void saveActiveTabAs();
-                    }}
-                    onPointerDown={() => console.log("save as pointerdown")}
-                  >
+                  <button type="button" className="menu-item" onClick={() => void saveActiveTabAs()}>
                     <span>名前を付けて保存</span>
                     <span className="menu-shortcut">Ctrl+Shift+S</span>
                   </button>

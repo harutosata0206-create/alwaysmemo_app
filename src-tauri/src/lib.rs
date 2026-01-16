@@ -104,11 +104,11 @@ fn open_text_file_dialog() -> Result<Option<OpenedFile>, String> {
 
 #[tauri::command]
 fn save_text_file_dialog(
-    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
     default_name: Option<String>,
 ) -> Result<Option<String>, String> {
     let (tx, rx) = std::sync::mpsc::channel();
-    app.run_on_main_thread(move || {
+    window.run_on_main_thread(move || {
         let mut dialog = rfd::FileDialog::new();
         if let Some(name) = default_name {
             dialog = dialog.set_file_name(&name);
