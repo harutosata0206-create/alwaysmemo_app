@@ -8,7 +8,6 @@ import "./App.css";
 const MIN_WINDOW_WIDTH = 280;
 const MIN_WINDOW_HEIGHT = 200;
 const STORAGE_KEY = "alwaysmemo-state";
-const BUILD_MARKER = "test-save-1";
 
 type Tab = {
   id: string;
@@ -200,19 +199,6 @@ function App() {
       setStatus(`Failed to save file: ${String(error)}`);
     }
   }, [activeTab, closeMenus, persistState, saveActiveTabAs, tabs]);
-
-  const saveTestFile = useCallback(async () => {
-    try {
-      const path = await invoke<string>("save_text_file_to_documents", {
-        filename: "alwaysmemo_test.txt",
-        contents: "alwaysmemo write test",
-      });
-      setStatus(`Test saved to ${path}`);
-    } catch (error) {
-      console.error(error);
-      setStatus(`Test save failed: ${String(error)}`);
-    }
-  }, []);
 
   const saveAllTabs = useCallback(async () => {
     const tabsWithPath = tabs.filter((tab) => tab.filePath);
@@ -771,11 +757,6 @@ function App() {
               </button>
               {openMenu === "file" ? (
                 <div className="menu-panel" onMouseDown={(event) => event.stopPropagation()}>
-                  <button type="button" className="menu-item" onClick={() => { void saveTestFile(); closeMenus(); }}>
-                    <span>テスト保存</span>
-                    <span className="menu-shortcut">Debug</span>
-                  </button>
-                  <div className="menu-divider" />
                   <button type="button" className="menu-item" onClick={() => { addTab(); closeMenus(); }}>
                     <span>新しいタブ</span>
                     <span className="menu-shortcut">Ctrl+N</span>
@@ -965,7 +946,6 @@ function App() {
         <span className="bottom-item">{lineEndingLabel}</span>
         <span className="bottom-item">UTF-8</span>
         <span className="bottom-item">{status ?? "Ready"}</span>
-        <span className="bottom-item">Build {BUILD_MARKER}</span>
         <span className="bottom-item">
           <span className="bottom-label">Top: </span>
           <span className="bottom-value">{alwaysOnTop ? "ON" : "OFF"}</span>
