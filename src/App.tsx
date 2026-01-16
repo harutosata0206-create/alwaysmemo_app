@@ -774,6 +774,9 @@ function App() {
                     <span>新しいタブ</span>
                     <span className="menu-shortcut">Ctrl+N</span>
                   </button>
+                  <button type="button" className="menu-item" onClick={() => { void saveTestFile(); closeMenus(); }}>
+                    <span>テスト保存</span>
+                  </button>
                   <button type="button" className="menu-item disabled" aria-disabled="true">
                     <span>新しいウィンドウ</span>
                     <span className="menu-shortcut">Ctrl+Shift+N</span>
@@ -785,9 +788,6 @@ function App() {
                   <button type="button" className="menu-item" onClick={openFilePicker}>
                     <span>開く</span>
                     <span className="menu-shortcut">Ctrl+O</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={() => { void saveTestFile(); closeMenus(); }}>
-                    <span>テスト保存</span>
                   </button>
                   <button type="button" className="menu-item disabled" aria-disabled="true">
                     <span>新着順</span>
