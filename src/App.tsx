@@ -151,7 +151,7 @@ function App() {
         setStatus("Save dialog returned no path");
         return;
       }
-      setStatus("Saving...");
+      setStatus(`Saving to ${resolvedPath}...`);
       await invoke("write_text_file", { path: resolvedPath, contents: activeTab.content });
       const nextTitle = getFileNameFromPath(resolvedPath);
       const nextTabs = tabs.map((tab) =>
@@ -170,7 +170,7 @@ function App() {
       closeMenus();
     } catch (error) {
       console.error(error);
-      setStatus("Failed to save file");
+      setStatus(`Failed to save file: ${String(error)}`);
     }
   }, [activeTab, closeMenus]);
 
@@ -181,6 +181,7 @@ function App() {
       return;
     }
     try {
+      setStatus(`Saving to ${activeTab.filePath}...`);
       await invoke("write_text_file", {
         path: activeTab.filePath,
         contents: activeTab.content,
@@ -195,7 +196,7 @@ function App() {
       closeMenus();
     } catch (error) {
       console.error(error);
-      setStatus("Failed to save file");
+      setStatus(`Failed to save file: ${String(error)}`);
     }
   }, [activeTab, closeMenus, persistState, saveActiveTabAs, tabs]);
 

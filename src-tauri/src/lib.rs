@@ -135,7 +135,7 @@ fn save_text_file_dialog(
 
 #[tauri::command]
 fn write_text_file(path: String, contents: String) -> Result<(), String> {
-    std::fs::write(&path, contents).map_err(|e| format!("write failed: {e}"))
+    std::fs::write(&path, contents).map_err(|e| format!("write failed ({path}): {e}"))
 }
 
 #[tauri::command]
