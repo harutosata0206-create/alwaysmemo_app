@@ -41,7 +41,7 @@ body {
   flex-direction: column;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
-  overflow: hidden;
+  overflow: visible;
 }
 
 html::-webkit-scrollbar,
@@ -403,23 +403,6 @@ body::-webkit-scrollbar-thumb,
   gap: 2px;
   z-index: 100;
   pointer-events: auto;
-  max-height: min(70vh, 420px);
-  overflow-y: auto;
-}
-
-.menu-panel::-webkit-scrollbar {
-  width: 8px;
-}
-
-.menu-panel::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.menu-panel::-webkit-scrollbar-thumb {
-  background-color: #e2e8f0;
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: content-box;
 }
 
 .menu-item {

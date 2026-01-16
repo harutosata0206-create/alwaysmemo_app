@@ -945,7 +945,6 @@ function App() {
         <span className="bottom-item">100%</span>
         <span className="bottom-item">{lineEndingLabel}</span>
         <span className="bottom-item">UTF-8</span>
-        <span className="bottom-item">{status ?? "Ready"}</span>
         <span className="bottom-item">
           <span className="bottom-label">Top: </span>
           <span className="bottom-value">{alwaysOnTop ? "ON" : "OFF"}</span>
