@@ -401,7 +401,8 @@ body::-webkit-scrollbar-thumb,
   display: flex;
   flex-direction: column;
   gap: 2px;
-  z-index: 40;
+  z-index: 100;
+  pointer-events: auto;
 }
 
 .menu-item {
@@ -418,6 +419,7 @@ body::-webkit-scrollbar-thumb,
   width: 100%;
   text-align: left;
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .menu-item:hover {

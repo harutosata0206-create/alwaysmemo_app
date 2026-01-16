@@ -786,8 +786,10 @@ function App() {
                     className="menu-item"
                     onClick={() => {
                       console.log("save as menu clicked");
+                      setStatus("save as clicked");
                       void saveActiveTabAs();
                     }}
+                    onPointerDown={() => console.log("save as pointerdown")}
                   >
                     <span>名前を付けて保存</span>
                     <span className="menu-shortcut">Ctrl+Shift+S</span>
