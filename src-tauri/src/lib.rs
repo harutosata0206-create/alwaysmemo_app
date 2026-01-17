@@ -138,6 +138,22 @@ fn write_text_file(path: String, contents: String) -> Result<(), String> {
     std::fs::write(&path, contents).map_err(|e| format!("write failed ({path}): {e}"))
 }
 
+#[tauri::command]
+fn create_new_window(app: tauri::AppHandle, label: String, width: f64, height: f64) -> Result<(), String> {
+    tauri::WebviewWindowBuilder::new(
+        &app,
+        label,
+        tauri::WebviewUrl::App("/".into()),
+    )
+    .title("alwaysmemo")
+    .decorations(false)
+    .resizable(true)
+    .inner_size(width, height)
+    .build()
+    .map(|_| ())
+    .map_err(|e| format!("create window failed: {e}"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -153,7 +169,8 @@ pub fn run() {
             snap_right,
             open_text_file_dialog,
             save_text_file_dialog,
-            write_text_file
+            write_text_file,
+            create_new_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

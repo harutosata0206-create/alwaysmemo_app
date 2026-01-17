@@ -3,7 +3,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { confirm, save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 280;
@@ -244,14 +243,10 @@ function App() {
     try {
       const size = await windowHandle.outerSize();
       const label = `alwaysmemo-${crypto.randomUUID()}`;
-      new WebviewWindow(label, {
+      await invoke("create_new_window", {
         label,
-        url: "/",
         width: size.width,
         height: size.height,
-        decorations: false,
-        resizable: true,
-        title: "alwaysmemo",
       });
       closeMenus();
     } catch (error) {
