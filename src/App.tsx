@@ -56,6 +56,11 @@ function App() {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
   const activeContent = activeTab?.content ?? "";
+  const storageKey = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    const instance = params.get("instance");
+    return instance ? `${STORAGE_KEY}-${instance}` : STORAGE_KEY;
+  }, []);
 
   const cursorPosition = useMemo(() => {
     const safeIndex = Math.min(cursorIndex, activeContent.length);
@@ -85,9 +90,9 @@ function App() {
         snap,
         useGlobalShortcuts,
       };
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      window.localStorage.setItem(storageKey, JSON.stringify(state));
     },
-    [activeTabId, alwaysOnTop, snap, useGlobalShortcuts],
+    [activeTabId, alwaysOnTop, snap, storageKey, useGlobalShortcuts],
   );
 
   const closeMenus = useCallback(() => setOpenMenu(null), []);
@@ -245,7 +250,7 @@ function App() {
       const size = await windowHandle.outerSize();
       const label = `alwaysmemo-${crypto.randomUUID()}`;
       new WebviewWindow(label, {
-        url: "/",
+        url: `/?instance=${label}`,
         width: size.width,
         height: size.height,
         decorations: false,
@@ -396,7 +401,7 @@ function App() {
       try {
         const current = await invoke<boolean>("get_always_on_top");
         setAlwaysOnTopState(current);
-        const stored = window.localStorage.getItem(STORAGE_KEY);
+        const stored = window.localStorage.getItem(storageKey);
         if (stored) {
           const parsed = JSON.parse(stored) as PersistedState;
           const restoredTabs = parsed.tabs.length
