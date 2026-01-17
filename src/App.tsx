@@ -126,11 +126,11 @@ function App() {
   const saveActiveTabAs = useCallback(async () => {
     if (!activeTab) return;
     try {
-      console.log("save as clicked");
       setStatus("Opening save dialog...");
       const suggested = activeTab.title.trim() || "memo.txt";
       const defaultPath = suggested.includes(".") ? suggested : `${suggested}.txt`;
       let resolvedPath: string | null = null;
+      let dialogFailed = false;
       try {
         const picked = await save({
           defaultPath,
@@ -144,8 +144,9 @@ function App() {
               : null;
       } catch (error) {
         console.error("dialog plugin save failed", error);
+        dialogFailed = true;
       }
-      if (!resolvedPath) {
+      if (!resolvedPath && dialogFailed) {
         resolvedPath = await invoke<string | null>("save_text_file_dialog", {
           default_name: defaultPath,
         });
