@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
-import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize, PhysicalSize } from "@tauri-apps/api/window";
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 280;
@@ -49,7 +49,7 @@ function App() {
   const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
-  const originalWindowSizeRef = useRef<LogicalSize | null>(null);
+  const originalWindowSizeRef = useRef<PhysicalSize | null>(null);
   const expandedWindowRef = useRef(false);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
@@ -553,19 +553,25 @@ function App() {
       const panel = fileMenuRef.current;
       if (!panel) return;
       const rect = panel.getBoundingClientRect();
-      const overflow = rect.bottom - window.innerHeight;
-      if (overflow <= 0) return;
+      const overflowCss = rect.bottom - window.innerHeight;
+      if (overflowCss <= 0) return;
 
       try {
-        const current = await windowHandle.outerSize();
+        const [current, scale] = await Promise.all([
+          windowHandle.outerSize(),
+          windowHandle.scaleFactor(),
+        ]);
         if (!originalWindowSizeRef.current) {
-          originalWindowSizeRef.current = new LogicalSize(current.width, current.height);
+          originalWindowSizeRef.current = new PhysicalSize(current.width, current.height);
         }
-        const maxHeight = window.screen?.availHeight ?? current.height;
-        const nextHeight = Math.min(current.height + overflow + 8, maxHeight);
-        if (nextHeight > current.height) {
+        const base = originalWindowSizeRef.current ?? current;
+        const overflowPhysical = Math.ceil(overflowCss * scale);
+        const maxHeight = (window.screen?.availHeight ?? window.innerHeight) * scale;
+        const nextHeight = Math.min(base.height + overflowPhysical + 8, maxHeight);
+
+        if (nextHeight > base.height) {
           expandedWindowRef.current = true;
-          await windowHandle.setSize(new LogicalSize(current.width, nextHeight));
+          await windowHandle.setSize(new PhysicalSize(base.width, nextHeight));
         }
       } catch (error) {
         console.error("Failed to expand window for menu", error);
