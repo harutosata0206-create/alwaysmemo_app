@@ -147,23 +147,11 @@ body::-webkit-scrollbar-thumb,
   overflow-x: auto;
   overflow-y: hidden;
   max-width: 100%;
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-width: none;
 }
 
 .tabs::-webkit-scrollbar {
-  height: 5px;
-}
-
-.tabs::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.tabs::-webkit-scrollbar-thumb {
-  background-color: #e2e8f0;
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: content-box;
+  height: 0;
 }
 
 .tab-scroll-button {
