@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm, save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
-import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import { WebviewWindow, getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 280;
@@ -238,6 +238,25 @@ function App() {
     void removeTab(activeTab.id);
     closeMenus();
   }, [activeTab, closeMenus]);
+
+  const openNewWindow = useCallback(async () => {
+    try {
+      const size = await windowHandle.outerSize();
+      const label = `alwaysmemo-${crypto.randomUUID()}`;
+      new WebviewWindow(label, {
+        url: "/",
+        width: size.width,
+        height: size.height,
+        decorations: false,
+        resizable: true,
+        title: "alwaysmemo",
+      });
+      closeMenus();
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to open new window");
+    }
+  }, [closeMenus, windowHandle]);
 
   const setAlwaysOnTop = useCallback(
     async (value: boolean) => {
@@ -824,7 +843,7 @@ function App() {
                     <span>新しいタブ</span>
                     <span className="menu-shortcut">Ctrl+N</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={() => void openNewWindow()}>
                     <span>新しいウィンドウ</span>
                     <span className="menu-shortcut">Ctrl+Shift+N</span>
                   </button>
