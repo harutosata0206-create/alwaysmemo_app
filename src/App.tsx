@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm, save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
-import { WebviewWindow, getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 280;
@@ -243,7 +243,8 @@ function App() {
     try {
       const size = await windowHandle.outerSize();
       const label = `alwaysmemo-${crypto.randomUUID()}`;
-      new WebviewWindow(label, {
+      await windowHandle.createWindow({
+        label,
         url: "/",
         width: size.width,
         height: size.height,
