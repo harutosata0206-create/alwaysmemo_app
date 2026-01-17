@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
+import { confirm, save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
@@ -234,7 +234,7 @@ function App() {
 
   const closeActiveTab = useCallback(() => {
     if (!activeTab) return;
-    removeTab(activeTab.id);
+    void removeTab(activeTab.id);
     closeMenus();
   }, [activeTab, closeMenus]);
 
@@ -588,10 +588,17 @@ function App() {
     setActiveTabId(id);
   };
 
-  const removeTab = (id: string) => {
+  const removeTab = async (id: string) => {
     const tab = tabs.find((t) => t.id === id);
     if (!tab) return;
-    if (!window.confirm(`「${tab.title}」を削除しますか？`)) return;
+    let confirmed = false;
+    try {
+      confirmed = await confirm(`「${tab.title}」を削除しますか？`);
+    } catch (error) {
+      console.error("confirm dialog failed", error);
+      confirmed = window.confirm(`「${tab.title}」を削除しますか？`);
+    }
+    if (!confirmed) return;
     setTabs((prev) => {
       const nextTabs = prev.filter((t) => t.id !== id);
       if (nextTabs.length === 0) {
@@ -722,7 +729,7 @@ function App() {
                       className={`tab-close ${isTabDirty(tab) ? "dirty" : ""}`}
                       onClick={(event) => {
                         event.stopPropagation();
-                        removeTab(tab.id);
+                        void removeTab(tab.id);
                       }}
                       data-tauri-drag-region="false"
                       aria-label={isTabDirty(tab) ? "Unsaved" : "Close"}
