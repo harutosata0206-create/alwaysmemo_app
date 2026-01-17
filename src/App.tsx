@@ -591,14 +591,16 @@ function App() {
   const removeTab = async (id: string) => {
     const tab = tabs.find((t) => t.id === id);
     if (!tab) return;
-    let confirmed = false;
-    try {
-      confirmed = await confirm(`「${tab.title}」を削除しますか？`);
-    } catch (error) {
-      console.error("confirm dialog failed", error);
-      confirmed = window.confirm(`「${tab.title}」を削除しますか？`);
+    if (isTabDirty(tab)) {
+      let confirmed = false;
+      try {
+        confirmed = await confirm(`「${tab.title}」を削除しますか？`);
+      } catch (error) {
+        console.error("confirm dialog failed", error);
+        confirmed = window.confirm(`「${tab.title}」を削除しますか？`);
+      }
+      if (!confirmed) return;
     }
-    if (!confirmed) return;
     setTabs((prev) => {
       const nextTabs = prev.filter((t) => t.id !== id);
       if (nextTabs.length === 0) {
