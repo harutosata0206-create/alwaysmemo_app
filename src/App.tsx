@@ -48,6 +48,9 @@ function App() {
   const [, setSavedVersion] = useState(0);
   const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const fileMenuRef = useRef<HTMLDivElement | null>(null);
+  const originalWindowSizeRef = useRef<LogicalSize | null>(null);
+  const expandedWindowRef = useRef(false);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
@@ -536,6 +539,42 @@ function App() {
     };
   }, [shortcutActions, useGlobalShortcuts]);
 
+  useEffect(() => {
+    if (openMenu !== "file") {
+      if (expandedWindowRef.current && originalWindowSizeRef.current) {
+        void windowHandle.setSize(originalWindowSizeRef.current);
+        expandedWindowRef.current = false;
+        originalWindowSizeRef.current = null;
+      }
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(async () => {
+      const panel = fileMenuRef.current;
+      if (!panel) return;
+      const rect = panel.getBoundingClientRect();
+      const overflow = rect.bottom - window.innerHeight;
+      if (overflow <= 0) return;
+
+      try {
+        const current = await windowHandle.outerSize();
+        if (!originalWindowSizeRef.current) {
+          originalWindowSizeRef.current = new LogicalSize(current.width, current.height);
+        }
+        const maxHeight = window.screen?.availHeight ?? current.height;
+        const nextHeight = Math.min(current.height + overflow + 8, maxHeight);
+        if (nextHeight > current.height) {
+          expandedWindowRef.current = true;
+          await windowHandle.setSize(new LogicalSize(current.width, nextHeight));
+        }
+      } catch (error) {
+        console.error("Failed to expand window for menu", error);
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [openMenu, windowHandle]);
+
   const addTab = () => {
     const id = crypto.randomUUID();
     const newTab: Tab = { id, title: `メモ ${tabs.length + 1}`, content: "" };
@@ -756,7 +795,11 @@ function App() {
                 ファイル
               </button>
               {openMenu === "file" ? (
-                <div className="menu-panel" onMouseDown={(event) => event.stopPropagation()}>
+                <div
+                  className="menu-panel"
+                  ref={fileMenuRef}
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
                   <button type="button" className="menu-item" onClick={() => { addTab(); closeMenus(); }}>
                     <span>新しいタブ</span>
                     <span className="menu-shortcut">Ctrl+N</span>
