@@ -584,6 +584,10 @@ function App() {
   const addTab = () => {
     const id = crypto.randomUUID();
     const newTab: Tab = { id, title: `メモ ${tabs.length + 1}`, content: "" };
+    savedTabsRef.current = {
+      ...savedTabsRef.current,
+      [id]: { title: newTab.title, content: newTab.content },
+    };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(id);
   };
