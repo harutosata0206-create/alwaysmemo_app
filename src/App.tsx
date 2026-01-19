@@ -1188,9 +1188,6 @@ function App() {
             <button type="button" className="chip" onClick={toggleBold} aria-label="Bold">
               B
             </button>
-            <button type="button" className="chip italic" onClick={toggleItalic} aria-label="Italic">
-              I
-            </button>
             <button
               type="button"
               className="chip"

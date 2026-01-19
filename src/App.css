@@ -498,10 +498,6 @@ body::-webkit-scrollbar-thumb,
   line-height: 1;
 }
 
-.chip.italic {
-  font-style: italic;
-  font-family: "Times New Roman", "Times", "Georgia", serif;
-}
 
 .format-menu {
   position: absolute;
