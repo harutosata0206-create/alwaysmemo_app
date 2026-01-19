@@ -656,6 +656,50 @@ function App() {
     );
   };
 
+  const toggleBold = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea || !activeTab) return;
+    const value = textarea.value ?? "";
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? 0;
+    const hasSelection = start !== end;
+
+    if (!hasSelection) {
+      const next = `${value.slice(0, start)}****${value.slice(end)}`;
+      updateContent(next);
+      const caret = start + 2;
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(caret, caret);
+      });
+      setCursorIndex(caret);
+      return;
+    }
+
+    const hasWrapper =
+      start >= 2 &&
+      value.slice(start - 2, start) === "**" &&
+      value.slice(end, end + 2) === "**";
+    let next = value;
+    let nextStart = start;
+    let nextEnd = end;
+    if (hasWrapper) {
+      next = `${value.slice(0, start - 2)}${value.slice(start, end)}${value.slice(end + 2)}`;
+      nextStart = start - 2;
+      nextEnd = end - 2;
+    } else {
+      next = `${value.slice(0, start)}**${value.slice(start, end)}**${value.slice(end)}`;
+      nextStart = start + 2;
+      nextEnd = end + 2;
+    }
+    updateContent(next);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(nextStart, nextEnd);
+    });
+    setCursorIndex(nextEnd);
+  }, [activeTab, updateContent]);
+
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
     setTabs((prev) => {
@@ -988,7 +1032,7 @@ function App() {
             <button type="button" className="chip">
               ≡
             </button>
-            <button type="button" className="chip">
+            <button type="button" className="chip" onClick={toggleBold} aria-label="Bold">
               B
             </button>
             <button type="button" className="chip">
