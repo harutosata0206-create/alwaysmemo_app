@@ -40,7 +40,7 @@ function App() {
   const [snap, setSnap] = useState<SnapPosition>(null);
   const toggleLockRef = useRef(0);
   const tabsScrollerRef = useRef<HTMLDivElement | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const editorRef = useRef<HTMLDivElement | null>(null);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [showTabArrows, setShowTabArrows] = useState(false);
   const [cursorIndex, setCursorIndex] = useState(0);
@@ -55,7 +55,12 @@ function App() {
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
-  const activeContent = activeTab?.content ?? "";
+  const activeHtml = activeTab?.content ?? "";
+  const activePlainText = useMemo(() => {
+    const div = document.createElement("div");
+    div.innerHTML = activeHtml;
+    return div.innerText.replace(/\u00a0/g, " ");
+  }, [activeHtml]);
   const storageKey = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     const instance = params.get("instance");
@@ -63,22 +68,33 @@ function App() {
   }, []);
 
   const cursorPosition = useMemo(() => {
-    const safeIndex = Math.min(cursorIndex, activeContent.length);
-    const before = activeContent.slice(0, safeIndex);
+    const safeIndex = Math.min(cursorIndex, activePlainText.length);
+    const before = activePlainText.slice(0, safeIndex);
     const lines = before.split(/\r?\n/);
     return {
       line: Math.max(lines.length, 1),
       column: (lines[lines.length - 1]?.length ?? 0) + 1,
     };
-  }, [activeContent, cursorIndex]);
+  }, [activePlainText, cursorIndex]);
 
   const lineEndingLabel = useMemo(() => {
-    if (activeContent.includes("\r\n")) return "Windows (CRLF)";
+    if (activePlainText.includes("\r\n")) return "Windows (CRLF)";
     return "LF";
-  }, [activeContent]);
+  }, [activePlainText]);
 
-  const updateCursorIndex = useCallback((event: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    setCursorIndex(event.currentTarget.selectionStart ?? 0);
+  const updateCursorIndex = useCallback(() => {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) {
+      setCursorIndex(0);
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.startContainer)) return;
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(editor);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    setCursorIndex(preRange.toString().length);
   }, []);
 
   const persistState = useCallback(
@@ -97,6 +113,26 @@ function App() {
 
   const closeMenus = useCallback(() => setOpenMenu(null), []);
 
+  const textToHtml = useCallback((text: string) => {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML.replace(/\n/g, "<br>");
+  }, []);
+
+  const normalizeHtml = useCallback(
+    (content: string) => {
+      if (/<[^>]+>/.test(content)) return content;
+      return textToHtml(content);
+    },
+    [textToHtml],
+  );
+
+  const htmlToText = useCallback((html: string) => {
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    return div.innerText.replace(/\u00a0/g, " ");
+  }, []);
+
   const getFileNameFromPath = (path: string) => {
     const normalized = path.replace(/\\/g, "/");
     return normalized.split("/").pop() || path;
@@ -110,13 +146,14 @@ function App() {
       if (!opened) return;
       const id = crypto.randomUUID();
       const title = getFileNameFromPath(opened.path) || `メモ ${tabs.length + 1}`;
+      const content = textToHtml(opened.contents);
       savedTabsRef.current = {
         ...savedTabsRef.current,
-        [id]: { title, content: opened.contents },
+        [id]: { title, content },
       };
       setSavedVersion((prev) => prev + 1);
       setTabs((prev) => {
-        const next = [...prev, { id, title, content: opened.contents, filePath: opened.path }];
+        const next = [...prev, { id, title, content, filePath: opened.path }];
         persistState(next, id);
         return next;
       });
@@ -127,7 +164,7 @@ function App() {
       console.error(error);
       setStatus("Failed to open file");
     }
-  }, [closeMenus, persistState, tabs]);
+  }, [closeMenus, persistState, tabs, textToHtml]);
 
   const saveActiveTabAs = useCallback(async () => {
     if (!activeTab) return;
@@ -162,7 +199,10 @@ function App() {
         return;
       }
       setStatus(`Saving to ${resolvedPath}...`);
-      await invoke("write_text_file", { path: resolvedPath, contents: activeTab.content });
+      await invoke("write_text_file", {
+        path: resolvedPath,
+        contents: htmlToText(activeTab.content),
+      });
       const nextTitle = getFileNameFromPath(resolvedPath);
       const nextTabs = tabs.map((tab) =>
         tab.id === activeTab.id
@@ -182,7 +222,7 @@ function App() {
       console.error(error);
       setStatus(`Failed to save file: ${String(error)}`);
     }
-  }, [activeTab, closeMenus]);
+  }, [activeTab, closeMenus, getFileNameFromPath, htmlToText, persistState, tabs]);
 
   const saveActiveTab = useCallback(async () => {
     if (!activeTab) return;
@@ -194,7 +234,7 @@ function App() {
       setStatus(`Saving to ${activeTab.filePath}...`);
       await invoke("write_text_file", {
         path: activeTab.filePath,
-        contents: activeTab.content,
+        contents: htmlToText(activeTab.content),
       });
       savedTabsRef.current = {
         ...savedTabsRef.current,
@@ -208,7 +248,7 @@ function App() {
       console.error(error);
       setStatus(`Failed to save file: ${String(error)}`);
     }
-  }, [activeTab, closeMenus, persistState, saveActiveTabAs, tabs]);
+  }, [activeTab, closeMenus, htmlToText, persistState, saveActiveTabAs, tabs]);
 
   const saveAllTabs = useCallback(async () => {
     const tabsWithPath = tabs.filter((tab) => tab.filePath);
@@ -220,7 +260,7 @@ function App() {
     try {
       await Promise.all(
         tabsWithPath.map((tab) =>
-          invoke("write_text_file", { path: tab.filePath, contents: tab.content }),
+          invoke("write_text_file", { path: tab.filePath, contents: htmlToText(tab.content) }),
         ),
       );
       savedTabsRef.current = {
@@ -237,7 +277,7 @@ function App() {
       console.error(error);
       setStatus("Failed to save all");
     }
-  }, [closeMenus, persistState, tabs]);
+  }, [closeMenus, htmlToText, persistState, tabs]);
 
   const closeActiveTab = useCallback(() => {
     if (!activeTab) return;
@@ -325,14 +365,14 @@ function App() {
   }, [windowHandle]);
 
   const resizeToFitContent = useCallback(async () => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
+    const editor = editorRef.current;
+    if (!editor) return;
     try {
       const maxWidth = window.screen?.availWidth ?? window.innerWidth;
       const maxHeight = window.screen?.availHeight ?? window.innerHeight;
-      const computed = window.getComputedStyle(textarea);
+      const computed = window.getComputedStyle(editor);
       const font = `${computed.fontStyle} ${computed.fontVariant} ${computed.fontWeight} ${computed.fontSize} / ${computed.lineHeight} ${computed.fontFamily}`;
-      const lines = (textarea.value ?? "").split(/\r?\n/);
+      const lines = (editor.innerText ?? "").split(/\r?\n/);
       const lineCount = Math.max(lines.length, 1);
       const fontSize = parseFloat(computed.fontSize) || 14;
       const lineHeightValue =
@@ -349,7 +389,7 @@ function App() {
             ctx.font = font;
             return Math.max(max, ctx.measureText(line || " ").width);
           }, 0)
-        : textarea.scrollWidth;
+        : editor.scrollWidth;
 
       const paddingX =
         parseFloat(computed.paddingLeft) + parseFloat(computed.paddingRight);
@@ -363,8 +403,8 @@ function App() {
       const targetTextWidth = Math.ceil(maxLineWidth + paddingX + borderX + 2);
       const targetTextHeight = Math.ceil(lineCount * lineHeightValue + paddingY + borderY + 2);
 
-      const chromeWidth = window.innerWidth - textarea.clientWidth;
-      const chromeHeight = window.innerHeight - textarea.clientHeight;
+      const chromeWidth = window.innerWidth - editor.clientWidth;
+      const chromeHeight = window.innerHeight - editor.clientHeight;
 
       const nextWidth = Math.max(
         MIN_WINDOW_WIDTH,
@@ -404,9 +444,13 @@ function App() {
         const stored = window.localStorage.getItem(storageKey);
         if (stored) {
           const parsed = JSON.parse(stored) as PersistedState;
-          const restoredTabs = parsed.tabs.length
+          const restoredTabs = (parsed.tabs.length
             ? parsed.tabs
-            : [{ id: "initial", title: "タイトルなし", content: "" }];
+            : [{ id: "initial", title: "タイトルなし", content: "" }]
+          ).map((tab) => ({
+            ...tab,
+            content: normalizeHtml(tab.content),
+          }));
           savedTabsRef.current = Object.fromEntries(
             restoredTabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
           );
@@ -439,6 +483,14 @@ function App() {
     };
     void initState();
   }, []);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    if (editor.innerHTML !== activeHtml) {
+      editor.innerHTML = activeHtml;
+    }
+  }, [activeHtml, activeTabId]);
 
   useEffect(() => {
     const scroller = tabsScrollerRef.current;
@@ -649,56 +701,21 @@ function App() {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
   };
 
-  const updateContent = (content: string) => {
+  const updateContent = useCallback((content: string) => {
     if (!activeTab) return;
     setTabs((prev) =>
       prev.map((t) => (t.id === activeTab.id ? { ...t, content } : t)),
     );
-  };
+  }, [activeTab]);
 
   const toggleBold = useCallback(() => {
-    const textarea = textareaRef.current;
-    if (!textarea || !activeTab) return;
-    const value = textarea.value ?? "";
-    const start = textarea.selectionStart ?? 0;
-    const end = textarea.selectionEnd ?? 0;
-    const hasSelection = start !== end;
-
-    if (!hasSelection) {
-      const next = `${value.slice(0, start)}****${value.slice(end)}`;
-      updateContent(next);
-      const caret = start + 2;
-      requestAnimationFrame(() => {
-        textarea.focus();
-        textarea.setSelectionRange(caret, caret);
-      });
-      setCursorIndex(caret);
-      return;
-    }
-
-    const hasWrapper =
-      start >= 2 &&
-      value.slice(start - 2, start) === "**" &&
-      value.slice(end, end + 2) === "**";
-    let next = value;
-    let nextStart = start;
-    let nextEnd = end;
-    if (hasWrapper) {
-      next = `${value.slice(0, start - 2)}${value.slice(start, end)}${value.slice(end + 2)}`;
-      nextStart = start - 2;
-      nextEnd = end - 2;
-    } else {
-      next = `${value.slice(0, start)}**${value.slice(start, end)}**${value.slice(end)}`;
-      nextStart = start + 2;
-      nextEnd = end + 2;
-    }
-    updateContent(next);
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(nextStart, nextEnd);
-    });
-    setCursorIndex(nextEnd);
-  }, [activeTab, updateContent]);
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand("bold");
+    updateContent(editor.innerHTML);
+    updateCursorIndex();
+  }, [updateContent, updateCursorIndex]);
 
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
@@ -738,7 +755,7 @@ function App() {
 
   const getTabLabel = (tab: Tab) => {
     if (!DEFAULT_TITLE_REGEX.test(tab.title)) return tab.title;
-    const trimmed = tab.content.trimStart();
+    const trimmed = htmlToText(tab.content).trimStart();
     if (!trimmed) return tab.title;
     const firstLine = trimmed.split(/\r?\n/)[0] ?? "";
     const maxLength = 20;
@@ -1055,24 +1072,26 @@ function App() {
           <div className="editor-header">
           </div>
 
-          <textarea
-            ref={textareaRef}
-            value={activeTab?.content ?? ""}
-            onChange={(event) => {
-              updateContent(event.target.value);
-              updateCursorIndex(event);
+          <div
+            ref={editorRef}
+            className="editor-body"
+            contentEditable
+            suppressContentEditableWarning
+            data-placeholder="ここにメモを書く"
+            onInput={(event) => {
+              updateContent(event.currentTarget.innerHTML);
+              updateCursorIndex();
             }}
-            onSelect={updateCursorIndex}
             onKeyUp={updateCursorIndex}
+            onMouseUp={updateCursorIndex}
             onClick={updateCursorIndex}
-            placeholder="ここにメモを書く"
           />
         </div>
       </section>
 
       <div className="bottom-bar">
         <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
-        <span className="bottom-item">{activeContent.length} 文字</span>
+        <span className="bottom-item">{activePlainText.length} 文字</span>
         <span className="bottom-item">テキスト</span>
         <span className="bottom-item">100%</span>
         <span className="bottom-item">{lineEndingLabel}</span>

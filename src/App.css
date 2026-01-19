@@ -566,7 +566,7 @@ body::-webkit-scrollbar-thumb,
   gap: 12px;
 }
 
-textarea {
+.editor-body {
   width: 100%;
   min-height: 0;
   height: 100%;
@@ -582,17 +582,25 @@ textarea {
   background: #ffffff;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
+  white-space: pre-wrap;
+  word-break: break-word;
+  outline: none;
 }
 
-textarea::-webkit-scrollbar {
+.editor-body:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+}
+
+.editor-body::-webkit-scrollbar {
   width: 8px;
 }
 
-textarea::-webkit-scrollbar-track {
+.editor-body::-webkit-scrollbar-track {
   background: transparent;
 }
 
-textarea::-webkit-scrollbar-thumb {
+.editor-body::-webkit-scrollbar-thumb {
   background-color: #cbd5e1;
   border-radius: 999px;
   border: 2px solid transparent;
