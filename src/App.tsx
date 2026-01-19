@@ -51,6 +51,8 @@ function App() {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
   const [showFormatMenu, setShowFormatMenu] = useState(false);
+  const [showTablePicker, setShowTablePicker] = useState(false);
+  const [tableHover, setTableHover] = useState({ rows: 0, cols: 0 });
   const originalWindowSizeRef = useRef<LogicalSize | null>(null);
   const expandedWindowRef = useRef(false);
 
@@ -113,7 +115,10 @@ function App() {
   );
 
   const closeMenus = useCallback(() => setOpenMenu(null), []);
-  const closeFormatMenu = useCallback(() => setShowFormatMenu(false), []);
+  const closeFormatMenu = useCallback(() => {
+    setShowFormatMenu(false);
+    setShowTablePicker(false);
+  }, []);
 
   const textToHtml = useCallback((text: string) => {
     const div = document.createElement("div");
@@ -833,16 +838,26 @@ function App() {
     updateCursorIndex();
   }, [updateContent, updateCursorIndex]);
 
-  const insertTable = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    editor.focus();
-    const tableHtml =
-      "<table><tbody><tr><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td></tr></tbody></table>";
-    document.execCommand("insertHTML", false, tableHtml);
-    updateContent(editor.innerHTML);
-    updateCursorIndex();
-  }, [updateContent, updateCursorIndex]);
+  const insertTableWithSize = useCallback(
+    (rows: number, cols: number) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.focus();
+      const body = Array.from({ length: rows })
+        .map(
+          () =>
+            `<tr>${Array.from({ length: cols })
+              .map(() => "<td>&nbsp;</td>")
+              .join("")}</tr>`,
+        )
+        .join("");
+      const tableHtml = `<table class="memo-table"><tbody>${body}</tbody></table>`;
+      document.execCommand("insertHTML", false, tableHtml);
+      updateContent(editor.innerHTML);
+      updateCursorIndex();
+    },
+    [updateContent, updateCursorIndex],
+  );
 
   const clearFormatting = useCallback(() => {
     const editor = editorRef.current;
@@ -1198,9 +1213,45 @@ function App() {
             </button>
             {showFormatMenu ? (
               <div className="format-menu">
-                <button type="button" className="format-item" onClick={() => { insertTable(); closeFormatMenu(); }}>
+                <button
+                  type="button"
+                  className="format-item"
+                  onClick={() => setShowTablePicker((prev) => !prev)}
+                >
                   テーブルの作成
                 </button>
+                {showTablePicker ? (
+                  <div className="table-picker">
+                    <div className="table-picker-grid">
+                      {Array.from({ length: 6 }).map((_, rowIndex) =>
+                        Array.from({ length: 6 }).map((__, colIndex) => {
+                          const rows = rowIndex + 1;
+                          const cols = colIndex + 1;
+                          const active =
+                            rows <= tableHover.rows && cols <= tableHover.cols;
+                          return (
+                            <button
+                              key={`${rows}-${cols}`}
+                              type="button"
+                              className={`table-cell ${active ? "active" : ""}`}
+                              onMouseEnter={() => setTableHover({ rows, cols })}
+                              onFocus={() => setTableHover({ rows, cols })}
+                              onClick={() => {
+                                insertTableWithSize(rows, cols);
+                                setShowTablePicker(false);
+                                closeFormatMenu();
+                              }}
+                              aria-label={`${rows} x ${cols}`}
+                            />
+                          );
+                        }),
+                      )}
+                    </div>
+                    <div className="table-picker-label">
+                      {tableHover.rows} x {tableHover.cols}
+                    </div>
+                  </div>
+                ) : null}
                 <button type="button" className="format-item" onClick={() => { insertLink(); closeFormatMenu(); }}>
                   リンクの貼り付け
                 </button>
