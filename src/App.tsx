@@ -50,6 +50,8 @@ function App() {
   const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
+  const [showFormatMenu, setShowFormatMenu] = useState(false);
+  const formatMenuRef = useRef<HTMLDivElement | null>(null);
   const originalWindowSizeRef = useRef<LogicalSize | null>(null);
   const expandedWindowRef = useRef(false);
 
@@ -112,6 +114,7 @@ function App() {
   );
 
   const closeMenus = useCallback(() => setOpenMenu(null), []);
+  const closeFormatMenu = useCallback(() => setShowFormatMenu(false), []);
 
   const textToHtml = useCallback((text: string) => {
     const div = document.createElement("div");
@@ -654,6 +657,16 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (!formatMenuRef.current) return;
+      if (formatMenuRef.current.contains(event.target as Node)) return;
+      setShowFormatMenu(false);
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
     const registerGlobalShortcuts = async () => {
       const attemptRegister = async () => {
         await Promise.all(
@@ -797,6 +810,46 @@ function App() {
     if (!editor) return;
     editor.focus();
     document.execCommand("bold");
+    updateContent(editor.innerHTML);
+    updateCursorIndex();
+  }, [updateContent, updateCursorIndex]);
+
+  const toggleItalic = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand("italic");
+    updateContent(editor.innerHTML);
+    updateCursorIndex();
+  }, [updateContent, updateCursorIndex]);
+
+  const insertLink = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const url = window.prompt("リンク先URLを入力");
+    if (!url) return;
+    editor.focus();
+    document.execCommand("createLink", false, url);
+    updateContent(editor.innerHTML);
+    updateCursorIndex();
+  }, [updateContent, updateCursorIndex]);
+
+  const insertTable = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    const tableHtml =
+      "<table><tbody><tr><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td></tr></tbody></table>";
+    document.execCommand("insertHTML", false, tableHtml);
+    updateContent(editor.innerHTML);
+    updateCursorIndex();
+  }, [updateContent, updateCursorIndex]);
+
+  const clearFormatting = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand("removeFormat");
     updateContent(editor.innerHTML);
     updateCursorIndex();
   }, [updateContent, updateCursorIndex]);
@@ -1126,7 +1179,7 @@ function App() {
           <button type="button" className="icon-button overflow" aria-label="More">
             ⋯
           </button>
-          <div className="format-group">
+          <div className="format-group" ref={formatMenuRef}>
             <button type="button" className="chip">
               H1
             </button>
@@ -1136,9 +1189,30 @@ function App() {
             <button type="button" className="chip" onClick={toggleBold} aria-label="Bold">
               B
             </button>
-            <button type="button" className="chip">
+            <button
+              type="button"
+              className="chip"
+              onClick={() => setShowFormatMenu((prev) => !prev)}
+              aria-label="More formatting"
+            >
               …
             </button>
+            {showFormatMenu ? (
+              <div className="format-menu">
+                <button type="button" className="format-item" onClick={() => { insertTable(); closeFormatMenu(); }}>
+                  テーブルの作成
+                </button>
+                <button type="button" className="format-item" onClick={() => { insertLink(); closeFormatMenu(); }}>
+                  リンクの貼り付け
+                </button>
+                <button type="button" className="format-item" onClick={() => { toggleItalic(); closeFormatMenu(); }}>
+                  斜体
+                </button>
+                <button type="button" className="format-item" onClick={() => { clearFormatting(); closeFormatMenu(); }}>
+                  書式設定のクリア
+                </button>
+              </div>
+            ) : null}
           </div>
           <div className="right-group">
             <button type="button" className="icon-button account" aria-label="Account">

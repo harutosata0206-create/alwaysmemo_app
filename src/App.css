@@ -342,6 +342,10 @@ body::-webkit-scrollbar-thumb,
   white-space: nowrap;
 }
 
+.format-group {
+  position: relative;
+}
+
 .menu-group {
   position: relative;
   z-index: 30;
@@ -479,6 +483,37 @@ body::-webkit-scrollbar-thumb,
   min-width: 34px;
   box-shadow: none;
   transform: none;
+}
+
+.format-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.14);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 120;
+}
+
+.format-item {
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  border-radius: 8px;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.format-item:hover {
+  background: #f1f5f9;
 }
 
 .icon-button {
