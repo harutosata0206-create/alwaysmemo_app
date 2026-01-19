@@ -1179,14 +1179,17 @@ function App() {
             ⋯
           </button>
           <div className="format-group">
-            <button type="button" className="chip">
-              H1
+            <button type="button" className="chip dropdown">
+              H1 <span className="chip-caret">▾</span>
             </button>
-            <button type="button" className="chip">
-              ≡
+            <button type="button" className="chip dropdown">
+              ≡ <span className="chip-caret">▾</span>
             </button>
             <button type="button" className="chip" onClick={toggleBold} aria-label="Bold">
               B
+            </button>
+            <button type="button" className="chip" onClick={toggleItalic} aria-label="Italic">
+              I
             </button>
             <button
               type="button"
@@ -1203,9 +1206,6 @@ function App() {
                 </button>
                 <button type="button" className="format-item" onClick={() => { insertLink(); closeFormatMenu(); }}>
                   リンクの貼り付け
-                </button>
-                <button type="button" className="format-item" onClick={() => { toggleItalic(); closeFormatMenu(); }}>
-                  斜体
                 </button>
                 <button type="button" className="format-item" onClick={() => { clearFormatting(); closeFormatMenu(); }}>
                   書式設定のクリア

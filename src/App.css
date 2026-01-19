@@ -478,11 +478,24 @@ body::-webkit-scrollbar-thumb,
   background: #f8fafc;
   color: #0f172a;
   border-radius: 8px;
-  padding: 1px 6px;
+  padding: 2px 8px;
   font-weight: 500;
   min-width: 34px;
   box-shadow: none;
   transform: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip.dropdown {
+  min-width: 46px;
+}
+
+.chip-caret {
+  font-size: 10px;
+  color: #64748b;
+  line-height: 1;
 }
 
 .format-menu {
