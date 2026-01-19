@@ -51,8 +51,6 @@ function App() {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
   const [showFormatMenu, setShowFormatMenu] = useState(false);
-  const formatGroupRef = useRef<HTMLDivElement | null>(null);
-  const [hiddenFormatButtons, setHiddenFormatButtons] = useState<string[]>([]);
   const originalWindowSizeRef = useRef<LogicalSize | null>(null);
   const expandedWindowRef = useRef(false);
 
@@ -573,42 +571,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const container = formatGroupRef.current;
-    if (!container) return;
-
-    const updateVisibility = () => {
-      const ellipsis = container.querySelector<HTMLButtonElement>("[data-format-id='more']");
-      const buttons = Array.from(
-        container.querySelectorAll<HTMLButtonElement>("[data-format-id]"),
-      ).filter((button) => button.dataset.formatId !== "more");
-      if (!ellipsis) return;
-
-      const gap = 8;
-      const containerWidth = container.clientWidth;
-      const ellipsisWidth = ellipsis.getBoundingClientRect().width;
-      let used = ellipsisWidth;
-      const nextHidden: string[] = [];
-
-      for (let i = 0; i < buttons.length; i += 1) {
-        const button = buttons[i];
-        const width = button.getBoundingClientRect().width;
-        if (used + gap + width <= containerWidth) {
-          used += gap + width;
-        } else {
-          nextHidden.push(button.dataset.formatId ?? "");
-        }
-      }
-
-      setHiddenFormatButtons(nextHidden.filter(Boolean));
-    };
-
-    const observer = new ResizeObserver(updateVisibility);
-    observer.observe(container);
-    updateVisibility();
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
     if (editor.innerHTML !== activeHtml) {
@@ -695,8 +657,8 @@ function App() {
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
-      if (!formatGroupRef.current) return;
-      if (formatGroupRef.current.contains(event.target as Node)) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(".format-group")) return;
       setShowFormatMenu(false);
     };
     window.addEventListener("mousedown", handler);
@@ -1216,31 +1178,14 @@ function App() {
           <button type="button" className="icon-button overflow" aria-label="More">
             ⋯
           </button>
-          <div className="format-group" ref={formatGroupRef}>
-            <button
-              type="button"
-              className="chip"
-              data-format-id="h1"
-              style={hiddenFormatButtons.includes("h1") ? { display: "none" } : undefined}
-            >
+          <div className="format-group">
+            <button type="button" className="chip">
               H1
             </button>
-            <button
-              type="button"
-              className="chip"
-              data-format-id="list"
-              style={hiddenFormatButtons.includes("list") ? { display: "none" } : undefined}
-            >
+            <button type="button" className="chip">
               ≡
             </button>
-            <button
-              type="button"
-              className="chip"
-              data-format-id="bold"
-              onClick={toggleBold}
-              aria-label="Bold"
-              style={hiddenFormatButtons.includes("bold") ? { display: "none" } : undefined}
-            >
+            <button type="button" className="chip" onClick={toggleBold} aria-label="Bold">
               B
             </button>
             <button
@@ -1248,27 +1193,11 @@ function App() {
               className="chip"
               onClick={() => setShowFormatMenu((prev) => !prev)}
               aria-label="More formatting"
-              data-format-id="more"
             >
               …
             </button>
             {showFormatMenu ? (
               <div className="format-menu">
-                {hiddenFormatButtons.includes("h1") ? (
-                  <button type="button" className="format-item" disabled>
-                    H1
-                  </button>
-                ) : null}
-                {hiddenFormatButtons.includes("list") ? (
-                  <button type="button" className="format-item" disabled>
-                    ≡
-                  </button>
-                ) : null}
-                {hiddenFormatButtons.includes("bold") ? (
-                  <button type="button" className="format-item" onClick={() => { toggleBold(); closeFormatMenu(); }}>
-                    B（太字）
-                  </button>
-                ) : null}
                 <button type="button" className="format-item" onClick={() => { insertTable(); closeFormatMenu(); }}>
                   テーブルの作成
                 </button>
