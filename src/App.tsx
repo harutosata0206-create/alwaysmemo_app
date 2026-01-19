@@ -133,6 +133,45 @@ function App() {
     return div.innerText.replace(/\u00a0/g, " ");
   }, []);
 
+  const htmlToMarkdown = useCallback((html: string) => {
+    const container = document.createElement("div");
+    container.innerHTML = html;
+
+    const toMarkdown = (node: Node): string => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent ?? "";
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return "";
+      const el = node as HTMLElement;
+      const tag = el.tagName.toLowerCase();
+      const childText = Array.from(el.childNodes).map(toMarkdown).join("");
+
+      if (tag === "br") return "\n";
+      if (tag === "strong" || tag === "b") return `**${childText}**`;
+      if (tag === "div" || tag === "p") return `${childText}\n`;
+      return childText;
+    };
+
+    return Array.from(container.childNodes)
+      .map(toMarkdown)
+      .join("")
+      .replace(/\n{3,}/g, "\n\n")
+      .trimEnd();
+  }, []);
+
+  const chooseSaveFormat = useCallback(async () => {
+    const message =
+      "保存形式を選んでください。\nOK: Markdown形式（書式を保持）\nキャンセル: テキスト形式（書式なし）";
+    try {
+      const useMarkdown = await confirm(message);
+      return useMarkdown ? "markdown" : "text";
+    } catch (error) {
+      console.error("confirm dialog failed", error);
+      const useMarkdown = window.confirm(message);
+      return useMarkdown ? "markdown" : "text";
+    }
+  }, []);
+
   const getFileNameFromPath = (path: string) => {
     const normalized = path.replace(/\\/g, "/");
     return normalized.split("/").pop() || path;
@@ -170,14 +209,23 @@ function App() {
     if (!activeTab) return;
     try {
       setStatus("Opening save dialog...");
+      const format = await chooseSaveFormat();
       const suggested = activeTab.title.trim() || "memo.txt";
-      const defaultPath = suggested.includes(".") ? suggested : `${suggested}.txt`;
+      const withExt = suggested.includes(".")
+        ? suggested
+        : format === "markdown"
+          ? `${suggested}.md`
+          : `${suggested}.txt`;
+      const defaultPath = withExt;
       let resolvedPath: string | null = null;
       let dialogFailed = false;
       try {
         const picked = await save({
           defaultPath,
-          filters: [{ name: "Text", extensions: ["txt", "md"] }],
+          filters: [
+            { name: "Markdown", extensions: ["md"] },
+            { name: "Text", extensions: ["txt"] },
+          ],
         });
         resolvedPath =
           typeof picked === "string"
@@ -201,7 +249,10 @@ function App() {
       setStatus(`Saving to ${resolvedPath}...`);
       await invoke("write_text_file", {
         path: resolvedPath,
-        contents: htmlToText(activeTab.content),
+        contents:
+          format === "markdown"
+            ? htmlToMarkdown(activeTab.content)
+            : htmlToText(activeTab.content),
       });
       const nextTitle = getFileNameFromPath(resolvedPath);
       const nextTabs = tabs.map((tab) =>
@@ -222,7 +273,16 @@ function App() {
       console.error(error);
       setStatus(`Failed to save file: ${String(error)}`);
     }
-  }, [activeTab, closeMenus, getFileNameFromPath, htmlToText, persistState, tabs]);
+  }, [
+    activeTab,
+    chooseSaveFormat,
+    closeMenus,
+    getFileNameFromPath,
+    htmlToMarkdown,
+    htmlToText,
+    persistState,
+    tabs,
+  ]);
 
   const saveActiveTab = useCallback(async () => {
     if (!activeTab) return;
@@ -231,10 +291,14 @@ function App() {
       return;
     }
     try {
+      const format = await chooseSaveFormat();
       setStatus(`Saving to ${activeTab.filePath}...`);
       await invoke("write_text_file", {
         path: activeTab.filePath,
-        contents: htmlToText(activeTab.content),
+        contents:
+          format === "markdown"
+            ? htmlToMarkdown(activeTab.content)
+            : htmlToText(activeTab.content),
       });
       savedTabsRef.current = {
         ...savedTabsRef.current,
@@ -248,7 +312,16 @@ function App() {
       console.error(error);
       setStatus(`Failed to save file: ${String(error)}`);
     }
-  }, [activeTab, closeMenus, htmlToText, persistState, saveActiveTabAs, tabs]);
+  }, [
+    activeTab,
+    chooseSaveFormat,
+    closeMenus,
+    htmlToMarkdown,
+    htmlToText,
+    persistState,
+    saveActiveTabAs,
+    tabs,
+  ]);
 
   const saveAllTabs = useCallback(async () => {
     const tabsWithPath = tabs.filter((tab) => tab.filePath);
@@ -258,9 +331,14 @@ function App() {
       return;
     }
     try {
+      const format = await chooseSaveFormat();
       await Promise.all(
         tabsWithPath.map((tab) =>
-          invoke("write_text_file", { path: tab.filePath, contents: htmlToText(tab.content) }),
+          invoke("write_text_file", {
+            path: tab.filePath,
+            contents:
+              format === "markdown" ? htmlToMarkdown(tab.content) : htmlToText(tab.content),
+          }),
         ),
       );
       savedTabsRef.current = {
@@ -277,7 +355,7 @@ function App() {
       console.error(error);
       setStatus("Failed to save all");
     }
-  }, [closeMenus, htmlToText, persistState, tabs]);
+  }, [chooseSaveFormat, closeMenus, htmlToMarkdown, htmlToText, persistState, tabs]);
 
   const closeActiveTab = useCallback(() => {
     if (!activeTab) return;
