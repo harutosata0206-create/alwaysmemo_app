@@ -17,7 +17,7 @@ type Tab = {
   filePath?: string | null;
 };
 
-const DEFAULT_TITLE_REGEX = /^メモ\s+\d+$/;
+const DEFAULT_TITLE_REGEX = /^タイトルなし$/;
 
 type SnapPosition = "left" | "right" | null;
 
@@ -34,7 +34,7 @@ function App() {
   const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [tabs, setTabs] = useState<Tab[]>([
-    { id: "initial", title: "メモ 1", content: "" },
+    { id: "initial", title: "タイトルなし", content: "" },
   ]);
   const [activeTabId, setActiveTabId] = useState<string>("initial");
   const [snap, setSnap] = useState<SnapPosition>(null);
@@ -406,7 +406,7 @@ function App() {
           const parsed = JSON.parse(stored) as PersistedState;
           const restoredTabs = parsed.tabs.length
             ? parsed.tabs
-            : [{ id: "initial", title: "メモ 1", content: "" }];
+            : [{ id: "initial", title: "タイトルなし", content: "" }];
           savedTabsRef.current = Object.fromEntries(
             restoredTabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
           );
@@ -429,7 +429,7 @@ function App() {
           }
         } else {
           savedTabsRef.current = {
-            initial: { title: "メモ 1", content: "" },
+            initial: { title: "タイトルなし", content: "" },
           };
         }
       } catch (error) {
@@ -609,7 +609,7 @@ function App() {
 
   const addTab = () => {
     const id = crypto.randomUUID();
-    const newTab: Tab = { id, title: `メモ ${tabs.length + 1}`, content: "" };
+    const newTab: Tab = { id, title: "タイトルなし", content: "" };
     savedTabsRef.current = {
       ...savedTabsRef.current,
       [id]: { title: newTab.title, content: newTab.content },
@@ -634,7 +634,7 @@ function App() {
     setTabs((prev) => {
       const nextTabs = prev.filter((t) => t.id !== id);
       if (nextTabs.length === 0) {
-        const fallback: Tab = { id: "initial", title: "メモ 1", content: "" };
+        const fallback: Tab = { id: "initial", title: "タイトルなし", content: "" };
         setActiveTabId(fallback.id);
         return [fallback];
       }
