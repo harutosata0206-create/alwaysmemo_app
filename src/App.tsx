@@ -172,6 +172,41 @@ function App() {
     }
   }, []);
 
+  const pickSavePath = useCallback(async (format: "markdown" | "text", suggested: string) => {
+    const withExt = suggested.includes(".")
+      ? suggested
+      : format === "markdown"
+        ? `${suggested}.md`
+        : `${suggested}.txt`;
+    const defaultPath = withExt;
+    let resolvedPath: string | null = null;
+    let dialogFailed = false;
+    try {
+      const picked = await save({
+        defaultPath,
+        filters: [
+          { name: "Markdown", extensions: ["md"] },
+          { name: "Text", extensions: ["txt"] },
+        ],
+      });
+      resolvedPath =
+        typeof picked === "string"
+          ? picked
+          : Array.isArray(picked)
+            ? picked[0]
+            : null;
+    } catch (error) {
+      console.error("dialog plugin save failed", error);
+      dialogFailed = true;
+    }
+    if (!resolvedPath && dialogFailed) {
+      resolvedPath = await invoke<string | null>("save_text_file_dialog", {
+        default_name: defaultPath,
+      });
+    }
+    return resolvedPath;
+  }, []);
+
   const getFileNameFromPath = (path: string) => {
     const normalized = path.replace(/\\/g, "/");
     return normalized.split("/").pop() || path;
@@ -205,43 +240,13 @@ function App() {
     }
   }, [closeMenus, persistState, tabs, textToHtml]);
 
-  const saveActiveTabAs = useCallback(async () => {
+  const saveActiveTabAs = useCallback(async (forcedFormat?: "markdown" | "text") => {
     if (!activeTab) return;
     try {
       setStatus("Opening save dialog...");
-      const format = await chooseSaveFormat();
-      const suggested = activeTab.title.trim() || "memo.txt";
-      const withExt = suggested.includes(".")
-        ? suggested
-        : format === "markdown"
-          ? `${suggested}.md`
-          : `${suggested}.txt`;
-      const defaultPath = withExt;
-      let resolvedPath: string | null = null;
-      let dialogFailed = false;
-      try {
-        const picked = await save({
-          defaultPath,
-          filters: [
-            { name: "Markdown", extensions: ["md"] },
-            { name: "Text", extensions: ["txt"] },
-          ],
-        });
-        resolvedPath =
-          typeof picked === "string"
-            ? picked
-            : Array.isArray(picked)
-              ? picked[0]
-              : null;
-      } catch (error) {
-        console.error("dialog plugin save failed", error);
-        dialogFailed = true;
-      }
-      if (!resolvedPath && dialogFailed) {
-        resolvedPath = await invoke<string | null>("save_text_file_dialog", {
-          default_name: defaultPath,
-        });
-      }
+      const format = forcedFormat ?? (await chooseSaveFormat());
+      const suggested = activeTab.title.trim() || "memo";
+      const resolvedPath = await pickSavePath(format, suggested);
       if (!resolvedPath) {
         setStatus("Save dialog returned no path");
         return;
@@ -280,6 +285,7 @@ function App() {
     getFileNameFromPath,
     htmlToMarkdown,
     htmlToText,
+    pickSavePath,
     persistState,
     tabs,
   ]);
@@ -292,13 +298,14 @@ function App() {
     }
     try {
       const format = await chooseSaveFormat();
+      if (format === "markdown") {
+        await saveActiveTabAs("markdown");
+        return;
+      }
       setStatus(`Saving to ${activeTab.filePath}...`);
       await invoke("write_text_file", {
         path: activeTab.filePath,
-        contents:
-          format === "markdown"
-            ? htmlToMarkdown(activeTab.content)
-            : htmlToText(activeTab.content),
+        contents: htmlToText(activeTab.content),
       });
       savedTabsRef.current = {
         ...savedTabsRef.current,
@@ -316,7 +323,6 @@ function App() {
     activeTab,
     chooseSaveFormat,
     closeMenus,
-    htmlToMarkdown,
     htmlToText,
     persistState,
     saveActiveTabAs,
