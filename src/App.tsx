@@ -237,13 +237,20 @@ function App() {
     const defaultPath = withExt;
     let resolvedPath: string | null = null;
     let dialogFailed = false;
+    const filters =
+      format === "markdown"
+        ? [
+            { name: "Markdown", extensions: ["md"] },
+            { name: "Text", extensions: ["txt"] },
+          ]
+        : [
+            { name: "Text", extensions: ["txt"] },
+            { name: "Markdown", extensions: ["md"] },
+          ];
     try {
       const picked = await save({
         defaultPath,
-        filters: [
-          { name: "Markdown", extensions: ["md"] },
-          { name: "Text", extensions: ["txt"] },
-        ],
+        filters,
       });
       resolvedPath =
         typeof picked === "string"
