@@ -68,7 +68,7 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const instance = params.get("instance");
     return instance ? `${STORAGE_KEY}-${instance}` : STORAGE_KEY;
-  }, []);
+  }, [getPathMap]);
 
   const cursorPosition = useMemo(() => {
     const safeIndex = Math.min(cursorIndex, activePlainText.length);
@@ -220,6 +220,23 @@ function App() {
     return resolvedPath;
   }, []);
 
+  const pathsKey = useMemo(() => `${storageKey}-paths`, [storageKey]);
+  const getPathMap = useCallback((): Record<string, string> => {
+    try {
+      const raw = window.localStorage.getItem(pathsKey);
+      return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    } catch {
+      return {};
+    }
+  }, [pathsKey]);
+
+  const setPathMap = useCallback(
+    (next: Record<string, string>) => {
+      window.localStorage.setItem(pathsKey, JSON.stringify(next));
+    },
+    [pathsKey],
+  );
+
   const getFileNameFromPath = (path: string) => {
     const normalized = path.replace(/\\/g, "/");
     return normalized.split("/").pop() || path;
@@ -234,6 +251,8 @@ function App() {
       const id = crypto.randomUUID();
       const title = getFileNameFromPath(opened.path) || `メモ ${tabs.length + 1}`;
       const content = textToHtml(opened.contents);
+      const pathMap = getPathMap();
+      setPathMap({ ...pathMap, [title]: opened.path });
       savedTabsRef.current = {
         ...savedTabsRef.current,
         [id]: { title, content },
@@ -251,7 +270,7 @@ function App() {
       console.error(error);
       setStatus("Failed to open file");
     }
-  }, [closeMenus, persistState, tabs, textToHtml]);
+  }, [closeMenus, getPathMap, persistState, setPathMap, tabs, textToHtml]);
 
   const saveActiveTabAs = useCallback(async (forcedFormat?: "markdown" | "text") => {
     if (!activeTab) return;
@@ -275,6 +294,8 @@ function App() {
             : htmlToText(activeTab.content),
       });
       const nextTitle = getFileNameFromPath(resolvedPath);
+      const pathMap = getPathMap();
+      setPathMap({ ...pathMap, [nextTitle]: resolvedPath });
       const nextTabs = tabs.map((tab) =>
         tab.id === activeTab.id
           ? { ...tab, title: nextTitle, filePath: resolvedPath }
@@ -301,19 +322,26 @@ function App() {
     hasRichFormatting,
     htmlToMarkdown,
     htmlToText,
+    getPathMap,
     pickSavePath,
     persistState,
+    setPathMap,
     tabs,
   ]);
 
   const saveActiveTab = useCallback(async () => {
     if (!activeTab) return;
-    if (!activeTab.filePath) {
+    let resolvedPath = activeTab.filePath ?? null;
+    if (!resolvedPath) {
+      const pathMap = getPathMap();
+      resolvedPath = pathMap[activeTab.title] ?? null;
+    }
+    if (!resolvedPath) {
       await saveActiveTabAs();
       return;
     }
     try {
-      const isMarkdown = activeTab.filePath.toLowerCase().endsWith(".md");
+      const isMarkdown = resolvedPath.toLowerCase().endsWith(".md");
       if (!isMarkdown && hasRichFormatting(activeTab.content)) {
         const message =
           "書式が含まれているため、テキスト保存では書式が失われます。\nOK: テキストで保存\nキャンセル: 保存を中止";
@@ -326,9 +354,9 @@ function App() {
         }
         if (!confirmed) return;
       }
-      setStatus(`Saving to ${activeTab.filePath}...`);
+      setStatus(`Saving to ${resolvedPath}...`);
       await invoke("write_text_file", {
-        path: activeTab.filePath,
+        path: resolvedPath,
         contents: isMarkdown ? htmlToMarkdown(activeTab.content) : htmlToText(activeTab.content),
       });
       savedTabsRef.current = {
@@ -349,6 +377,7 @@ function App() {
     htmlToText,
     htmlToMarkdown,
     hasRichFormatting,
+    getPathMap,
     persistState,
     saveActiveTabAs,
     tabs,
@@ -554,12 +583,14 @@ function App() {
         const stored = window.localStorage.getItem(storageKey);
         if (stored) {
           const parsed = JSON.parse(stored) as PersistedState;
+          const pathMap = getPathMap();
           const restoredTabs = (parsed.tabs.length
             ? parsed.tabs
             : [{ id: "initial", title: "タイトルなし", content: "" }]
           ).map((tab) => ({
             ...tab,
             content: normalizeHtml(tab.content),
+            filePath: tab.filePath ?? pathMap[tab.title] ?? null,
           }));
           savedTabsRef.current = Object.fromEntries(
             restoredTabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
