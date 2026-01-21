@@ -265,7 +265,7 @@ function App() {
       const title = getFileNameFromPath(opened.path) || `メモ ${tabs.length + 1}`;
       const content = textToHtml(opened.contents);
       const pathMap = getPathMap();
-      setPathMap({ ...pathMap, [id]: opened.path });
+      setPathMap({ ...pathMap, [id]: opened.path, [title]: opened.path });
       savedTabsRef.current = {
         ...savedTabsRef.current,
         [id]: { title, content },
@@ -308,7 +308,7 @@ function App() {
       });
       const nextTitle = getFileNameFromPath(resolvedPath);
       const pathMap = getPathMap();
-      setPathMap({ ...pathMap, [activeTab.id]: resolvedPath });
+      setPathMap({ ...pathMap, [activeTab.id]: resolvedPath, [nextTitle]: resolvedPath });
       const nextTabs = tabs.map((tab) =>
         tab.id === activeTab.id
           ? { ...tab, title: nextTitle, filePath: resolvedPath }
@@ -347,7 +347,7 @@ function App() {
     let resolvedPath = activeTab.filePath ?? null;
     if (!resolvedPath) {
       const pathMap = getPathMap();
-      resolvedPath = pathMap[activeTab.id] ?? null;
+      resolvedPath = pathMap[activeTab.id] ?? pathMap[activeTab.title] ?? null;
     }
     if (!resolvedPath) {
       await saveActiveTabAs();
@@ -373,8 +373,12 @@ function App() {
         contents: isMarkdown ? htmlToMarkdown(activeTab.content) : htmlToText(activeTab.content),
       });
       const pathMap = getPathMap();
-      if (!pathMap[activeTab.id]) {
-        setPathMap({ ...pathMap, [activeTab.id]: resolvedPath });
+      if (!pathMap[activeTab.id] || !pathMap[activeTab.title]) {
+        setPathMap({
+          ...pathMap,
+          [activeTab.id]: resolvedPath,
+          [activeTab.title]: resolvedPath,
+        });
       }
       savedTabsRef.current = {
         ...savedTabsRef.current,
@@ -607,7 +611,7 @@ function App() {
           ).map((tab) => ({
             ...tab,
             content: normalizeHtml(tab.content),
-            filePath: tab.filePath ?? pathMap[tab.id] ?? null,
+            filePath: tab.filePath ?? pathMap[tab.id] ?? pathMap[tab.title] ?? null,
           }));
           savedTabsRef.current = Object.fromEntries(
             restoredTabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
