@@ -167,9 +167,22 @@ function App() {
   }, []);
 
   const hasRichFormatting = useCallback((html: string) => {
-    return /<(strong|b|em|i|table|thead|tbody|tr|td|th|a|ul|ol|li|u|span)\b/i.test(
-      html,
-    );
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    if (container.querySelector("strong, b, em, i, u, a, table, thead, tbody, tr, td, th, ul, ol, li")) {
+      return true;
+    }
+    return Array.from(container.querySelectorAll<HTMLElement>("span"))
+      .some((el) => {
+        const weight = el.style.fontWeight;
+        const style = el.style.fontStyle;
+        const deco = el.style.textDecorationLine || el.style.textDecoration;
+        return (
+          (weight && weight !== "normal") ||
+          (style && style !== "normal") ||
+          (deco && deco !== "none")
+        );
+      });
   }, []);
 
   const chooseSaveFormat = useCallback(async () => {
