@@ -344,13 +344,14 @@ function App() {
       return;
     }
     try {
-      const format = await chooseSaveFormat();
       await Promise.all(
         tabsWithPath.map((tab) =>
           invoke("write_text_file", {
             path: tab.filePath,
             contents:
-              format === "markdown" ? htmlToMarkdown(tab.content) : htmlToText(tab.content),
+              tab.filePath?.toLowerCase().endsWith(".md")
+                ? htmlToMarkdown(tab.content)
+                : htmlToText(tab.content),
           }),
         ),
       );
@@ -368,7 +369,7 @@ function App() {
       console.error(error);
       setStatus("Failed to save all");
     }
-  }, [chooseSaveFormat, closeMenus, htmlToMarkdown, htmlToText, persistState, tabs]);
+  }, [closeMenus, htmlToMarkdown, htmlToText, persistState, tabs]);
 
   const closeActiveTab = useCallback(() => {
     if (!activeTab) return;
