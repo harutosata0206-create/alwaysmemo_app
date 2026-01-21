@@ -29,6 +29,8 @@ type PersistedState = {
   useGlobalShortcuts: boolean;
 };
 
+type SaveFormatChoice = "markdown" | "text" | "cancel";
+
 function App() {
   const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(true);
   const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
@@ -55,6 +57,8 @@ function App() {
   const [tableHover, setTableHover] = useState({ rows: 0, cols: 0 });
   const originalWindowSizeRef = useRef<LogicalSize | null>(null);
   const expandedWindowRef = useRef(false);
+  const [saveFormatPromptOpen, setSaveFormatPromptOpen] = useState(false);
+  const saveFormatResolverRef = useRef<((choice: SaveFormatChoice) => void) | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
@@ -185,17 +189,22 @@ function App() {
       });
   }, []);
 
-  const chooseSaveFormat = useCallback(async () => {
-    const message =
-      "保存形式を選んでください。\nOK: Markdown形式（書式を保持）\nキャンセル: テキスト形式（書式なし）";
-    try {
-      const useMarkdown = await confirm(message);
-      return useMarkdown ? "markdown" : "text";
-    } catch (error) {
-      console.error("confirm dialog failed", error);
-      const useMarkdown = window.confirm(message);
-      return useMarkdown ? "markdown" : "text";
+  const chooseSaveFormat = useCallback(() => {
+    if (saveFormatResolverRef.current) {
+      saveFormatResolverRef.current("cancel");
+      saveFormatResolverRef.current = null;
     }
+    setSaveFormatPromptOpen(true);
+    return new Promise<SaveFormatChoice>((resolve) => {
+      saveFormatResolverRef.current = resolve;
+    });
+  }, []);
+
+  const resolveSaveFormat = useCallback((choice: SaveFormatChoice) => {
+    setSaveFormatPromptOpen(false);
+    const resolver = saveFormatResolverRef.current;
+    saveFormatResolverRef.current = null;
+    if (resolver) resolver(choice);
   }, []);
 
   const pickSavePath = useCallback(async (format: "markdown" | "text", suggested: string) => {
@@ -292,6 +301,10 @@ function App() {
       const format =
         forcedFormat ??
         (hasRichFormatting(activeTab.content) ? await chooseSaveFormat() : "text");
+      if (format === "cancel") {
+        setStatus("Save canceled");
+        return;
+      }
       const suggested = activeTab.title.trim() || "memo";
       const resolvedPath = await pickSavePath(format, suggested);
       if (!resolvedPath) {
@@ -1364,6 +1377,50 @@ function App() {
           />
         </div>
       </section>
+
+      {saveFormatPromptOpen ? (
+        <div className="format-choice-overlay" role="presentation">
+          <div
+            className="format-choice-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="format-choice-title"
+            aria-describedby="format-choice-desc"
+          >
+            <h2 id="format-choice-title">
+              書式設定を保持するためにマークダウンとして保存する
+            </h2>
+            <p id="format-choice-desc">
+              これはテキストファイルです。太字や見出しなどの現在の書式設定を保持するには、
+              マークダウンファイル(.md)として保存します。書式なしテキストファイルとして保存すると、
+              すべての書式が失われます。
+            </p>
+            <div className="format-choice-actions">
+              <button
+                type="button"
+                className="format-choice primary"
+                onClick={() => resolveSaveFormat("markdown")}
+              >
+                マークダウンファイルとして...
+              </button>
+              <button
+                type="button"
+                className="format-choice"
+                onClick={() => resolveSaveFormat("text")}
+              >
+                テキストファイルとして...
+              </button>
+              <button
+                type="button"
+                className="format-choice ghost"
+                onClick={() => resolveSaveFormat("cancel")}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="bottom-bar">
         <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
