@@ -315,11 +315,16 @@ function App() {
     try {
       const isMarkdown = activeTab.filePath.toLowerCase().endsWith(".md");
       if (!isMarkdown && hasRichFormatting(activeTab.content)) {
-        const format = await chooseSaveFormat();
-        if (format === "markdown") {
-          await saveActiveTabAs("markdown");
-          return;
+        const message =
+          "書式が含まれているため、テキスト保存では書式が失われます。\nOK: テキストで保存\nキャンセル: 保存を中止";
+        let confirmed = false;
+        try {
+          confirmed = await confirm(message);
+        } catch (error) {
+          console.error("confirm dialog failed", error);
+          confirmed = window.confirm(message);
         }
+        if (!confirmed) return;
       }
       setStatus(`Saving to ${activeTab.filePath}...`);
       await invoke("write_text_file", {
@@ -341,10 +346,9 @@ function App() {
   }, [
     activeTab,
     closeMenus,
-    chooseSaveFormat,
-    hasRichFormatting,
     htmlToText,
     htmlToMarkdown,
+    hasRichFormatting,
     persistState,
     saveActiveTabAs,
     tabs,
