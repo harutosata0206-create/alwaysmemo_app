@@ -30,6 +30,7 @@ type PersistedState = {
 };
 
 type SaveFormatChoice = "markdown" | "text" | "cancel";
+type SaveLossyChoice = "markdown" | "text" | "cancel";
 
 function App() {
   const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(true);
@@ -59,6 +60,8 @@ function App() {
   const expandedWindowRef = useRef(false);
   const [saveFormatPromptOpen, setSaveFormatPromptOpen] = useState(false);
   const saveFormatResolverRef = useRef<((choice: SaveFormatChoice) => void) | null>(null);
+  const [saveLossyPromptOpen, setSaveLossyPromptOpen] = useState(false);
+  const saveLossyResolverRef = useRef<((choice: SaveLossyChoice) => void) | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const windowHandle = getCurrentWindow();
@@ -204,6 +207,24 @@ function App() {
     setSaveFormatPromptOpen(false);
     const resolver = saveFormatResolverRef.current;
     saveFormatResolverRef.current = null;
+    if (resolver) resolver(choice);
+  }, []);
+
+  const chooseLossySave = useCallback(() => {
+    if (saveLossyResolverRef.current) {
+      saveLossyResolverRef.current("cancel");
+      saveLossyResolverRef.current = null;
+    }
+    setSaveLossyPromptOpen(true);
+    return new Promise<SaveLossyChoice>((resolve) => {
+      saveLossyResolverRef.current = resolve;
+    });
+  }, []);
+
+  const resolveLossySave = useCallback((choice: SaveLossyChoice) => {
+    setSaveLossyPromptOpen(false);
+    const resolver = saveLossyResolverRef.current;
+    saveLossyResolverRef.current = null;
     if (resolver) resolver(choice);
   }, []);
 
@@ -369,16 +390,12 @@ function App() {
     try {
       const isMarkdown = resolvedPath.toLowerCase().endsWith(".md");
       if (!isMarkdown && hasRichFormatting(activeTab.content)) {
-        const message =
-          "書式が含まれているため、テキスト保存では書式が失われます。\nOK: テキストで保存\nキャンセル: 保存を中止";
-        let confirmed = false;
-        try {
-          confirmed = await confirm(message);
-        } catch (error) {
-          console.error("confirm dialog failed", error);
-          confirmed = window.confirm(message);
+        const choice = await chooseLossySave();
+        if (choice === "cancel") return;
+        if (choice === "markdown") {
+          await saveActiveTabAs("markdown");
+          return;
         }
-        if (!confirmed) return;
       }
       setStatus(`Saving to ${resolvedPath}...`);
       await invoke("write_text_file", {
@@ -407,6 +424,7 @@ function App() {
     }
   }, [
     activeTab,
+    chooseLossySave,
     closeMenus,
     htmlToText,
     htmlToMarkdown,
@@ -1414,6 +1432,47 @@ function App() {
                 type="button"
                 className="format-choice ghost"
                 onClick={() => resolveSaveFormat("cancel")}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {saveLossyPromptOpen ? (
+        <div className="format-choice-overlay" role="presentation">
+          <div
+            className="format-choice-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lossy-save-title"
+            aria-describedby="lossy-save-desc"
+          >
+            <h2 id="lossy-save-title">書式付きの内容をテキストで上書き保存しますか？</h2>
+            <p id="lossy-save-desc">
+              このファイルはテキスト形式で保存されています。太字や表などの書式を保持するには、
+              マークダウンファイル(.md)として保存してください。テキストで上書き保存すると、
+              書式はすべて失われます。
+            </p>
+            <div className="format-choice-actions">
+              <button
+                type="button"
+                className="format-choice primary"
+                onClick={() => resolveLossySave("markdown")}
+              >
+                マークダウンとして保存...
+              </button>
+              <button
+                type="button"
+                className="format-choice"
+                onClick={() => resolveLossySave("text")}
+              >
+                テキストで上書き保存
+              </button>
+              <button
+                type="button"
+                className="format-choice ghost"
+                onClick={() => resolveLossySave("cancel")}
               >
                 キャンセル
               </button>
