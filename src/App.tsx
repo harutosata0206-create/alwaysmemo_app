@@ -68,7 +68,7 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const instance = params.get("instance");
     return instance ? `${STORAGE_KEY}-${instance}` : STORAGE_KEY;
-  }, [getPathMap]);
+  }, []);
 
   const cursorPosition = useMemo(() => {
     const safeIndex = Math.min(cursorIndex, activePlainText.length);
