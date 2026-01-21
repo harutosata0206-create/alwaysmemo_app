@@ -265,7 +265,7 @@ function App() {
       const title = getFileNameFromPath(opened.path) || `メモ ${tabs.length + 1}`;
       const content = textToHtml(opened.contents);
       const pathMap = getPathMap();
-      setPathMap({ ...pathMap, [title]: opened.path });
+      setPathMap({ ...pathMap, [id]: opened.path });
       savedTabsRef.current = {
         ...savedTabsRef.current,
         [id]: { title, content },
@@ -308,7 +308,7 @@ function App() {
       });
       const nextTitle = getFileNameFromPath(resolvedPath);
       const pathMap = getPathMap();
-      setPathMap({ ...pathMap, [nextTitle]: resolvedPath });
+      setPathMap({ ...pathMap, [activeTab.id]: resolvedPath });
       const nextTabs = tabs.map((tab) =>
         tab.id === activeTab.id
           ? { ...tab, title: nextTitle, filePath: resolvedPath }
@@ -347,7 +347,7 @@ function App() {
     let resolvedPath = activeTab.filePath ?? null;
     if (!resolvedPath) {
       const pathMap = getPathMap();
-      resolvedPath = pathMap[activeTab.title] ?? null;
+      resolvedPath = pathMap[activeTab.id] ?? null;
     }
     if (!resolvedPath) {
       await saveActiveTabAs();
@@ -372,6 +372,10 @@ function App() {
         path: resolvedPath,
         contents: isMarkdown ? htmlToMarkdown(activeTab.content) : htmlToText(activeTab.content),
       });
+      const pathMap = getPathMap();
+      if (!pathMap[activeTab.id]) {
+        setPathMap({ ...pathMap, [activeTab.id]: resolvedPath });
+      }
       savedTabsRef.current = {
         ...savedTabsRef.current,
         [activeTab.id]: { title: activeTab.title, content: activeTab.content },
@@ -603,7 +607,7 @@ function App() {
           ).map((tab) => ({
             ...tab,
             content: normalizeHtml(tab.content),
-            filePath: tab.filePath ?? pathMap[tab.title] ?? null,
+            filePath: tab.filePath ?? pathMap[tab.id] ?? null,
           }));
           savedTabsRef.current = Object.fromEntries(
             restoredTabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
