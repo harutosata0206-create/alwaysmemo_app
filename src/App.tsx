@@ -166,6 +166,12 @@ function App() {
       .trimEnd();
   }, []);
 
+  const hasRichFormatting = useCallback((html: string) => {
+    return /<(strong|b|em|i|table|thead|tbody|tr|td|th|a|ul|ol|li|u|span)\b/i.test(
+      html,
+    );
+  }, []);
+
   const chooseSaveFormat = useCallback(async () => {
     const message =
       "保存形式を選んでください。\nOK: Markdown形式（書式を保持）\nキャンセル: テキスト形式（書式なし）";
@@ -251,7 +257,9 @@ function App() {
     if (!activeTab) return;
     try {
       setStatus("Opening save dialog...");
-      const format = forcedFormat ?? (await chooseSaveFormat());
+      const format =
+        forcedFormat ??
+        (hasRichFormatting(activeTab.content) ? await chooseSaveFormat() : "text");
       const suggested = activeTab.title.trim() || "memo";
       const resolvedPath = await pickSavePath(format, suggested);
       if (!resolvedPath) {
@@ -290,6 +298,7 @@ function App() {
     chooseSaveFormat,
     closeMenus,
     getFileNameFromPath,
+    hasRichFormatting,
     htmlToMarkdown,
     htmlToText,
     pickSavePath,
@@ -305,6 +314,13 @@ function App() {
     }
     try {
       const isMarkdown = activeTab.filePath.toLowerCase().endsWith(".md");
+      if (!isMarkdown && hasRichFormatting(activeTab.content)) {
+        const format = await chooseSaveFormat();
+        if (format === "markdown") {
+          await saveActiveTabAs("markdown");
+          return;
+        }
+      }
       setStatus(`Saving to ${activeTab.filePath}...`);
       await invoke("write_text_file", {
         path: activeTab.filePath,
@@ -325,6 +341,8 @@ function App() {
   }, [
     activeTab,
     closeMenus,
+    chooseSaveFormat,
+    hasRichFormatting,
     htmlToText,
     htmlToMarkdown,
     persistState,
