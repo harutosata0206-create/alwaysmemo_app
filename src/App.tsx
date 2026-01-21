@@ -304,15 +304,11 @@ function App() {
       return;
     }
     try {
-      const format = await chooseSaveFormat();
-      if (format === "markdown") {
-        await saveActiveTabAs("markdown");
-        return;
-      }
+      const isMarkdown = activeTab.filePath.toLowerCase().endsWith(".md");
       setStatus(`Saving to ${activeTab.filePath}...`);
       await invoke("write_text_file", {
         path: activeTab.filePath,
-        contents: htmlToText(activeTab.content),
+        contents: isMarkdown ? htmlToMarkdown(activeTab.content) : htmlToText(activeTab.content),
       });
       savedTabsRef.current = {
         ...savedTabsRef.current,
@@ -328,9 +324,9 @@ function App() {
     }
   }, [
     activeTab,
-    chooseSaveFormat,
     closeMenus,
     htmlToText,
+    htmlToMarkdown,
     persistState,
     saveActiveTabAs,
     tabs,
