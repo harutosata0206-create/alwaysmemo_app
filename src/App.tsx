@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { confirm, save } from "@tauri-apps/plugin-dialog";
+import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
@@ -67,8 +67,11 @@ function App() {
   const saveFormatResolverRef = useRef<((choice: SaveFormatChoice) => void) | null>(null);
   const [saveLossyPromptOpen, setSaveLossyPromptOpen] = useState(false);
   const saveLossyResolverRef = useRef<((choice: SaveLossyChoice) => void) | null>(null);
+  const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
+  const deletePromptTab =
+    deletePromptTabId ? tabs.find((tab) => tab.id === deletePromptTabId) ?? null : null;
   const windowHandle = getCurrentWindow();
   const activeHtml = activeTab?.content ?? "";
   const activePlainText = useMemo(() => {
@@ -337,54 +340,56 @@ function App() {
     }
   }, [closeMenus, getPathMap, persistState, setPathMap, tabs, textToHtml]);
 
-  const saveActiveTabAs = useCallback(async (forcedFormat?: "markdown" | "text") => {
-    if (!activeTab) return;
+  const saveTabAs = useCallback(async (tab: Tab, forcedFormat?: "markdown" | "text") => {
     try {
       setStatus("Opening save dialog...");
       const format =
         forcedFormat ??
-        (hasRichFormatting(activeTab.content) ? await chooseSaveFormat() : "text");
+        (hasRichFormatting(tab.content) ? await chooseSaveFormat() : "text");
       if (format === "cancel") {
         setStatus("Save canceled");
-        return;
+        return false;
       }
-      const suggested = activeTab.title.trim() || "memo";
+      const suggested = tab.title.trim() || "memo";
       const resolvedPath = await pickSavePath(format, suggested);
       if (!resolvedPath) {
         setStatus("Save dialog returned no path");
-        return;
+        return false;
       }
       setStatus(`Saving to ${resolvedPath}...`);
       await invoke("write_text_file", {
         path: resolvedPath,
         contents:
           format === "markdown"
-            ? htmlToMarkdown(activeTab.content)
-            : htmlToText(activeTab.content),
+            ? htmlToMarkdown(tab.content)
+            : htmlToText(tab.content),
       });
       const nextTitle = getFileNameFromPath(resolvedPath);
       const pathMap = getPathMap();
-      setPathMap({ ...pathMap, [activeTab.id]: resolvedPath, [nextTitle]: resolvedPath });
-      const nextTabs = tabs.map((tab) =>
-        tab.id === activeTab.id
-          ? { ...tab, title: nextTitle, filePath: resolvedPath }
-          : tab,
-      );
-      setTabs(nextTabs);
+      setPathMap({ ...pathMap, [tab.id]: resolvedPath, [nextTitle]: resolvedPath });
+      setTabs((prev) => {
+        const nextTabs = prev.map((item) =>
+          item.id === tab.id
+            ? { ...item, title: nextTitle, filePath: resolvedPath }
+            : item,
+        );
+        persistState(nextTabs);
+        return nextTabs;
+      });
       savedTabsRef.current = {
         ...savedTabsRef.current,
-        [activeTab.id]: { title: nextTitle, content: activeTab.content },
+        [tab.id]: { title: nextTitle, content: tab.content },
       };
       setSavedVersion((prev) => prev + 1);
-      persistState(nextTabs);
       setStatus(`Saved ${nextTitle}`);
       closeMenus();
+      return true;
     } catch (error) {
       console.error(error);
       setStatus(`Failed to save file: ${String(error)}`);
+      return false;
     }
   }, [
-    activeTab,
     chooseSaveFormat,
     closeMenus,
     getFileNameFromPath,
@@ -395,57 +400,62 @@ function App() {
     pickSavePath,
     persistState,
     setPathMap,
-    tabs,
   ]);
 
-  const saveActiveTab = useCallback(async () => {
+  const saveActiveTabAs = useCallback(async (forcedFormat?: "markdown" | "text") => {
     if (!activeTab) return;
-    let resolvedPath = activeTab.filePath ?? null;
+    await saveTabAs(activeTab, forcedFormat);
+  }, [activeTab, saveTabAs]);
+
+  const saveTab = useCallback(async (tab: Tab) => {
+    let resolvedPath = tab.filePath ?? null;
     if (!resolvedPath) {
       const pathMap = getPathMap();
-      resolvedPath = pathMap[activeTab.id] ?? pathMap[activeTab.title] ?? null;
+      resolvedPath = pathMap[tab.id] ?? pathMap[tab.title] ?? null;
     }
     if (!resolvedPath) {
-      await saveActiveTabAs();
-      return;
+      return await saveTabAs(tab);
     }
     try {
       const isMarkdown = resolvedPath.toLowerCase().endsWith(".md");
-      if (!isMarkdown && hasRichFormatting(activeTab.content)) {
+      if (!isMarkdown && hasRichFormatting(tab.content)) {
         const choice = await chooseLossySave();
-        if (choice === "cancel") return;
+        if (choice === "cancel") return false;
         if (choice === "markdown") {
-          await saveActiveTabAs("markdown");
-          return;
+          return await saveTabAs(tab, "markdown");
         }
       }
       setStatus(`Saving to ${resolvedPath}...`);
       await invoke("write_text_file", {
         path: resolvedPath,
-        contents: isMarkdown ? htmlToMarkdown(activeTab.content) : htmlToText(activeTab.content),
+        contents: isMarkdown ? htmlToMarkdown(tab.content) : htmlToText(tab.content),
       });
       const pathMap = getPathMap();
-      if (!pathMap[activeTab.id] || !pathMap[activeTab.title]) {
+      if (!pathMap[tab.id] || !pathMap[tab.title]) {
         setPathMap({
           ...pathMap,
-          [activeTab.id]: resolvedPath,
-          [activeTab.title]: resolvedPath,
+          [tab.id]: resolvedPath,
+          [tab.title]: resolvedPath,
         });
       }
       savedTabsRef.current = {
         ...savedTabsRef.current,
-        [activeTab.id]: { title: activeTab.title, content: activeTab.content },
+        [tab.id]: { title: tab.title, content: tab.content },
       };
       setSavedVersion((prev) => prev + 1);
-      persistState(tabs);
-      setStatus(`Saved ${activeTab.title}`);
+      setTabs((prev) => {
+        persistState(prev);
+        return prev;
+      });
+      setStatus(`Saved ${tab.title}`);
       closeMenus();
+      return true;
     } catch (error) {
       console.error(error);
       setStatus(`Failed to save file: ${String(error)}`);
+      return false;
     }
   }, [
-    activeTab,
     chooseLossySave,
     closeMenus,
     htmlToText,
@@ -453,9 +463,14 @@ function App() {
     hasRichFormatting,
     getPathMap,
     persistState,
-    saveActiveTabAs,
-    tabs,
+    saveTabAs,
+    setPathMap,
   ]);
+
+  const saveActiveTab = useCallback(async () => {
+    if (!activeTab) return;
+    await saveTab(activeTab);
+  }, [activeTab, saveTab]);
 
   const saveAllTabs = useCallback(async () => {
     const tabsWithPath = tabs.filter((tab) => tab.filePath);
@@ -494,9 +509,9 @@ function App() {
 
   const closeActiveTab = useCallback(() => {
     if (!activeTab) return;
-    void removeTab(activeTab.id);
+    void requestRemoveTab(activeTab.id);
     closeMenus();
-  }, [activeTab, closeMenus]);
+  }, [activeTab, closeMenus, requestRemoveTab]);
 
   const openNewWindow = useCallback(async () => {
     try {
@@ -942,19 +957,7 @@ function App() {
     setActiveTabId(id);
   };
 
-  const removeTab = async (id: string) => {
-    const tab = tabs.find((t) => t.id === id);
-    if (!tab) return;
-    if (isTabDirty(tab)) {
-      let confirmed = false;
-      try {
-        confirmed = await confirm(`「${tab.title}」を削除しますか？`);
-      } catch (error) {
-        console.error("confirm dialog failed", error);
-        confirmed = window.confirm(`「${tab.title}」を削除しますか？`);
-      }
-      if (!confirmed) return;
-    }
+  const performRemoveTab = useCallback((id: string) => {
     setTabs((prev) => {
       const nextTabs = prev.filter((t) => t.id !== id);
       if (nextTabs.length === 0) {
@@ -967,7 +970,17 @@ function App() {
       }
       return nextTabs;
     });
-  };
+  }, [activeTabId]);
+
+  const requestRemoveTab = useCallback((id: string) => {
+    const tab = tabs.find((t) => t.id === id);
+    if (!tab) return;
+    if (isTabDirty(tab)) {
+      setDeletePromptTabId(tab.id);
+      return;
+    }
+    performRemoveTab(id);
+  }, [performRemoveTab, tabs]);
 
   const renameTab = (id: string, title: string) => {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
@@ -1194,7 +1207,7 @@ function App() {
                       className={`tab-close ${isTabDirty(tab) ? "dirty" : ""}`}
                       onClick={(event) => {
                         event.stopPropagation();
-                        void removeTab(tab.id);
+                        void requestRemoveTab(tab.id);
                       }}
                       data-tauri-drag-region="false"
                       aria-label={isTabDirty(tab) ? "Unsaved" : "Close"}
@@ -1703,6 +1716,58 @@ function App() {
                 type="button"
                 className="format-choice ghost"
                 onClick={() => resolveLossySave("cancel")}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {deletePromptTab ? (
+        <div className="format-choice-overlay" role="presentation">
+          <div
+            className="delete-choice-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-choice-title"
+            aria-describedby="delete-choice-desc"
+          >
+            <h2 id="delete-choice-title">メモ帳</h2>
+            <p id="delete-choice-desc">
+              {`${deletePromptTab.filePath ?? deletePromptTab.title} への変更内容を保存しますか？`}
+            </p>
+            <div className="delete-choice-actions">
+              <button
+                type="button"
+                className="delete-choice primary"
+                onClick={() => {
+                  const tab = deletePromptTab;
+                  if (!tab) return;
+                  void (async () => {
+                    const saved = await saveTab(tab);
+                    if (saved) {
+                      setDeletePromptTabId(null);
+                      performRemoveTab(tab.id);
+                    }
+                  })();
+                }}
+              >
+                保存
+              </button>
+              <button
+                type="button"
+                className="delete-choice"
+                onClick={() => {
+                  performRemoveTab(deletePromptTab.id);
+                  setDeletePromptTabId(null);
+                }}
+              >
+                保存しない
+              </button>
+              <button
+                type="button"
+                className="delete-choice ghost"
+                onClick={() => setDeletePromptTabId(null)}
               >
                 キャンセル
               </button>

@@ -983,3 +983,70 @@ button:active {
 .format-choice.ghost:hover {
   background: rgba(148, 163, 184, 0.2);
 }
+
+.delete-choice-dialog {
+  width: min(560px, 92vw);
+  border-radius: 12px;
+  border: 1px solid #2b2f35;
+  background: #2f2f2f;
+  color: #f3f4f6;
+  padding: 18px 20px 16px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+
+.delete-choice-dialog h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.delete-choice-dialog p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #d1d5db;
+  word-break: break-all;
+}
+
+.delete-choice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.delete-choice {
+  border-radius: 8px;
+  border: 1px solid #3b4049;
+  background: #3a3f45;
+  color: #f3f4f6;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 96px;
+}
+
+.delete-choice:hover {
+  border-color: #4b5563;
+  background: #444b52;
+}
+
+.delete-choice.primary {
+  border-color: #60c6ff;
+  background: #60c6ff;
+  color: #0b0f14;
+}
+
+.delete-choice.primary:hover {
+  border-color: #7dd3fc;
+  background: #7dd3fc;
+}
+
+.delete-choice.ghost {
+  background: transparent;
+}
+
+.delete-choice.ghost:hover {
+  background: rgba(148, 163, 184, 0.2);
+}
