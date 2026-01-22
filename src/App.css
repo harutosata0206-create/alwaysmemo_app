@@ -600,6 +600,7 @@ body::-webkit-scrollbar-thumb,
 
 .icon-button.overflow {
   display: none;
+  border-radius: 8px;
 }
 
 .icon-button:hover {
