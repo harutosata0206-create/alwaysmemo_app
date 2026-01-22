@@ -1431,25 +1431,25 @@ function App() {
             </button>
             {showHeadingMenu ? (
               <div className="format-menu heading-menu">
-                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item h1" onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); }}>
                   タイトル
                 </button>
-                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(2); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item h2" onClick={() => { applyHeadingLevel(2); closeHeadingMenu(); }}>
                   サブタイトル
                 </button>
-                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(3); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item h3" onClick={() => { applyHeadingLevel(3); closeHeadingMenu(); }}>
                   見出し
                 </button>
-                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(4); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item h4" onClick={() => { applyHeadingLevel(4); closeHeadingMenu(); }}>
                   小見出し
                 </button>
-                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(5); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item h5" onClick={() => { applyHeadingLevel(5); closeHeadingMenu(); }}>
                   セクション
                 </button>
-                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(6); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item h6" onClick={() => { applyHeadingLevel(6); closeHeadingMenu(); }}>
                   サブセクション
                 </button>
-                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(0); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item body" onClick={() => { applyHeadingLevel(0); closeHeadingMenu(); }}>
                   本文
                 </button>
               </div>
