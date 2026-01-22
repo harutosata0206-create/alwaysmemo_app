@@ -502,8 +502,9 @@ function App() {
     try {
       const size = await windowHandle.outerSize();
       const label = `alwaysmemo-${crypto.randomUUID()}`;
+      const alwaysOnTopParam = alwaysOnTop ? "1" : "0";
       const newWindow = new WebviewWindow(label, {
-        url: `/?instance=${label}`,
+        url: `/?instance=${label}&alwaysOnTop=${alwaysOnTopParam}`,
         width: size.width,
         height: size.height,
         decorations: false,
@@ -668,7 +669,11 @@ function App() {
     const initState = async () => {
       try {
         const current = await invoke<boolean>("get_always_on_top");
-        setAlwaysOnTopState(current);
+        const params = new URLSearchParams(window.location.search);
+        const alwaysOnTopParam = params.get("alwaysOnTop");
+        const forceAlwaysOnTopDefined = alwaysOnTopParam !== null;
+        const forceAlwaysOnTop =
+          alwaysOnTopParam === "1" || alwaysOnTopParam === "true";
         const stored = window.localStorage.getItem(storageKey);
         if (stored) {
           const parsed = JSON.parse(stored) as PersistedState;
@@ -692,8 +697,11 @@ function App() {
           setActiveTabId(validActive);
           setUseGlobalShortcuts(parsed.useGlobalShortcuts ?? true);
           setSnap(parsed.snap ?? null);
-          setAlwaysOnTopState(parsed.alwaysOnTop ?? current);
-          if (parsed.alwaysOnTop) {
+          const nextAlwaysOnTop = forceAlwaysOnTopDefined
+            ? forceAlwaysOnTop
+            : parsed.alwaysOnTop ?? current;
+          setAlwaysOnTopState(nextAlwaysOnTop);
+          if (nextAlwaysOnTop) {
             await invoke("set_always_on_top", { value: true });
           }
           if (parsed.snap === "left") {
@@ -702,6 +710,13 @@ function App() {
             await snapRight();
           }
         } else {
+          const nextAlwaysOnTop = forceAlwaysOnTopDefined
+            ? forceAlwaysOnTop
+            : current;
+          setAlwaysOnTopState(nextAlwaysOnTop);
+          if (nextAlwaysOnTop) {
+            await invoke("set_always_on_top", { value: true });
+          }
           savedTabsRef.current = {
             initial: { title: "タイトルなし", content: "" },
           };
