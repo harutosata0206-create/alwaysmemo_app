@@ -502,7 +502,7 @@ function App() {
     try {
       const size = await windowHandle.outerSize();
       const label = `alwaysmemo-${crypto.randomUUID()}`;
-      new WebviewWindow(label, {
+      const newWindow = new WebviewWindow(label, {
         url: `/?instance=${label}`,
         width: size.width,
         height: size.height,
@@ -510,12 +510,27 @@ function App() {
         resizable: true,
         title: "alwaysmemo",
       });
+      newWindow.once("tauri://created", async () => {
+        try {
+          await newWindow.show();
+          await newWindow.setFocus();
+          if (alwaysOnTop) {
+            await newWindow.setAlwaysOnTop(true);
+          }
+        } catch (error) {
+          console.error("Failed to focus new window", error);
+        }
+      });
+      newWindow.once("tauri://error", (error) => {
+        console.error("Failed to create new window", error);
+        setStatus("Failed to open new window");
+      });
       closeMenus();
     } catch (error) {
       console.error(error);
       setStatus("Failed to open new window");
     }
-  }, [closeMenus, windowHandle]);
+  }, [alwaysOnTop, closeMenus, windowHandle]);
 
   const setAlwaysOnTop = useCallback(
     async (value: boolean) => {
