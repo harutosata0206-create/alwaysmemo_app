@@ -1041,7 +1041,20 @@ function App() {
     const editor = editorRef.current;
     if (!editor) return;
     editor.focus();
+    const selection = window.getSelection();
+    const anchorNode = selection?.anchorNode ?? null;
+    const anchorElement =
+      anchorNode?.nodeType === Node.ELEMENT_NODE
+        ? (anchorNode as Element)
+        : anchorNode?.parentElement ?? null;
+    const listAncestor = anchorElement?.closest("ol, ul");
+    if (listAncestor) {
+      const isOrdered = listAncestor.tagName.toLowerCase() === "ol";
+      document.execCommand(isOrdered ? "insertOrderedList" : "insertUnorderedList");
+    }
     document.execCommand("removeFormat");
+    document.execCommand("unlink");
+    document.execCommand("formatBlock", false, "p");
     updateContent(editor.innerHTML);
     updateCursorIndex();
   }, [updateContent, updateCursorIndex]);
