@@ -586,6 +586,41 @@ body::-webkit-scrollbar-thumb,
   margin: 6px 0;
 }
 
+.editor-body h1 {
+  font-size: 37px;
+  margin: 10px 0 6px;
+}
+
+.editor-body h2 {
+  font-size: 27px;
+  margin: 10px 0 6px;
+}
+
+.editor-body h3 {
+  font-size: 23px;
+  margin: 8px 0 5px;
+}
+
+.editor-body h4 {
+  font-size: 19px;
+  margin: 8px 0 5px;
+}
+
+.editor-body h5 {
+  font-size: 18px;
+  margin: 8px 0 4px;
+}
+
+.editor-body h6 {
+  font-size: 17px;
+  margin: 8px 0 4px;
+}
+
+.editor-body p {
+  font-size: 16px;
+  margin: 6px 0;
+}
+
 .editor-body td {
   border: 1px solid #94a3b8;
   padding: 6px;
