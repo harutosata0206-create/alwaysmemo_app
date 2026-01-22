@@ -346,6 +346,10 @@ body::-webkit-scrollbar-thumb,
   position: relative;
 }
 
+.format-overflow {
+  position: relative;
+}
+
 .menu-group {
   position: relative;
   z-index: 30;
@@ -513,6 +517,11 @@ body::-webkit-scrollbar-thumb,
   flex-direction: column;
   gap: 2px;
   z-index: 120;
+}
+
+.overflow-menu {
+  min-width: 200px;
+  right: 0;
 }
 
 .format-item {

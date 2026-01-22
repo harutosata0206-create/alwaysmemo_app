@@ -58,6 +58,9 @@ function App() {
   const [tableHover, setTableHover] = useState({ rows: 0, cols: 0 });
   const originalWindowSizeRef = useRef<LogicalSize | null>(null);
   const expandedWindowRef = useRef(false);
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+  const formatGroupRef = useRef<HTMLDivElement | null>(null);
+  const overflowMenuRef = useRef<HTMLDivElement | null>(null);
   const [saveFormatPromptOpen, setSaveFormatPromptOpen] = useState(false);
   const saveFormatResolverRef = useRef<((choice: SaveFormatChoice) => void) | null>(null);
   const [saveLossyPromptOpen, setSaveLossyPromptOpen] = useState(false);
@@ -124,6 +127,10 @@ function App() {
   const closeMenus = useCallback(() => setOpenMenu(null), []);
   const closeFormatMenu = useCallback(() => {
     setShowFormatMenu(false);
+    setShowTablePicker(false);
+  }, []);
+  const closeOverflowMenu = useCallback(() => {
+    setShowOverflowMenu(false);
     setShowTablePicker(false);
   }, []);
 
@@ -770,6 +777,19 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!showFormatMenu && !showOverflowMenu) return;
+    const handler = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (formatGroupRef.current?.contains(target)) return;
+      if (overflowMenuRef.current?.contains(target)) return;
+      closeFormatMenu();
+      closeOverflowMenu();
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, [closeFormatMenu, closeOverflowMenu, showFormatMenu, showOverflowMenu]);
+
+  useEffect(() => {
     const handler = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.closest(".format-group")) return;
@@ -923,6 +943,24 @@ function App() {
     if (!editor) return;
     editor.focus();
     document.execCommand("bold");
+    updateContent(editor.innerHTML);
+    updateCursorIndex();
+  }, [updateContent, updateCursorIndex]);
+
+  const applyHeading = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand("formatBlock", false, "h1");
+    updateContent(editor.innerHTML);
+    updateCursorIndex();
+  }, [updateContent, updateCursorIndex]);
+
+  const toggleBulletedList = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand("insertUnorderedList");
     updateContent(editor.innerHTML);
     updateCursorIndex();
   }, [updateContent, updateCursorIndex]);
@@ -1299,14 +1337,79 @@ function App() {
               ) : null}
             </div>
           </div>
-          <button type="button" className="icon-button overflow" aria-label="More">
-            ⋯
-          </button>
-          <div className="format-group">
-            <button type="button" className="chip dropdown">
+          <div className="format-overflow" ref={overflowMenuRef}>
+            <button
+              type="button"
+              className="icon-button overflow"
+              aria-label="More"
+              onClick={() => setShowOverflowMenu((prev) => !prev)}
+            >
+              ⋯
+            </button>
+            {showOverflowMenu ? (
+              <div className="format-menu overflow-menu">
+                <button type="button" className="format-item" onClick={() => { applyHeading(); closeOverflowMenu(); }}>
+                  見出し 1
+                </button>
+                <button type="button" className="format-item" onClick={() => { toggleBulletedList(); closeOverflowMenu(); }}>
+                  箇条書き
+                </button>
+                <button type="button" className="format-item" onClick={() => { toggleBold(); closeOverflowMenu(); }}>
+                  太字
+                </button>
+                <button
+                  type="button"
+                  className="format-item"
+                  onClick={() => setShowTablePicker((prev) => !prev)}
+                >
+                  テーブルの作成
+                </button>
+                {showTablePicker ? (
+                  <div className="table-picker">
+                    <div className="table-picker-grid">
+                      {Array.from({ length: 6 }).map((_, rowIndex) =>
+                        Array.from({ length: 6 }).map((__, colIndex) => {
+                          const rows = rowIndex + 1;
+                          const cols = colIndex + 1;
+                          const active =
+                            rows <= tableHover.rows && cols <= tableHover.cols;
+                          return (
+                            <button
+                              key={`overflow-${rows}-${cols}`}
+                              type="button"
+                              className={`table-cell ${active ? "active" : ""}`}
+                              onMouseEnter={() => setTableHover({ rows, cols })}
+                              onFocus={() => setTableHover({ rows, cols })}
+                              onClick={() => {
+                                insertTableWithSize(rows, cols);
+                                setShowTablePicker(false);
+                                closeOverflowMenu();
+                              }}
+                              aria-label={`${rows} x ${cols}`}
+                            />
+                          );
+                        }),
+                      )}
+                    </div>
+                    <div className="table-picker-label">
+                      {tableHover.rows} x {tableHover.cols}
+                    </div>
+                  </div>
+                ) : null}
+                <button type="button" className="format-item" onClick={() => { insertLink(); closeOverflowMenu(); }}>
+                  リンクの貼り付け
+                </button>
+                <button type="button" className="format-item" onClick={() => { clearFormatting(); closeOverflowMenu(); }}>
+                  書式設定のクリア
+                </button>
+              </div>
+            ) : null}
+          </div>
+          <div className="format-group" ref={formatGroupRef}>
+            <button type="button" className="chip dropdown" onClick={applyHeading}>
               H1 <span className="chip-caret">▾</span>
             </button>
-            <button type="button" className="chip dropdown">
+            <button type="button" className="chip dropdown" onClick={toggleBulletedList}>
               ≡ <span className="chip-caret">▾</span>
             </button>
             <button type="button" className="chip" onClick={toggleBold} aria-label="Bold">
