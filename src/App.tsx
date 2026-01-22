@@ -62,6 +62,7 @@ function App() {
   const formatGroupRef = useRef<HTMLDivElement | null>(null);
   const overflowMenuRef = useRef<HTMLDivElement | null>(null);
   const [showHeadingMenu, setShowHeadingMenu] = useState(false);
+  const [showListMenu, setShowListMenu] = useState(false);
   const [saveFormatPromptOpen, setSaveFormatPromptOpen] = useState(false);
   const saveFormatResolverRef = useRef<((choice: SaveFormatChoice) => void) | null>(null);
   const [saveLossyPromptOpen, setSaveLossyPromptOpen] = useState(false);
@@ -136,6 +137,9 @@ function App() {
   }, []);
   const closeHeadingMenu = useCallback(() => {
     setShowHeadingMenu(false);
+  }, []);
+  const closeListMenu = useCallback(() => {
+    setShowListMenu(false);
   }, []);
 
   const textToHtml = useCallback((text: string) => {
@@ -781,7 +785,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!showFormatMenu && !showOverflowMenu && !showHeadingMenu) return;
+    if (!showFormatMenu && !showOverflowMenu && !showHeadingMenu && !showListMenu) return;
     const handler = (event: MouseEvent) => {
       const target = event.target as Node;
       if (formatGroupRef.current?.contains(target)) return;
@@ -789,10 +793,11 @@ function App() {
       closeFormatMenu();
       closeOverflowMenu();
       closeHeadingMenu();
+      closeListMenu();
     };
     window.addEventListener("mousedown", handler);
     return () => window.removeEventListener("mousedown", handler);
-  }, [closeFormatMenu, closeHeadingMenu, closeOverflowMenu, showFormatMenu, showHeadingMenu, showOverflowMenu]);
+  }, [closeFormatMenu, closeHeadingMenu, closeListMenu, closeOverflowMenu, showFormatMenu, showHeadingMenu, showListMenu, showOverflowMenu]);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -800,6 +805,7 @@ function App() {
       if (target?.closest(".format-group")) return;
       setShowFormatMenu(false);
       setShowHeadingMenu(false);
+      setShowListMenu(false);
     };
     window.addEventListener("mousedown", handler);
     return () => window.removeEventListener("mousedown", handler);
@@ -977,6 +983,15 @@ function App() {
     if (!editor) return;
     editor.focus();
     document.execCommand("insertUnorderedList");
+    updateContent(editor.innerHTML);
+    updateCursorIndex();
+  }, [updateContent, updateCursorIndex]);
+
+  const toggleOrderedList = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand("insertOrderedList");
     updateContent(editor.innerHTML);
     updateCursorIndex();
   }, [updateContent, updateCursorIndex]);
@@ -1370,6 +1385,9 @@ function App() {
                 <button type="button" className="format-item" onClick={() => { toggleBulletedList(); closeOverflowMenu(); }}>
                   箇条書き
                 </button>
+                <button type="button" className="format-item" onClick={() => { toggleOrderedList(); closeOverflowMenu(); }}>
+                  番号付きリスト
+                </button>
                 <button type="button" className="format-item" onClick={() => { toggleBold(); closeOverflowMenu(); }}>
                   太字
                 </button>
@@ -1454,9 +1472,23 @@ function App() {
                 </button>
               </div>
             ) : null}
-            <button type="button" className="chip dropdown" onClick={toggleBulletedList}>
+            <button
+              type="button"
+              className="chip dropdown"
+              onClick={() => setShowListMenu((prev) => !prev)}
+            >
               ≡ <span className="chip-caret">▾</span>
             </button>
+            {showListMenu ? (
+              <div className="format-menu list-menu">
+                <button type="button" className="format-item" onClick={() => { toggleBulletedList(); closeListMenu(); }}>
+                  箇条書き
+                </button>
+                <button type="button" className="format-item" onClick={() => { toggleOrderedList(); closeListMenu(); }}>
+                  番号付きリスト
+                </button>
+              </div>
+            ) : null}
             <button type="button" className="chip" onClick={toggleBold} aria-label="Bold">
               B
             </button>

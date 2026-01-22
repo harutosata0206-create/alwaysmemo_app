@@ -530,6 +530,12 @@ body::-webkit-scrollbar-thumb,
   left: 0;
 }
 
+.list-menu {
+  min-width: 180px;
+  right: auto;
+  left: 0;
+}
+
 .heading-item {
   font-weight: 600;
 }
