@@ -61,6 +61,7 @@ function App() {
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
   const formatGroupRef = useRef<HTMLDivElement | null>(null);
   const overflowMenuRef = useRef<HTMLDivElement | null>(null);
+  const [showHeadingMenu, setShowHeadingMenu] = useState(false);
   const [saveFormatPromptOpen, setSaveFormatPromptOpen] = useState(false);
   const saveFormatResolverRef = useRef<((choice: SaveFormatChoice) => void) | null>(null);
   const [saveLossyPromptOpen, setSaveLossyPromptOpen] = useState(false);
@@ -132,6 +133,9 @@ function App() {
   const closeOverflowMenu = useCallback(() => {
     setShowOverflowMenu(false);
     setShowTablePicker(false);
+  }, []);
+  const closeHeadingMenu = useCallback(() => {
+    setShowHeadingMenu(false);
   }, []);
 
   const textToHtml = useCallback((text: string) => {
@@ -777,23 +781,25 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!showFormatMenu && !showOverflowMenu) return;
+    if (!showFormatMenu && !showOverflowMenu && !showHeadingMenu) return;
     const handler = (event: MouseEvent) => {
       const target = event.target as Node;
       if (formatGroupRef.current?.contains(target)) return;
       if (overflowMenuRef.current?.contains(target)) return;
       closeFormatMenu();
       closeOverflowMenu();
+      closeHeadingMenu();
     };
     window.addEventListener("mousedown", handler);
     return () => window.removeEventListener("mousedown", handler);
-  }, [closeFormatMenu, closeOverflowMenu, showFormatMenu, showOverflowMenu]);
+  }, [closeFormatMenu, closeHeadingMenu, closeOverflowMenu, showFormatMenu, showHeadingMenu, showOverflowMenu]);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.closest(".format-group")) return;
       setShowFormatMenu(false);
+      setShowHeadingMenu(false);
     };
     window.addEventListener("mousedown", handler);
     return () => window.removeEventListener("mousedown", handler);
@@ -952,6 +958,16 @@ function App() {
     if (!editor) return;
     editor.focus();
     document.execCommand("formatBlock", false, "h1");
+    updateContent(editor.innerHTML);
+    updateCursorIndex();
+  }, [updateContent, updateCursorIndex]);
+
+  const applyHeadingLevel = useCallback((level: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    const tag = level >= 1 && level <= 6 ? `h${level}` : "p";
+    document.execCommand("formatBlock", false, tag);
     updateContent(editor.innerHTML);
     updateCursorIndex();
   }, [updateContent, updateCursorIndex]);
@@ -1406,9 +1422,38 @@ function App() {
             ) : null}
           </div>
           <div className="format-group" ref={formatGroupRef}>
-            <button type="button" className="chip dropdown" onClick={applyHeading}>
+            <button
+              type="button"
+              className="chip dropdown"
+              onClick={() => setShowHeadingMenu((prev) => !prev)}
+            >
               H1 <span className="chip-caret">▾</span>
             </button>
+            {showHeadingMenu ? (
+              <div className="format-menu heading-menu">
+                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); }}>
+                  タイトル
+                </button>
+                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(2); closeHeadingMenu(); }}>
+                  サブタイトル
+                </button>
+                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(3); closeHeadingMenu(); }}>
+                  見出し
+                </button>
+                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(4); closeHeadingMenu(); }}>
+                  小見出し
+                </button>
+                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(5); closeHeadingMenu(); }}>
+                  セクション
+                </button>
+                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(6); closeHeadingMenu(); }}>
+                  サブセクション
+                </button>
+                <button type="button" className="format-item" onClick={() => { applyHeadingLevel(0); closeHeadingMenu(); }}>
+                  本文
+                </button>
+              </div>
+            ) : null}
             <button type="button" className="chip dropdown" onClick={toggleBulletedList}>
               ≡ <span className="chip-caret">▾</span>
             </button>

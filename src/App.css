@@ -524,6 +524,12 @@ body::-webkit-scrollbar-thumb,
   right: 0;
 }
 
+.heading-menu {
+  min-width: 200px;
+  right: auto;
+  left: 0;
+}
+
 .format-item {
   border: 0;
   background: transparent;
