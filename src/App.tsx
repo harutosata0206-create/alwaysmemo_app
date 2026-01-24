@@ -757,18 +757,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    if (searchQuery.trim()) {
-      applySearchHighlights(searchQuery);
-      return;
-    }
-    if (editor.innerHTML !== activeHtml) {
-      editor.innerHTML = activeHtml;
-    }
-  }, [activeHtml, activeTabId, applySearchHighlights, searchQuery]);
-
-  useEffect(() => {
     const scroller = tabsScrollerRef.current;
     if (!scroller) {
       setShowTabArrows(false);
@@ -1225,6 +1213,18 @@ function App() {
     },
     [activeHtml, stripSearchHighlights],
   );
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    if (searchQuery.trim()) {
+      applySearchHighlights(searchQuery);
+      return;
+    }
+    if (editor.innerHTML !== activeHtml) {
+      editor.innerHTML = activeHtml;
+    }
+  }, [activeHtml, activeTabId, applySearchHighlights, searchQuery]);
 
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
