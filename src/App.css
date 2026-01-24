@@ -310,8 +310,8 @@ body::-webkit-scrollbar-thumb,
 
 .editor {
   border-top: 0;
-  padding: 14px 16px 16px;
-  background: #ffffff;
+  padding: 0;
+  background: transparent;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -757,15 +757,15 @@ body::-webkit-scrollbar-thumb,
   min-height: 0;
   height: 100%;
   flex: 1 1 auto;
-  border: 1px solid #d0d7de;
-  border-radius: 8px;
-  padding: 12px;
+  border: 0;
+  border-radius: 0;
+  padding: 16px 18px;
   box-sizing: border-box;
   font-size: 14px;
   line-height: 1.5;
   font-family: inherit;
   resize: none;
-  background: #ffffff;
+  background: transparent;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
   white-space: pre-wrap;
