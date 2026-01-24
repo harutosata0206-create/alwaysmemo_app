@@ -1534,14 +1534,6 @@ function App() {
                     <span className="menu-shortcut">Ctrl+F</span>
                   </button>
                   <button type="button" className="menu-item disabled" aria-disabled="true">
-                    <span>次を検索</span>
-                    <span className="menu-shortcut">F3</span>
-                  </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
-                    <span>前を検索</span>
-                    <span className="menu-shortcut">Shift+F3</span>
-                  </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
                     <span>置換</span>
                     <span className="menu-shortcut">Ctrl+H</span>
                   </button>
