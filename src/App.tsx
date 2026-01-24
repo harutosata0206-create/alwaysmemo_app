@@ -71,6 +71,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [showSearchBox, setShowSearchBox] = useState(false);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
@@ -1147,6 +1148,7 @@ function App() {
 
   const focusSearchBox = useCallback(() => {
     setOpenMenu(null);
+    setShowSearchBox(true);
     searchInputRef.current?.focus();
     searchInputRef.current?.select();
   }, []);
@@ -1770,24 +1772,30 @@ function App() {
               </div>
             ) : null}
           </div>
-          <div className="search-group">
-            <input
-              ref={searchInputRef}
-              type="search"
-              className="search-input"
-              placeholder="検索"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  applySearchHighlights(event.currentTarget.value);
-                }
-              }}
-            />
-            {searchQuery.trim() ? (
-              <span className="search-count">{searchMatchCount} 件</span>
-            ) : null}
-          </div>
+          {showSearchBox ? (
+            <div className="search-group">
+              <input
+                ref={searchInputRef}
+                type="search"
+                className="search-input"
+                placeholder="検索"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    applySearchHighlights(event.currentTarget.value);
+                  }
+                  if (event.key === "Escape") {
+                    setShowSearchBox(false);
+                  }
+                }}
+                onBlur={() => setShowSearchBox(false)}
+              />
+              {searchQuery.trim() ? (
+                <span className="search-count">{searchMatchCount} 件</span>
+              ) : null}
+            </div>
+          ) : null}
           <div className="right-group">
             <button type="button" className="icon-button account" aria-label="Account">
               ●
