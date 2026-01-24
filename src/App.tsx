@@ -507,12 +507,6 @@ function App() {
     }
   }, [closeMenus, htmlToMarkdown, htmlToText, persistState, tabs]);
 
-  const closeActiveTab = useCallback(() => {
-    if (!activeTab) return;
-    void requestRemoveTab(activeTab.id);
-    closeMenus();
-  }, [activeTab, closeMenus, requestRemoveTab]);
-
   const openNewWindow = useCallback(async () => {
     try {
       const size = await windowHandle.outerSize();
@@ -981,6 +975,12 @@ function App() {
     }
     performRemoveTab(id);
   }, [performRemoveTab, tabs]);
+
+  const closeActiveTab = useCallback(() => {
+    if (!activeTab) return;
+    void requestRemoveTab(activeTab.id);
+    closeMenus();
+  }, [activeTab, closeMenus, requestRemoveTab]);
 
   const renameTab = (id: string, title: string) => {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
