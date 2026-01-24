@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/api/shell";
 import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -1142,7 +1143,12 @@ function App() {
     const trimmed = query.trim();
     if (!trimmed) return;
     const url = `https://www.bing.com/search?q=${encodeURIComponent(trimmed)}`;
-    window.open(url, "_blank", "noopener");
+    try {
+      await open(url);
+    } catch (error) {
+      console.error("Failed to open browser", error);
+      window.open(url, "_blank", "noopener");
+    }
   }, []);
 
   const moveTab = (fromId: string, toId: string) => {
