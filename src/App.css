@@ -342,6 +342,34 @@ body::-webkit-scrollbar-thumb,
   white-space: nowrap;
 }
 
+.search-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+}
+
+.search-input {
+  width: 160px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid #d0d7de;
+  padding: 0 10px;
+  font-size: 12px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.search-input:focus {
+  outline: 2px solid rgba(59, 130, 246, 0.35);
+  outline-offset: 1px;
+}
+
+.search-count {
+  font-size: 11px;
+  color: #475569;
+}
+
 .format-group {
   position: relative;
 }
@@ -658,6 +686,13 @@ body::-webkit-scrollbar-thumb,
 .editor-body p {
   font-size: 16px;
   margin: 6px 0;
+}
+
+.search-hit {
+  background: #fde68a;
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
 }
 
 .editor-body td {

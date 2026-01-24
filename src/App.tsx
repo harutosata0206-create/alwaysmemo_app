@@ -68,6 +68,9 @@ function App() {
   const [saveLossyPromptOpen, setSaveLossyPromptOpen] = useState(false);
   const saveLossyResolverRef = useRef<((choice: SaveLossyChoice) => void) | null>(null);
   const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatchCount, setSearchMatchCount] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
@@ -163,6 +166,21 @@ function App() {
     const div = document.createElement("div");
     div.innerHTML = html;
     return div.innerText.replace(/\u00a0/g, " ");
+  }, []);
+
+  const stripSearchHighlights = useCallback((html: string) => {
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    container.querySelectorAll("mark.search-hit").forEach((mark) => {
+      const parent = mark.parentNode;
+      if (!parent) return;
+      while (mark.firstChild) {
+        parent.insertBefore(mark.firstChild, mark);
+      }
+      parent.removeChild(mark);
+      parent.normalize();
+    });
+    return container.innerHTML;
   }, []);
 
   const htmlToMarkdown = useCallback((html: string) => {
@@ -741,10 +759,14 @@ function App() {
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
+    if (searchQuery.trim()) {
+      applySearchHighlights(searchQuery);
+      return;
+    }
     if (editor.innerHTML !== activeHtml) {
       editor.innerHTML = activeHtml;
     }
-  }, [activeHtml, activeTabId]);
+  }, [activeHtml, activeTabId, applySearchHighlights, searchQuery]);
 
   useEffect(() => {
     const scroller = tabsScrollerRef.current;
@@ -988,10 +1010,11 @@ function App() {
 
   const updateContent = useCallback((content: string) => {
     if (!activeTab) return;
+    const clean = stripSearchHighlights(content);
     setTabs((prev) =>
-      prev.map((t) => (t.id === activeTab.id ? { ...t, content } : t)),
+      prev.map((t) => (t.id === activeTab.id ? { ...t, content: clean } : t)),
     );
-  }, [activeTab]);
+  }, [activeTab, stripSearchHighlights]);
 
   const toggleBold = useCallback(() => {
     const editor = editorRef.current;
@@ -1134,35 +1157,74 @@ function App() {
     });
   }, [updateContent, updateCursorIndex]);
 
-  const openExternalUrl = useCallback(async (url: string) => {
-    try {
-      const openerModule = await import("@tauri-apps/plugin-opener");
-      const openFn =
-        typeof openerModule.open === "function"
-          ? openerModule.open
-          : typeof openerModule.default === "function"
-            ? openerModule.default
-            : null;
-      if (openFn) {
-        await openFn(url);
-        return;
-      }
-    } catch (error) {
-      console.error("Failed to load opener plugin", error);
-    }
-    window.open(url, "_blank", "noopener");
+  const focusSearchBox = useCallback(() => {
+    setOpenMenu(null);
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
   }, []);
 
-  const searchInBrowser = useCallback(async () => {
-    const editor = editorRef.current;
-    const selectionText = window.getSelection()?.toString().trim() ?? "";
-    const fallback = editor?.innerText.split(/\s+/).slice(0, 5).join(" ") ?? "";
-    const query = selectionText || window.prompt("検索ワードを入力", fallback || "") || "";
-    const trimmed = query.trim();
-    if (!trimmed) return;
-    const url = `https://www.bing.com/search?q=${encodeURIComponent(trimmed)}`;
-    await openExternalUrl(url);
-  }, [openExternalUrl]);
+  const applySearchHighlights = useCallback(
+    (query: string) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const trimmed = query.trim();
+      if (!trimmed) {
+        setSearchMatchCount(0);
+        if (editor.innerHTML !== activeHtml) {
+          editor.innerHTML = activeHtml;
+        }
+        return;
+      }
+      const baseHtml = stripSearchHighlights(activeHtml);
+      const container = document.createElement("div");
+      container.innerHTML = baseHtml;
+      const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped, "gi");
+      let count = 0;
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      const nodes: Text[] = [];
+      let node = walker.nextNode();
+      while (node) {
+        nodes.push(node as Text);
+        node = walker.nextNode();
+      }
+      nodes.forEach((textNode) => {
+        const text = textNode.nodeValue ?? "";
+        if (!regex.test(text)) {
+          regex.lastIndex = 0;
+          return;
+        }
+        regex.lastIndex = 0;
+        const fragment = document.createDocumentFragment();
+        let lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(text))) {
+          const start = match.index;
+          const end = start + match[0].length;
+          if (start > lastIndex) {
+            fragment.appendChild(document.createTextNode(text.slice(lastIndex, start)));
+          }
+          const mark = document.createElement("mark");
+          mark.className = "search-hit";
+          mark.textContent = text.slice(start, end);
+          fragment.appendChild(mark);
+          count += 1;
+          lastIndex = end;
+        }
+        if (lastIndex < text.length) {
+          fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+        textNode.parentNode?.replaceChild(fragment, textNode);
+      });
+      editor.innerHTML = container.innerHTML;
+      setSearchMatchCount(count);
+      const firstHit = editor.querySelector("mark.search-hit");
+      if (firstHit) {
+        (firstHit as HTMLElement).scrollIntoView({ block: "center" });
+      }
+    },
+    [activeHtml, stripSearchHighlights],
+  );
 
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
@@ -1465,7 +1527,7 @@ function App() {
                     <span className="menu-shortcut">Ctrl+E</span>
                   </button>
                   <div className="menu-divider" />
-                  <button type="button" className="menu-item" onClick={searchInBrowser}>
+                  <button type="button" className="menu-item" onClick={focusSearchBox}>
                     <span>検索する</span>
                     <span className="menu-shortcut">Ctrl+F</span>
                   </button>
@@ -1706,6 +1768,24 @@ function App() {
                   書式設定のクリア
                 </button>
               </div>
+            ) : null}
+          </div>
+          <div className="search-group">
+            <input
+              ref={searchInputRef}
+              type="search"
+              className="search-input"
+              placeholder="検索"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  applySearchHighlights(event.currentTarget.value);
+                }
+              }}
+            />
+            {searchQuery.trim() ? (
+              <span className="search-count">{searchMatchCount} 件</span>
             ) : null}
           </div>
           <div className="right-group">
