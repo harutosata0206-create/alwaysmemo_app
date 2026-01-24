@@ -1113,6 +1113,27 @@ function App() {
     });
   }, [updateContent, updateCursorIndex]);
 
+  const pasteFromClipboard = useCallback(async () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    if (navigator.clipboard?.readText) {
+      try {
+        const text = await navigator.clipboard.readText();
+        document.execCommand("insertText", false, text);
+      } catch (error) {
+        console.error("clipboard read failed", error);
+        document.execCommand("paste");
+      }
+    } else {
+      document.execCommand("paste");
+    }
+    window.requestAnimationFrame(() => {
+      updateContent(editor.innerHTML);
+      updateCursorIndex();
+    });
+  }, [updateContent, updateCursorIndex]);
+
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
     setTabs((prev) => {
@@ -1397,7 +1418,7 @@ function App() {
                     <span>コピー</span>
                     <span className="menu-shortcut">Ctrl+C</span>
                   </button>
-                  <button type="button" className="menu-item" onClick={() => runEditorCommand("paste")}>
+                  <button type="button" className="menu-item" onClick={pasteFromClipboard}>
                     <span>貼り付け</span>
                     <span className="menu-shortcut">Ctrl+V</span>
                   </button>
