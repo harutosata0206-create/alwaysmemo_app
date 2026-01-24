@@ -72,6 +72,8 @@ function App() {
   const [searchMatchCount, setSearchMatchCount] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [showSearchBox, setShowSearchBox] = useState(false);
+  const [replaceQuery, setReplaceQuery] = useState("");
+  const replaceInputRef = useRef<HTMLInputElement | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
@@ -1153,6 +1155,13 @@ function App() {
     searchInputRef.current?.select();
   }, []);
 
+  const focusReplaceBox = useCallback(() => {
+    setOpenMenu(null);
+    setShowSearchBox(true);
+    replaceInputRef.current?.focus();
+    replaceInputRef.current?.select();
+  }, []);
+
   const applySearchHighlights = useCallback(
     (query: string) => {
       const editor = editorRef.current;
@@ -1214,6 +1223,21 @@ function App() {
       }
     },
     [activeHtml, stripSearchHighlights],
+  );
+
+  const replaceMatches = useCallback(
+    (mode: "one" | "all") => {
+      const trimmed = searchQuery.trim();
+      if (!trimmed || !activeTab) return;
+      const baseHtml = stripSearchHighlights(activeHtml);
+      const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped, mode === "all" ? "gi" : "i");
+      const replacement = replaceQuery;
+      const nextHtml = baseHtml.replace(regex, replacement);
+      updateContent(nextHtml);
+      window.requestAnimationFrame(() => applySearchHighlights(trimmed));
+    },
+    [activeHtml, activeTab, applySearchHighlights, replaceQuery, searchQuery, stripSearchHighlights, updateContent],
   );
 
   useEffect(() => {
@@ -1533,7 +1557,7 @@ function App() {
                     <span>検索する</span>
                     <span className="menu-shortcut">Ctrl+F</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={focusReplaceBox}>
                     <span>置換</span>
                     <span className="menu-shortcut">Ctrl+H</span>
                   </button>
@@ -1766,26 +1790,69 @@ function App() {
           </div>
           {showSearchBox ? (
             <div className="search-group">
-              <input
-                ref={searchInputRef}
-                type="search"
-                className="search-input"
-                placeholder="検索"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    applySearchHighlights(event.currentTarget.value);
-                  }
-                  if (event.key === "Escape") {
-                    setShowSearchBox(false);
-                  }
-                }}
-                onBlur={() => setShowSearchBox(false)}
-              />
-              {searchQuery.trim() ? (
-                <span className="search-count">{searchMatchCount} 件</span>
-              ) : null}
+              <div className="search-bar">
+                <span className="search-icon">🔍</span>
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  className="search-input"
+                  placeholder="検索"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      applySearchHighlights(event.currentTarget.value);
+                    }
+                    if (event.key === "Escape") {
+                      setShowSearchBox(false);
+                    }
+                  }}
+                />
+                {searchQuery.trim() ? (
+                  <span className="search-count">{searchMatchCount} 件</span>
+                ) : null}
+                <button
+                  type="button"
+                  className="search-close"
+                  onClick={() => setShowSearchBox(false)}
+                  aria-label="Close search"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="search-bar">
+                <span className="search-icon">↻</span>
+                <input
+                  ref={replaceInputRef}
+                  type="text"
+                  className="search-input"
+                  placeholder="置換"
+                  value={replaceQuery}
+                  onChange={(event) => setReplaceQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      replaceMatches("one");
+                    }
+                    if (event.key === "Escape") {
+                      setShowSearchBox(false);
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="search-action"
+                  onClick={() => replaceMatches("one")}
+                >
+                  置換
+                </button>
+                <button
+                  type="button"
+                  className="search-action"
+                  onClick={() => replaceMatches("all")}
+                >
+                  すべて置換
+                </button>
+              </div>
             </div>
           ) : null}
           <div className="right-group">
