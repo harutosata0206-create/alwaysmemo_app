@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-opener";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
@@ -1134,6 +1135,22 @@ function App() {
     });
   }, [updateContent, updateCursorIndex]);
 
+  const searchInBrowser = useCallback(async () => {
+    const editor = editorRef.current;
+    const selectionText = window.getSelection()?.toString().trim() ?? "";
+    const fallback = editor?.innerText.split(/\s+/).slice(0, 5).join(" ") ?? "";
+    const query = selectionText || window.prompt("検索ワードを入力", fallback || "") || "";
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    const url = `https://www.bing.com/search?q=${encodeURIComponent(trimmed)}`;
+    try {
+      await open(url);
+    } catch (error) {
+      console.error("Failed to open browser", error);
+      window.open(url, "_blank", "noopener");
+    }
+  }, []);
+
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
     setTabs((prev) => {
@@ -1435,7 +1452,7 @@ function App() {
                     <span className="menu-shortcut">Ctrl+E</span>
                   </button>
                   <div className="menu-divider" />
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={searchInBrowser}>
                     <span>検索する</span>
                     <span className="menu-shortcut">Ctrl+F</span>
                   </button>
