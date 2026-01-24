@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/api/shell";
 import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -1135,6 +1134,25 @@ function App() {
     });
   }, [updateContent, updateCursorIndex]);
 
+  const openExternalUrl = useCallback(async (url: string) => {
+    try {
+      const openerModule = await import("@tauri-apps/plugin-opener");
+      const openFn =
+        typeof openerModule.open === "function"
+          ? openerModule.open
+          : typeof openerModule.default === "function"
+            ? openerModule.default
+            : null;
+      if (openFn) {
+        await openFn(url);
+        return;
+      }
+    } catch (error) {
+      console.error("Failed to load opener plugin", error);
+    }
+    window.open(url, "_blank", "noopener");
+  }, []);
+
   const searchInBrowser = useCallback(async () => {
     const editor = editorRef.current;
     const selectionText = window.getSelection()?.toString().trim() ?? "";
@@ -1143,13 +1161,8 @@ function App() {
     const trimmed = query.trim();
     if (!trimmed) return;
     const url = `https://www.bing.com/search?q=${encodeURIComponent(trimmed)}`;
-    try {
-      await open(url);
-    } catch (error) {
-      console.error("Failed to open browser", error);
-      window.open(url, "_blank", "noopener");
-    }
-  }, []);
+    await openExternalUrl(url);
+  }, [openExternalUrl]);
 
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
