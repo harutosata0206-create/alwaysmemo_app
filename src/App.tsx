@@ -1427,7 +1427,7 @@ function App() {
                     <span className="menu-shortcut">Del</span>
                   </button>
                   <div className="menu-divider" />
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={clearFormatting}>
                     <span>書式設定のクリア</span>
                   </button>
                   <button type="button" className="menu-item disabled" aria-disabled="true">
