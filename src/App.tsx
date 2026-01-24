@@ -1379,11 +1379,6 @@ function App() {
                     <span className="menu-shortcut">Ctrl+Z</span>
                   </button>
                   <button type="button" className="menu-item disabled" aria-disabled="true">
-                    <span>やり直す</span>
-                    <span className="menu-shortcut">Ctrl+Shift+Z</span>
-                  </button>
-                  <div className="menu-divider" />
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
                     <span>切り取り</span>
                     <span className="menu-shortcut">Ctrl+X</span>
                   </button>
@@ -1394,6 +1389,51 @@ function App() {
                   <button type="button" className="menu-item disabled" aria-disabled="true">
                     <span>貼り付け</span>
                     <span className="menu-shortcut">Ctrl+V</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>削除</span>
+                    <span className="menu-shortcut">Del</span>
+                  </button>
+                  <div className="menu-divider" />
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>書式設定のクリア</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>Bing で定義</span>
+                    <span className="menu-shortcut">Ctrl+E</span>
+                  </button>
+                  <div className="menu-divider" />
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>検索する</span>
+                    <span className="menu-shortcut">Ctrl+F</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>次を検索</span>
+                    <span className="menu-shortcut">F3</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>前を検索</span>
+                    <span className="menu-shortcut">Shift+F3</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>置換</span>
+                    <span className="menu-shortcut">Ctrl+H</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>移動先</span>
+                    <span className="menu-shortcut">Ctrl+G</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>すべて選択</span>
+                    <span className="menu-shortcut">Ctrl+A</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>日付と時刻</span>
+                    <span className="menu-shortcut">F5</span>
+                  </button>
+                  <div className="menu-divider" />
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>フォント</span>
                   </button>
                 </div>
               ) : null}
