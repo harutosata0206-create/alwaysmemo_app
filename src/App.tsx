@@ -1102,6 +1102,17 @@ function App() {
     updateCursorIndex();
   }, [updateContent, updateCursorIndex]);
 
+  const runEditorCommand = useCallback((command: string) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand(command);
+    window.requestAnimationFrame(() => {
+      updateContent(editor.innerHTML);
+      updateCursorIndex();
+    });
+  }, [updateContent, updateCursorIndex]);
+
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
     setTabs((prev) => {
@@ -1374,23 +1385,23 @@ function App() {
               </button>
               {openMenu === "edit" ? (
                 <div className="menu-panel" onMouseDown={(event) => event.stopPropagation()}>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={() => runEditorCommand("undo")}>
                     <span>元に戻す</span>
                     <span className="menu-shortcut">Ctrl+Z</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={() => runEditorCommand("cut")}>
                     <span>切り取り</span>
                     <span className="menu-shortcut">Ctrl+X</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={() => runEditorCommand("copy")}>
                     <span>コピー</span>
                     <span className="menu-shortcut">Ctrl+C</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={() => runEditorCommand("paste")}>
                     <span>貼り付け</span>
                     <span className="menu-shortcut">Ctrl+V</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={() => runEditorCommand("delete")}>
                     <span>削除</span>
                     <span className="menu-shortcut">Del</span>
                   </button>
