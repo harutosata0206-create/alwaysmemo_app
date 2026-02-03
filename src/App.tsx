@@ -32,6 +32,50 @@ type PersistedState = {
 type SaveFormatChoice = "markdown" | "text" | "cancel";
 type SaveLossyChoice = "markdown" | "text" | "cancel";
 
+const BLOCK_TEXT_TAGS = new Set([
+  "DIV",
+  "P",
+  "LI",
+  "TR",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+  "UL",
+  "OL",
+  "TABLE",
+]);
+
+function nodeToPlainText(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return node.textContent ?? "";
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+    return "";
+  }
+
+  if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === "BR") {
+    return "\n";
+  }
+
+  let text = "";
+  node.childNodes.forEach((child) => {
+    text += nodeToPlainText(child);
+  });
+
+  if (
+    node.nodeType === Node.ELEMENT_NODE &&
+    BLOCK_TEXT_TAGS.has((node as Element).tagName) &&
+    !text.endsWith("\n")
+  ) {
+    text += "\n";
+  }
+
+  return text;
+}
+
 function App() {
   const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(true);
   const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
@@ -89,7 +133,7 @@ function App() {
   const activePlainText = useMemo(() => {
     const div = document.createElement("div");
     div.innerHTML = activeHtml;
-    return div.innerText.replace(/\u00a0/g, " ");
+    return nodeToPlainText(div).replace(/\u00a0/g, " ");
   }, [activeHtml]);
   const storageKey = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -124,7 +168,9 @@ function App() {
     const preRange = range.cloneRange();
     preRange.selectNodeContents(editor);
     preRange.setEnd(range.startContainer, range.startOffset);
-    setCursorIndex(preRange.toString().length);
+    const fragment = preRange.cloneContents();
+    const beforeText = nodeToPlainText(fragment).replace(/\u00a0/g, " ");
+    setCursorIndex(beforeText.length);
   }, []);
 
   const persistState = useCallback(
@@ -174,7 +220,7 @@ function App() {
   const htmlToText = useCallback((html: string) => {
     const div = document.createElement("div");
     div.innerHTML = html;
-    return div.innerText.replace(/\u00a0/g, " ");
+    return nodeToPlainText(div).replace(/\u00a0/g, " ");
   }, []);
 
   const stripSearchHighlights = useCallback((html: string) => {
