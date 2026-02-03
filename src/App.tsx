@@ -102,8 +102,8 @@ function App() {
     const before = activePlainText.slice(0, safeIndex);
     const lines = before.split(/\r?\n/);
     return {
-      line: (lines[lines.length - 1]?.length ?? 0) + 1,
-      column: Math.max(lines.length, 1),
+      line: Math.max(lines.length, 1),
+      column: (lines[lines.length - 1]?.length ?? 0) + 1,
     };
   }, [activePlainText, cursorIndex]);
 
@@ -1209,9 +1209,9 @@ function App() {
 
   const openGoToLine = useCallback(() => {
     setOpenMenu(null);
-    setGoToLineValue(String(cursorPosition.column));
+    setGoToLineValue(String(cursorPosition.line));
     setGoToLineOpen(true);
-  }, [cursorPosition.column]);
+  }, [cursorPosition.line]);
 
   const moveCursorToLine = useCallback((lineNumber: number) => {
     const editor = editorRef.current;
