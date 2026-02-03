@@ -1266,14 +1266,15 @@ function App() {
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    if (searchQuery.trim()) {
+    if (showSearchBox && searchQuery.trim()) {
       applySearchHighlights(searchQuery);
       return;
     }
+    setSearchMatchCount(0);
     if (editor.innerHTML !== activeHtml) {
       editor.innerHTML = activeHtml;
     }
-  }, [activeHtml, activeTabId, applySearchHighlights, searchQuery]);
+  }, [activeHtml, activeTabId, applySearchHighlights, searchQuery, showSearchBox]);
 
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
