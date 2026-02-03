@@ -77,6 +77,9 @@ function App() {
   const [showSearchBox, setShowSearchBox] = useState(false);
   const [replaceQuery, setReplaceQuery] = useState("");
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
+  const [goToLineOpen, setGoToLineOpen] = useState(false);
+  const [goToLineValue, setGoToLineValue] = useState("1");
+  const goToLineInputRef = useRef<HTMLInputElement | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
@@ -840,6 +843,25 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!goToLineOpen) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setGoToLineOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [goToLineOpen]);
+
+  useEffect(() => {
+    if (!goToLineOpen) return;
+    window.requestAnimationFrame(() => {
+      goToLineInputRef.current?.focus();
+      goToLineInputRef.current?.select();
+    });
+  }, [goToLineOpen]);
+
+  useEffect(() => {
     if (!showFormatMenu && !showOverflowMenu && !showHeadingMenu && !showListMenu) return;
     const handler = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -1184,6 +1206,93 @@ function App() {
     replaceInputRef.current?.focus();
     replaceInputRef.current?.select();
   }, []);
+
+  const openGoToLine = useCallback(() => {
+    setOpenMenu(null);
+    setGoToLineValue(String(cursorPosition.line));
+    setGoToLineOpen(true);
+  }, [cursorPosition.line]);
+
+  const moveCursorToLine = useCallback((lineNumber: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const lines = activePlainText.split(/\r?\n/);
+    const safeLine = Math.min(Math.max(lineNumber, 1), Math.max(lines.length, 1));
+    let targetIndex = 0;
+    for (let i = 0; i < safeLine - 1; i += 1) {
+      targetIndex += (lines[i]?.length ?? 0) + 1;
+    }
+
+    const walker = document.createTreeWalker(
+      editor,
+      NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+      {
+        acceptNode(node) {
+          if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
+          if (
+            node.nodeType === Node.ELEMENT_NODE &&
+            (node as HTMLElement).tagName === "BR"
+          ) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+          return NodeFilter.FILTER_SKIP;
+        },
+      },
+    );
+
+    let walked = 0;
+    let foundNode: Node | null = null;
+    let foundOffset = 0;
+    let current = walker.nextNode();
+    while (current) {
+      if (current.nodeType === Node.TEXT_NODE) {
+        const textLen = current.nodeValue?.length ?? 0;
+        if (targetIndex <= walked + textLen) {
+          foundNode = current;
+          foundOffset = Math.max(0, targetIndex - walked);
+          break;
+        }
+        walked += textLen;
+      } else {
+        if (targetIndex <= walked) {
+          foundNode = current.parentNode;
+          foundOffset = Array.from(current.parentNode?.childNodes ?? []).indexOf(current);
+          break;
+        }
+        walked += 1;
+      }
+      current = walker.nextNode();
+    }
+
+    if (!foundNode) {
+      foundNode = editor;
+      foundOffset = editor.childNodes.length;
+    }
+
+    const range = document.createRange();
+    const selection = window.getSelection();
+    try {
+      if (foundNode.nodeType === Node.TEXT_NODE) {
+        range.setStart(foundNode, foundOffset);
+      } else {
+        range.setStart(foundNode, Math.max(0, foundOffset));
+      }
+      range.collapse(true);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      editor.focus();
+      updateCursorIndex();
+    } catch (error) {
+      console.error("Failed to move cursor", error);
+    }
+  }, [activePlainText, updateCursorIndex]);
+
+  const submitGoToLine = useCallback(() => {
+    const parsed = Number.parseInt(goToLineValue, 10);
+    if (Number.isNaN(parsed)) return;
+    moveCursorToLine(parsed);
+    setGoToLineOpen(false);
+  }, [goToLineValue, moveCursorToLine]);
 
   const applySearchHighlights = useCallback(
     (query: string) => {
@@ -1590,7 +1699,7 @@ function App() {
                     <span>置換</span>
                     <span className="menu-shortcut">Ctrl+H</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={openGoToLine}>
                     <span>移動先</span>
                     <span className="menu-shortcut">Ctrl+G</span>
                   </button>
@@ -2046,6 +2155,45 @@ function App() {
                 type="button"
                 className="delete-choice ghost"
                 onClick={() => setDeletePromptTabId(null)}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {goToLineOpen ? (
+        <div className="format-choice-overlay" role="presentation">
+          <div
+            className="goto-line-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="goto-line-title"
+          >
+            <h2 id="goto-line-title">行に移動</h2>
+            <label htmlFor="goto-line-input">行番号</label>
+            <input
+              ref={goToLineInputRef}
+              id="goto-line-input"
+              name="goto-line"
+              className="goto-line-input"
+              type="number"
+              min={1}
+              value={goToLineValue}
+              onChange={(event) => setGoToLineValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") submitGoToLine();
+                if (event.key === "Escape") setGoToLineOpen(false);
+              }}
+            />
+            <div className="goto-line-actions">
+              <button type="button" className="goto-line-button primary" onClick={submitGoToLine}>
+                移動
+              </button>
+              <button
+                type="button"
+                className="goto-line-button"
+                onClick={() => setGoToLineOpen(false)}
               >
                 キャンセル
               </button>

@@ -1128,3 +1128,77 @@ button:active {
 .delete-choice.ghost:hover {
   background: rgba(148, 163, 184, 0.2);
 }
+
+.goto-line-dialog {
+  width: min(360px, 90vw);
+  border-radius: 12px;
+  border: 1px solid #2d333b;
+  background: #1f2328;
+  color: #f9fafb;
+  padding: 18px 20px 16px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+
+.goto-line-dialog h2 {
+  margin: 0 0 12px;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.goto-line-dialog label {
+  display: block;
+  font-size: 18px;
+  margin-bottom: 8px;
+  color: #e5e7eb;
+}
+
+.goto-line-input {
+  width: 100%;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid #3b4049;
+  background: #111827;
+  color: #f9fafb;
+  padding: 0 10px;
+  font-size: 20px;
+  box-sizing: border-box;
+}
+
+.goto-line-input:focus {
+  outline: 2px solid #38bdf8;
+  outline-offset: 1px;
+}
+
+.goto-line-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+}
+
+.goto-line-button {
+  flex: 1 1 auto;
+  border-radius: 8px;
+  border: 1px solid #3b4049;
+  background: #2b3038;
+  color: #f3f4f6;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.goto-line-button:hover {
+  border-color: #4b5563;
+  background: #323844;
+}
+
+.goto-line-button.primary {
+  border-color: #38bdf8;
+  background: #38bdf8;
+  color: #0b0f14;
+}
+
+.goto-line-button.primary:hover {
+  border-color: #7dd3fc;
+  background: #7dd3fc;
+}
