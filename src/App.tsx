@@ -102,8 +102,8 @@ function App() {
     const before = activePlainText.slice(0, safeIndex);
     const lines = before.split(/\r?\n/);
     return {
-      line: Math.max(lines.length, 1),
-      column: (lines[lines.length - 1]?.length ?? 0) + 1,
+      line: (lines[lines.length - 1]?.length ?? 0) + 1,
+      column: Math.max(lines.length, 1),
     };
   }, [activePlainText, cursorIndex]);
 
@@ -1209,9 +1209,9 @@ function App() {
 
   const openGoToLine = useCallback(() => {
     setOpenMenu(null);
-    setGoToLineValue(String(cursorPosition.line));
+    setGoToLineValue(String(cursorPosition.column));
     setGoToLineOpen(true);
-  }, [cursorPosition.line]);
+  }, [cursorPosition.column]);
 
   const moveCursorToLine = useCallback((lineNumber: number) => {
     const editor = editorRef.current;
@@ -2203,7 +2203,7 @@ function App() {
       ) : null}
 
       <div className="bottom-bar">
-        <span className="bottom-item">行 {cursorPosition.column}, 列 {cursorPosition.line}</span>
+        <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
         <span className="bottom-item">{activePlainText.length} 文字</span>
         <span className="bottom-item">テキスト</span>
         <span className="bottom-item">100%</span>
