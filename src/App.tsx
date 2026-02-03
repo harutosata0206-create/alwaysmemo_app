@@ -1552,28 +1552,28 @@ function App() {
                   style={editMenuLeft !== null ? { left: `${editMenuLeft}px` } : undefined}
                   onMouseDown={(event) => event.stopPropagation()}
                 >
-                  <button type="button" className="menu-item" onClick={() => runEditorCommand("undo")}>
+                  <button type="button" className="menu-item" onClick={() => { runEditorCommand("undo"); closeMenus(); }}>
                     <span>元に戻す</span>
                     <span className="menu-shortcut">Ctrl+Z</span>
                   </button>
-                  <button type="button" className="menu-item" onClick={() => runEditorCommand("cut")}>
+                  <button type="button" className="menu-item" onClick={() => { runEditorCommand("cut"); closeMenus(); }}>
                     <span>切り取り</span>
                     <span className="menu-shortcut">Ctrl+X</span>
                   </button>
-                  <button type="button" className="menu-item" onClick={() => runEditorCommand("copy")}>
+                  <button type="button" className="menu-item" onClick={() => { runEditorCommand("copy"); closeMenus(); }}>
                     <span>コピー</span>
                     <span className="menu-shortcut">Ctrl+C</span>
                   </button>
-                  <button type="button" className="menu-item" onClick={pasteFromClipboard}>
+                  <button type="button" className="menu-item" onClick={() => { void pasteFromClipboard(); closeMenus(); }}>
                     <span>貼り付け</span>
                     <span className="menu-shortcut">Ctrl+V</span>
                   </button>
-                  <button type="button" className="menu-item" onClick={() => runEditorCommand("delete")}>
+                  <button type="button" className="menu-item" onClick={() => { runEditorCommand("delete"); closeMenus(); }}>
                     <span>削除</span>
                     <span className="menu-shortcut">Del</span>
                   </button>
                   <div className="menu-divider" />
-                  <button type="button" className="menu-item" onClick={clearFormatting}>
+                  <button type="button" className="menu-item" onClick={() => { clearFormatting(); closeMenus(); }}>
                     <span>書式設定のクリア</span>
                   </button>
                   <button type="button" className="menu-item disabled" aria-disabled="true">
@@ -1581,11 +1581,11 @@ function App() {
                     <span className="menu-shortcut">Ctrl+E</span>
                   </button>
                   <div className="menu-divider" />
-                  <button type="button" className="menu-item" onClick={focusSearchBox}>
+                  <button type="button" className="menu-item" onClick={() => { focusSearchBox(); closeMenus(); }}>
                     <span>検索する</span>
                     <span className="menu-shortcut">Ctrl+F</span>
                   </button>
-                  <button type="button" className="menu-item" onClick={focusReplaceBox}>
+                  <button type="button" className="menu-item" onClick={() => { focusReplaceBox(); closeMenus(); }}>
                     <span>置換</span>
                     <span className="menu-shortcut">Ctrl+H</span>
                   </button>
