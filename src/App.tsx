@@ -53,6 +53,9 @@ function App() {
   const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
+  const editMenuRef = useRef<HTMLDivElement | null>(null);
+  const editMenuWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [editMenuLeft, setEditMenuLeft] = useState<number | null>(null);
   const [showFormatMenu, setShowFormatMenu] = useState(false);
   const [showTablePicker, setShowTablePicker] = useState(false);
   const [tableHover, setTableHover] = useState({ rows: 0, cols: 0 });
@@ -912,7 +915,7 @@ function App() {
   }, [shortcutActions, useGlobalShortcuts]);
 
   useEffect(() => {
-    if (openMenu !== "file") {
+    if (openMenu !== "file" && openMenu !== "edit") {
       if (expandedWindowRef.current && originalWindowSizeRef.current) {
         void windowHandle.setSize(originalWindowSizeRef.current);
         expandedWindowRef.current = false;
@@ -924,7 +927,7 @@ function App() {
     if (expandedWindowRef.current) return;
 
     const frame = window.requestAnimationFrame(async () => {
-      const panel = fileMenuRef.current;
+      const panel = openMenu === "file" ? fileMenuRef.current : editMenuRef.current;
       if (!panel) return;
       const rect = panel.getBoundingClientRect();
       const overflowCss = rect.bottom - window.innerHeight;
@@ -952,6 +955,26 @@ function App() {
 
     return () => window.cancelAnimationFrame(frame);
   }, [openMenu, windowHandle]);
+
+  useEffect(() => {
+    if (openMenu !== "edit") {
+      setEditMenuLeft(null);
+      return;
+    }
+    const updateLeft = () => {
+      if (!editMenuWrapperRef.current || !menuRef.current) return;
+      if (window.innerWidth > 640) {
+        setEditMenuLeft(null);
+        return;
+      }
+      const wrapperRect = editMenuWrapperRef.current.getBoundingClientRect();
+      const groupRect = menuRef.current.getBoundingClientRect();
+      setEditMenuLeft(groupRect.left - wrapperRect.left);
+    };
+    updateLeft();
+    window.addEventListener("resize", updateLeft);
+    return () => window.removeEventListener("resize", updateLeft);
+  }, [openMenu]);
 
   const addTab = () => {
     const id = crypto.randomUUID();
@@ -1514,7 +1537,7 @@ function App() {
                 </div>
               ) : null}
             </div>
-            <div className="menu-wrapper">
+            <div className="menu-wrapper" ref={editMenuWrapperRef}>
               <button
                 type="button"
                 className={`menu-button ${openMenu === "edit" ? "active" : ""}`}
@@ -1523,7 +1546,12 @@ function App() {
                 編集
               </button>
               {openMenu === "edit" ? (
-                <div className="menu-panel" onMouseDown={(event) => event.stopPropagation()}>
+                <div
+                  className="menu-panel"
+                  ref={editMenuRef}
+                  style={editMenuLeft !== null ? { left: `${editMenuLeft}px` } : undefined}
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
                   <button type="button" className="menu-item" onClick={() => runEditorCommand("undo")}>
                     <span>元に戻す</span>
                     <span className="menu-shortcut">Ctrl+Z</span>
