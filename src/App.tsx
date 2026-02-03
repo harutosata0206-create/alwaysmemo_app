@@ -2203,7 +2203,7 @@ function App() {
       ) : null}
 
       <div className="bottom-bar">
-        <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
+        <span className="bottom-item">行 {cursorPosition.column}, 列 {cursorPosition.line}</span>
         <span className="bottom-item">{activePlainText.length} 文字</span>
         <span className="bottom-item">テキスト</span>
         <span className="bottom-item">100%</span>
