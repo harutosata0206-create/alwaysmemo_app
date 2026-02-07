@@ -100,6 +100,9 @@ function App() {
   const editMenuRef = useRef<HTMLDivElement | null>(null);
   const editMenuWrapperRef = useRef<HTMLDivElement | null>(null);
   const [editMenuLeft, setEditMenuLeft] = useState<number | null>(null);
+  const viewMenuRef = useRef<HTMLDivElement | null>(null);
+  const viewMenuWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [viewMenuLeft, setViewMenuLeft] = useState<number | null>(null);
   const [showFormatMenu, setShowFormatMenu] = useState(false);
   const [showTablePicker, setShowTablePicker] = useState(false);
   const [tableHover, setTableHover] = useState({ rows: 0, cols: 0 });
@@ -1003,7 +1006,7 @@ function App() {
   }, [shortcutActions, useGlobalShortcuts]);
 
   useEffect(() => {
-    if (openMenu !== "file" && openMenu !== "edit") {
+    if (openMenu !== "file" && openMenu !== "edit" && openMenu !== "view") {
       if (expandedWindowRef.current && originalWindowSizeRef.current) {
         void windowHandle.setSize(originalWindowSizeRef.current);
         expandedWindowRef.current = false;
@@ -1015,7 +1018,12 @@ function App() {
     if (expandedWindowRef.current) return;
 
     const frame = window.requestAnimationFrame(async () => {
-      const panel = openMenu === "file" ? fileMenuRef.current : editMenuRef.current;
+      const panel =
+        openMenu === "file"
+          ? fileMenuRef.current
+          : openMenu === "edit"
+            ? editMenuRef.current
+            : viewMenuRef.current;
       if (!panel) return;
       const rect = panel.getBoundingClientRect();
       const overflowCss = rect.bottom - window.innerHeight;
@@ -1058,6 +1066,26 @@ function App() {
       const wrapperRect = editMenuWrapperRef.current.getBoundingClientRect();
       const groupRect = menuRef.current.getBoundingClientRect();
       setEditMenuLeft(groupRect.left - wrapperRect.left);
+    };
+    updateLeft();
+    window.addEventListener("resize", updateLeft);
+    return () => window.removeEventListener("resize", updateLeft);
+  }, [openMenu]);
+
+  useEffect(() => {
+    if (openMenu !== "view") {
+      setViewMenuLeft(null);
+      return;
+    }
+    const updateLeft = () => {
+      if (!viewMenuWrapperRef.current || !menuRef.current) return;
+      if (window.innerWidth > 640) {
+        setViewMenuLeft(null);
+        return;
+      }
+      const wrapperRect = viewMenuWrapperRef.current.getBoundingClientRect();
+      const groupRect = menuRef.current.getBoundingClientRect();
+      setViewMenuLeft(groupRect.left - wrapperRect.left);
     };
     updateLeft();
     window.addEventListener("resize", updateLeft);
@@ -1791,7 +1819,7 @@ function App() {
                 </div>
               ) : null}
             </div>
-            <div className="menu-wrapper">
+            <div className="menu-wrapper" ref={viewMenuWrapperRef}>
               <button
                 type="button"
                 className={`menu-button ${openMenu === "view" ? "active" : ""}`}
@@ -1800,7 +1828,12 @@ function App() {
                 表示
               </button>
               {openMenu === "view" ? (
-                <div className="menu-panel" onMouseDown={(event) => event.stopPropagation()}>
+                <div
+                  className="menu-panel"
+                  ref={viewMenuRef}
+                  style={viewMenuLeft !== null ? { left: `${viewMenuLeft}px` } : undefined}
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
                   <button
                     type="button"
                     className="menu-item has-submenu"
