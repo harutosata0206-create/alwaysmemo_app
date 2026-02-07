@@ -267,7 +267,7 @@ function App() {
   const hasRichFormatting = useCallback((html: string) => {
     const container = document.createElement("div");
     container.innerHTML = html;
-    if (container.querySelector("strong, b, em, i, u, a, table, thead, tbody, tr, td, th, ul, ol, li")) {
+    if (container.querySelector("strong, b, em, i, u, a, table, thead, tbody, tr, td, th, ul, ol, li, h1, h2, h3, h4, h5, h6")) {
       return true;
     }
     return Array.from(container.querySelectorAll<HTMLElement>("span"))
