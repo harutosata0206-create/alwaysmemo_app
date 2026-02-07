@@ -1017,9 +1017,14 @@ function App() {
       return;
     }
 
-    if (expandedWindowRef.current) return;
-
     const frame = window.requestAnimationFrame(async () => {
+      if (
+        expandedWindowRef.current &&
+        openMenu === "view" &&
+        (openViewSubmenu === "zoom" || openViewSubmenu === "markdown")
+      ) {
+        expandedWindowRef.current = false;
+      }
       const panel =
         openMenu === "file"
           ? fileMenuRef.current
@@ -1064,7 +1069,7 @@ function App() {
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [openMenu, windowHandle]);
+  }, [openMenu, openViewSubmenu, windowHandle]);
 
   useEffect(() => {
     if (openMenu !== "edit") {
