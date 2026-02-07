@@ -6,8 +6,8 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
 
-const MIN_WINDOW_WIDTH = 350;
-const MIN_WINDOW_HEIGHT = 270;
+const MIN_WINDOW_WIDTH = 300;
+const MIN_WINDOW_HEIGHT = 220;
 const STORAGE_KEY = "alwaysmemo-state";
 
 type Tab = {
