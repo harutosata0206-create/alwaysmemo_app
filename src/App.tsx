@@ -116,6 +116,8 @@ function App() {
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
   const [openViewSubmenu, setOpenViewSubmenu] = useState<"zoom" | "markdown" | null>(null);
+  const viewZoomSubmenuRef = useRef<HTMLDivElement | null>(null);
+  const viewMarkdownSubmenuRef = useRef<HTMLDivElement | null>(null);
   const [saveFormatPromptOpen, setSaveFormatPromptOpen] = useState(false);
   const saveFormatResolverRef = useRef<((choice: SaveFormatChoice) => void) | null>(null);
   const [saveLossyPromptOpen, setSaveLossyPromptOpen] = useState(false);
@@ -1026,8 +1028,18 @@ function App() {
             : viewMenuRef.current;
       if (!panel) return;
       const rect = panel.getBoundingClientRect();
-      const overflowCss = rect.bottom - window.innerHeight;
-      if (overflowCss <= 0) return;
+      const activeSubmenu =
+        openMenu === "view"
+          ? openViewSubmenu === "zoom"
+            ? viewZoomSubmenuRef.current
+            : openViewSubmenu === "markdown"
+              ? viewMarkdownSubmenuRef.current
+              : null
+          : null;
+      const subRect = activeSubmenu?.getBoundingClientRect() ?? rect;
+      const overflowCss = Math.max(rect.bottom, subRect.bottom) - window.innerHeight;
+      const overflowRight = Math.max(rect.right, subRect.right) - window.innerWidth;
+      if (overflowCss <= 0 && overflowRight <= 0) return;
 
       try {
         if (!originalWindowSizeRef.current) {
@@ -1038,11 +1050,13 @@ function App() {
         }
         const base = originalWindowSizeRef.current;
         const maxHeight = window.screen?.availHeight ?? base.height;
-        const nextHeight = Math.min(base.height + overflowCss + 8, maxHeight);
+        const nextHeight = Math.min(base.height + Math.max(overflowCss, 0) + 8, maxHeight);
+        const maxWidth = window.screen?.availWidth ?? base.width;
+        const nextWidth = Math.min(base.width + Math.max(overflowRight, 0) + 8, maxWidth);
 
-        if (nextHeight > base.height) {
+        if (nextHeight > base.height || nextWidth > base.width) {
           expandedWindowRef.current = true;
-          await windowHandle.setSize(new LogicalSize(base.width, nextHeight));
+          await windowHandle.setSize(new LogicalSize(nextWidth, nextHeight));
         }
       } catch (error) {
         console.error("Failed to expand window for menu", error);
@@ -1844,7 +1858,7 @@ function App() {
                     <span className="menu-shortcut">›</span>
                   </button>
                   {openViewSubmenu === "zoom" ? (
-                    <div className="menu-panel menu-subpanel">
+                    <div className="menu-panel menu-subpanel" ref={viewZoomSubmenuRef}>
                       <button type="button" className="menu-item disabled" aria-disabled="true">
                         <span>拡大</span>
                         <span className="menu-shortcut">Ctrl+プラス記号 (+)</span>
@@ -1885,7 +1899,7 @@ function App() {
                     <span className="menu-shortcut">›</span>
                   </button>
                   {openViewSubmenu === "markdown" ? (
-                    <div className="menu-panel menu-subpanel">
+                    <div className="menu-panel menu-subpanel" ref={viewMarkdownSubmenuRef}>
                       <button type="button" className="menu-item disabled" aria-disabled="true">
                         <span>書式付き</span>
                       </button>
