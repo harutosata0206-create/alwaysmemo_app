@@ -723,37 +723,37 @@ body::-webkit-scrollbar-thumb,
 
 .editor-body h1 {
   font-size: 32px;
-  margin: 8px 0 6px;
+  margin: 2px 0;
 }
 
 .editor-body h2 {
   font-size: 24px;
-  margin: 8px 0 6px;
+  margin: 2px 0;
 }
 
 .editor-body h3 {
   font-size: 20px;
-  margin: 7px 0 5px;
+  margin: 2px 0;
 }
 
 .editor-body h4 {
   font-size: 17px;
-  margin: 7px 0 5px;
+  margin: 2px 0;
 }
 
 .editor-body h5 {
   font-size: 16px;
-  margin: 7px 0 4px;
+  margin: 2px 0;
 }
 
 .editor-body h6 {
   font-size: 15px;
-  margin: 7px 0 4px;
+  margin: 2px 0;
 }
 
 .editor-body p {
   font-size: 14px;
-  margin: 5px 0;
+  margin: 2px 0;
 }
 
 .search-hit {
@@ -865,7 +865,7 @@ body::-webkit-scrollbar-thumb,
   padding: 1px 16px 12px;
   box-sizing: border-box;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.15;
   font-family: inherit;
   resize: none;
   background: transparent;
