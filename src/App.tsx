@@ -1019,15 +1019,6 @@ function App() {
       return;
     }
 
-    if (openMenu === "view" && openViewSubmenu === null) {
-      if (expandedWindowRef.current && originalWindowSizeRef.current) {
-        void windowHandle.setSize(originalWindowSizeRef.current);
-        expandedWindowRef.current = false;
-        originalWindowSizeRef.current = null;
-      }
-      return;
-    }
-
     const frame = window.requestAnimationFrame(async () => {
       if (
         expandedWindowRef.current &&
