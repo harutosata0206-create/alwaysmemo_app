@@ -2255,7 +2255,9 @@ function App() {
       <div className="bottom-bar">
         <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
         <span className="bottom-item">{activePlainText.length} 文字</span>
-        <span className="bottom-item">テキスト</span>
+        <span className="bottom-item">
+          {activeTab && hasRichFormatting(activeTab.content) ? "書式付き" : "テキスト"}
+        </span>
         <span className="bottom-item">100%</span>
         <span className="bottom-item">{lineEndingLabel}</span>
         <span className="bottom-item">UTF-8</span>
