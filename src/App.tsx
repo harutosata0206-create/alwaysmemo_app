@@ -195,7 +195,10 @@ function App() {
     [activeTabId, alwaysOnTop, snap, storageKey, useGlobalShortcuts],
   );
 
-  const closeMenus = useCallback(() => setOpenMenu(null), []);
+  const closeMenus = useCallback(() => {
+    setOpenMenu(null);
+    setOpenViewSubmenu(null);
+  }, []);
   const closeFormatMenu = useCallback(() => {
     setShowFormatMenu(false);
     setShowTablePicker(false);
