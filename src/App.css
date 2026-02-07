@@ -877,6 +877,10 @@ body::-webkit-scrollbar-thumb,
   outline: none;
 }
 
+.editor-body > *:first-child {
+  margin-top: 0;
+}
+
 .editor-body[data-wrap="off"] {
   white-space: pre;
   word-break: normal;
