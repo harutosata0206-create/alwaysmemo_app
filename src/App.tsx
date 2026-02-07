@@ -6,7 +6,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./App.css";
 
-const MIN_WINDOW_WIDTH = 280;
+const MIN_WINDOW_WIDTH = 300;
 const MIN_WINDOW_HEIGHT = 200;
 const STORAGE_KEY = "alwaysmemo-state";
 
@@ -721,9 +721,10 @@ function App() {
         MIN_WINDOW_WIDTH,
         Math.round(targetTextWidth + chromeWidth),
       );
+      const FIT_CONTENT_HEIGHT_TRIM = 12;
       const nextHeight = Math.max(
         MIN_WINDOW_HEIGHT,
-        Math.round(targetTextHeight + chromeHeight),
+        Math.round(targetTextHeight + chromeHeight - FIT_CONTENT_HEIGHT_TRIM),
       );
 
       await windowHandle.setSize(
