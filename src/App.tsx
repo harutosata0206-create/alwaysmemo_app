@@ -750,6 +750,9 @@ function App() {
   useEffect(() => {
     const initState = async () => {
       try {
+        await windowHandle.setMinSize(
+          new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT),
+        );
         const current = await invoke<boolean>("get_always_on_top");
         const params = new URLSearchParams(window.location.search);
         const alwaysOnTopParam = params.get("alwaysOnTop");
