@@ -721,7 +721,7 @@ function App() {
         MIN_WINDOW_WIDTH,
         Math.round(targetTextWidth + chromeWidth),
       );
-      const FIT_CONTENT_HEIGHT_TRIM = 12;
+      const FIT_CONTENT_HEIGHT_TRIM = 32;
       const nextHeight = Math.max(
         MIN_WINDOW_HEIGHT,
         Math.round(targetTextHeight + chromeHeight - FIT_CONTENT_HEIGHT_TRIM),
