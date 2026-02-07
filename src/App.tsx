@@ -1040,7 +1040,10 @@ function App() {
         rect.top + Math.max(panel.scrollHeight, rect.height),
       );
       const overflowCss = panelNeededBottom - window.innerHeight;
-      const overflowRight = Math.max(rect.right, subRect.right) - window.innerWidth;
+      const overflowRight =
+        openMenu === "view"
+          ? Math.max(rect.right, subRect.right) - window.innerWidth
+          : 0;
       if (overflowCss <= 0 && overflowRight <= 0) return;
 
       try {
@@ -1062,7 +1065,7 @@ function App() {
           maxWidth,
         );
 
-        if (nextHeight > base.height || nextWidth > base.width) {
+        if (nextHeight > base.height || (openMenu === "view" && nextWidth > base.width)) {
           expandedWindowRef.current = true;
           await windowHandle.setSize(new LogicalSize(nextWidth, nextHeight));
         }
