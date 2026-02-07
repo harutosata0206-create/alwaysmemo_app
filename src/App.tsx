@@ -1805,10 +1805,6 @@ function App() {
                     <span>貼り付け</span>
                     <span className="menu-shortcut">Ctrl+V</span>
                   </button>
-                  <button type="button" className="menu-item" onClick={() => { runEditorCommand("delete"); closeMenus(); }}>
-                    <span>削除</span>
-                    <span className="menu-shortcut">Del</span>
-                  </button>
                   <div className="menu-divider" />
                   <button type="button" className="menu-item" onClick={() => { clearFormatting(); closeMenus(); }}>
                     <span>書式設定のクリア</span>
@@ -1829,17 +1825,6 @@ function App() {
                   <button type="button" className="menu-item" onClick={openGoToLine}>
                     <span>移動先</span>
                     <span className="menu-shortcut">Ctrl+G</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="menu-item"
-                    onClick={() => {
-                      runEditorCommand("selectAll");
-                      closeMenus();
-                    }}
-                  >
-                    <span>すべて選択</span>
-                    <span className="menu-shortcut">Ctrl+A</span>
                   </button>
                   <button type="button" className="menu-item disabled" aria-disabled="true">
                     <span>日付と時刻</span>
