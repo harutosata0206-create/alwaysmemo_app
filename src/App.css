@@ -471,6 +471,28 @@ body::-webkit-scrollbar-thumb,
   pointer-events: auto;
 }
 
+.menu-subpanel {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 6px);
+  min-width: 220px;
+  z-index: 110;
+}
+
+.menu-item.has-submenu {
+  padding-right: 12px;
+}
+
+.menu-check {
+  display: inline-flex;
+  width: 14px;
+  color: transparent;
+}
+
+.menu-check.on {
+  color: #0f172a;
+}
+
 .menu-item {
   border: 0;
   background: transparent;
@@ -849,6 +871,12 @@ body::-webkit-scrollbar-thumb,
   white-space: pre-wrap;
   word-break: break-word;
   outline: none;
+}
+
+.editor-body[data-wrap="off"] {
+  white-space: pre;
+  word-break: normal;
+  overflow-x: auto;
 }
 
 .editor-body:empty::before {

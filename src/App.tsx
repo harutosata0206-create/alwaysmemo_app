@@ -110,6 +110,9 @@ function App() {
   const overflowMenuRef = useRef<HTMLDivElement | null>(null);
   const [showHeadingMenu, setShowHeadingMenu] = useState(false);
   const [showListMenu, setShowListMenu] = useState(false);
+  const [showStatusBar, setShowStatusBar] = useState(true);
+  const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
+  const [openViewSubmenu, setOpenViewSubmenu] = useState<"zoom" | "markdown" | null>(null);
   const [saveFormatPromptOpen, setSaveFormatPromptOpen] = useState(false);
   const saveFormatResolverRef = useRef<((choice: SaveFormatChoice) => void) | null>(null);
   const [saveLossyPromptOpen, setSaveLossyPromptOpen] = useState(false);
@@ -201,6 +204,9 @@ function App() {
   }, []);
   const closeListMenu = useCallback(() => {
     setShowListMenu(false);
+  }, []);
+  const closeViewSubmenu = useCallback(() => {
+    setOpenViewSubmenu(null);
   }, []);
 
   const textToHtml = useCallback((text: string) => {
@@ -937,6 +943,16 @@ function App() {
     window.addEventListener("mousedown", handler);
     return () => window.removeEventListener("mousedown", handler);
   }, []);
+
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(".menu-panel")) return;
+      closeViewSubmenu();
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, [closeViewSubmenu]);
 
   useEffect(() => {
     const registerGlobalShortcuts = async () => {
@@ -1785,18 +1801,66 @@ function App() {
               </button>
               {openMenu === "view" ? (
                 <div className="menu-panel" onMouseDown={(event) => event.stopPropagation()}>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
-                    <span>ズームイン</span>
-                    <span className="menu-shortcut">Ctrl++</span>
+                  <button
+                    type="button"
+                    className="menu-item has-submenu"
+                    onMouseEnter={() => setOpenViewSubmenu("zoom")}
+                    onClick={() => setOpenViewSubmenu((prev) => (prev === "zoom" ? null : "zoom"))}
+                  >
+                    <span>ズーム</span>
+                    <span className="menu-shortcut">›</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
-                    <span>ズームアウト</span>
-                    <span className="menu-shortcut">Ctrl+-</span>
+                  {openViewSubmenu === "zoom" ? (
+                    <div className="menu-panel menu-subpanel">
+                      <button type="button" className="menu-item disabled" aria-disabled="true">
+                        <span>拡大</span>
+                        <span className="menu-shortcut">Ctrl+プラス記号 (+)</span>
+                      </button>
+                      <button type="button" className="menu-item disabled" aria-disabled="true">
+                        <span>縮小</span>
+                        <span className="menu-shortcut">Ctrl+マイナス記号 (-)</span>
+                      </button>
+                      <button type="button" className="menu-item disabled" aria-disabled="true">
+                        <span>既定の倍率に戻す</span>
+                        <span className="menu-shortcut">Ctrl+0</span>
+                      </button>
+                    </div>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="menu-item"
+                    onClick={() => setShowStatusBar((prev) => !prev)}
+                  >
+                    <span className={`menu-check ${showStatusBar ? "on" : ""}`}>✓</span>
+                    <span>ステータスバー</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
-                    <span>実際のサイズ</span>
-                    <span className="menu-shortcut">Ctrl+0</span>
+                  <button
+                    type="button"
+                    className="menu-item"
+                    onClick={() => setWrapAtRightEdge((prev) => !prev)}
+                  >
+                    <span className={`menu-check ${wrapAtRightEdge ? "on" : ""}`}>✓</span>
+                    <span>右端での折り返し</span>
                   </button>
+                  <button
+                    type="button"
+                    className="menu-item has-submenu"
+                    onMouseEnter={() => setOpenViewSubmenu("markdown")}
+                    onClick={() => setOpenViewSubmenu((prev) => (prev === "markdown" ? null : "markdown"))}
+                  >
+                    <span>マークダウン</span>
+                    <span className="menu-shortcut">›</span>
+                  </button>
+                  {openViewSubmenu === "markdown" ? (
+                    <div className="menu-panel menu-subpanel">
+                      <button type="button" className="menu-item disabled" aria-disabled="true">
+                        <span>書式付き</span>
+                      </button>
+                      <button type="button" className="menu-item disabled" aria-disabled="true">
+                        <span>構文</span>
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -2069,6 +2133,7 @@ function App() {
           <div
             ref={editorRef}
             className="editor-body"
+            data-wrap={wrapAtRightEdge ? "on" : "off"}
             contentEditable
             suppressContentEditableWarning
             data-placeholder="ここにメモを書く"
@@ -2259,24 +2324,26 @@ function App() {
         </div>
       ) : null}
 
-      <div className="bottom-bar">
-        <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
-        <span className="bottom-item">{activePlainText.length} 文字</span>
-        <span className="bottom-item">
-          {activeTab && hasRichFormatting(activeTab.content) ? "書式付き" : "テキスト"}
-        </span>
-        <span className="bottom-item">100%</span>
-        <span className="bottom-item">{lineEndingLabel}</span>
-        <span className="bottom-item">UTF-8</span>
-        <span className="bottom-item">
-          <span className="bottom-label">Top: </span>
-          <span className="bottom-value">{alwaysOnTop ? "ON" : "OFF"}</span>
-        </span>
-        <span className="bottom-item">
-          <span className="bottom-label">Shortcuts: </span>
-          <span className="bottom-value">{useGlobalShortcuts ? "ON" : "OFF"}</span>
-        </span>
-      </div>
+      {showStatusBar ? (
+        <div className="bottom-bar">
+          <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
+          <span className="bottom-item">{activePlainText.length} 文字</span>
+          <span className="bottom-item">
+            {activeTab && hasRichFormatting(activeTab.content) ? "書式付き" : "テキスト"}
+          </span>
+          <span className="bottom-item">100%</span>
+          <span className="bottom-item">{lineEndingLabel}</span>
+          <span className="bottom-item">UTF-8</span>
+          <span className="bottom-item">
+            <span className="bottom-label">Top: </span>
+            <span className="bottom-value">{alwaysOnTop ? "ON" : "OFF"}</span>
+          </span>
+          <span className="bottom-item">
+            <span className="bottom-label">Shortcuts: </span>
+            <span className="bottom-value">{useGlobalShortcuts ? "ON" : "OFF"}</span>
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
