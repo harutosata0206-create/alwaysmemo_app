@@ -131,6 +131,7 @@ function App() {
   const [goToLineOpen, setGoToLineOpen] = useState(false);
   const [goToLineValue, setGoToLineValue] = useState("1");
   const goToLineInputRef = useRef<HTMLInputElement | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
@@ -1402,6 +1403,17 @@ function App() {
     }
   }, [activePlainText, updateCursorIndex]);
 
+  const clampZoom = (value: number) => Math.min(2, Math.max(0.5, value));
+
+  const applyZoom = useCallback((next: number) => {
+    const clamped = clampZoom(next);
+    setZoomLevel(clamped);
+  }, []);
+
+  const zoomIn = useCallback(() => applyZoom(zoomLevel + 0.1), [applyZoom, zoomLevel]);
+  const zoomOut = useCallback(() => applyZoom(zoomLevel - 0.1), [applyZoom, zoomLevel]);
+  const resetZoom = useCallback(() => applyZoom(1), [applyZoom]);
+
   const submitGoToLine = useCallback(() => {
     const parsed = Number.parseInt(goToLineValue, 10);
     if (Number.isNaN(parsed)) return;
@@ -1855,15 +1867,15 @@ function App() {
                   style={viewMenuLeft !== null ? { left: `${viewMenuLeft}px` } : undefined}
                   onMouseDown={(event) => event.stopPropagation()}
                 >
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={zoomIn}>
                     <span>拡大</span>
                     <span className="menu-shortcut">Ctrl+プラス記号 (+)</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={zoomOut}>
                     <span>縮小</span>
                     <span className="menu-shortcut">Ctrl+マイナス記号 (-)</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button type="button" className="menu-item" onClick={resetZoom}>
                     <span>既定の倍率に戻す</span>
                     <span className="menu-shortcut">Ctrl+0</span>
                   </button>
@@ -2166,7 +2178,7 @@ function App() {
         </div>
       </div>
 
-      <section className="card memo">
+      <section className="card memo" style={{ zoom: zoomLevel }}>
         <div className="editor">
           <div className="editor-header">
           </div>
