@@ -1753,7 +1753,14 @@ function App() {
                     <span>移動先</span>
                     <span className="menu-shortcut">Ctrl+G</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                  <button
+                    type="button"
+                    className="menu-item"
+                    onClick={() => {
+                      runEditorCommand("selectAll");
+                      closeMenus();
+                    }}
+                  >
                     <span>すべて選択</span>
                     <span className="menu-shortcut">Ctrl+A</span>
                   </button>
