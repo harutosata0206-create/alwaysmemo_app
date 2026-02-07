@@ -1049,7 +1049,12 @@ function App() {
           ? viewMarkdownSubmenuRef.current
           : null;
       const subRect = activeSubmenu?.getBoundingClientRect() ?? rect;
-      const overflowCss = Math.max(rect.bottom, subRect.bottom) - window.innerHeight;
+      const panelBottom = Math.max(rect.bottom, subRect.bottom);
+      const panelNeededBottom = Math.max(
+        panelBottom,
+        rect.top + Math.max(panel.scrollHeight, rect.height),
+      );
+      const overflowCss = panelNeededBottom - window.innerHeight;
       const overflowRight = Math.max(rect.right, subRect.right) - window.innerWidth;
       if (overflowCss <= 0 && overflowRight <= 0) return;
 
