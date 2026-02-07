@@ -1712,9 +1712,6 @@ function App() {
                     <span>新しいウィンドウ</span>
                     <span className="menu-shortcut">Ctrl+Shift+N</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
-                    <span>新しいマークダウン タブ</span>
-                  </button>
                   <div className="menu-divider" />
                   <button type="button" className="menu-item" onClick={openFilePicker}>
                     <span>開く</span>
