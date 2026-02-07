@@ -479,6 +479,14 @@ body::-webkit-scrollbar-thumb,
   z-index: 110;
 }
 
+.menu-subpanel-zoom {
+  min-width: 190px;
+}
+
+.menu-subpanel-markdown {
+  min-width: 140px;
+}
+
 .menu-item.has-submenu {
   padding-right: 12px;
 }

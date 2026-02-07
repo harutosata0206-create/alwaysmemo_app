@@ -1863,7 +1863,7 @@ function App() {
                     <span className="menu-shortcut">›</span>
                   </button>
                   {openViewSubmenu === "zoom" ? (
-                    <div className="menu-panel menu-subpanel" ref={viewZoomSubmenuRef}>
+                    <div className="menu-panel menu-subpanel menu-subpanel-zoom" ref={viewZoomSubmenuRef}>
                       <button type="button" className="menu-item disabled" aria-disabled="true">
                         <span>拡大</span>
                         <span className="menu-shortcut">Ctrl+プラス記号 (+)</span>
@@ -1904,7 +1904,7 @@ function App() {
                     <span className="menu-shortcut">›</span>
                   </button>
                   {openViewSubmenu === "markdown" ? (
-                    <div className="menu-panel menu-subpanel" ref={viewMarkdownSubmenuRef}>
+                    <div className="menu-panel menu-subpanel menu-subpanel-markdown" ref={viewMarkdownSubmenuRef}>
                       <button type="button" className="menu-item disabled" aria-disabled="true">
                         <span>書式付き</span>
                       </button>
