@@ -1040,10 +1040,7 @@ function App() {
         rect.top + Math.max(panel.scrollHeight, rect.height),
       );
       const overflowCss = panelNeededBottom - window.innerHeight;
-      const overflowRight =
-        openMenu === "view"
-          ? Math.max(rect.right, subRect.right) - window.innerWidth
-          : 0;
+      const overflowRight = Math.max(rect.right, subRect.right) - window.innerWidth;
       if (overflowCss <= 0 && overflowRight <= 0) return;
 
       try {
@@ -1060,12 +1057,15 @@ function App() {
           maxHeight,
         );
         const maxWidth = window.screen?.availWidth ?? base.width;
-        const nextWidth = Math.min(
-          Math.max(window.innerWidth, base.width + Math.max(overflowRight, 0) + 8),
-          maxWidth,
-        );
+        const nextWidth =
+          openMenu === "view" && openViewSubmenu === "markdown"
+            ? Math.min(
+                Math.max(window.innerWidth, base.width + Math.max(overflowRight, 0) + 8),
+                maxWidth,
+              )
+            : base.width;
 
-        if (nextHeight > base.height || (openMenu === "view" && nextWidth > base.width)) {
+        if (nextHeight > base.height || nextWidth > base.width) {
           expandedWindowRef.current = true;
           await windowHandle.setSize(new LogicalSize(nextWidth, nextHeight));
         }
