@@ -115,8 +115,7 @@ function App() {
   const [showListMenu, setShowListMenu] = useState(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
-  const [openViewSubmenu, setOpenViewSubmenu] = useState<"zoom" | "markdown" | null>(null);
-  const viewZoomSubmenuRef = useRef<HTMLDivElement | null>(null);
+  const [openViewSubmenu, setOpenViewSubmenu] = useState<"markdown" | null>(null);
   const viewMarkdownSubmenuRef = useRef<HTMLDivElement | null>(null);
   const [saveFormatPromptOpen, setSaveFormatPromptOpen] = useState(false);
   const saveFormatResolverRef = useRef<((choice: SaveFormatChoice) => void) | null>(null);
@@ -1033,7 +1032,7 @@ function App() {
       if (
         expandedWindowRef.current &&
         openMenu === "view" &&
-        (openViewSubmenu === "zoom" || openViewSubmenu === "markdown")
+        openViewSubmenu === "markdown"
       ) {
         expandedWindowRef.current = false;
       }
@@ -1046,12 +1045,8 @@ function App() {
       if (!panel) return;
       const rect = panel.getBoundingClientRect();
       const activeSubmenu =
-        openMenu === "view"
-          ? openViewSubmenu === "zoom"
-            ? viewZoomSubmenuRef.current
-            : openViewSubmenu === "markdown"
-              ? viewMarkdownSubmenuRef.current
-              : null
+        openMenu === "view" && openViewSubmenu === "markdown"
+          ? viewMarkdownSubmenuRef.current
           : null;
       const subRect = activeSubmenu?.getBoundingClientRect() ?? rect;
       const overflowCss = Math.max(rect.bottom, subRect.bottom) - window.innerHeight;
@@ -1865,31 +1860,18 @@ function App() {
                   style={viewMenuLeft !== null ? { left: `${viewMenuLeft}px` } : undefined}
                   onMouseDown={(event) => event.stopPropagation()}
                 >
-                  <button
-                    type="button"
-                    className="menu-item has-submenu"
-                    onMouseEnter={() => setOpenViewSubmenu("zoom")}
-                    onClick={() => setOpenViewSubmenu((prev) => (prev === "zoom" ? null : "zoom"))}
-                  >
-                    <span>ズーム</span>
-                    <span className="menu-shortcut">›</span>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>拡大</span>
+                    <span className="menu-shortcut">Ctrl+プラス記号 (+)</span>
                   </button>
-                  {openViewSubmenu === "zoom" ? (
-                    <div className="menu-panel menu-subpanel menu-subpanel-zoom" ref={viewZoomSubmenuRef}>
-                      <button type="button" className="menu-item disabled" aria-disabled="true">
-                        <span>拡大</span>
-                        <span className="menu-shortcut">Ctrl+プラス記号 (+)</span>
-                      </button>
-                      <button type="button" className="menu-item disabled" aria-disabled="true">
-                        <span>縮小</span>
-                        <span className="menu-shortcut">Ctrl+マイナス記号 (-)</span>
-                      </button>
-                      <button type="button" className="menu-item disabled" aria-disabled="true">
-                        <span>既定の倍率に戻す</span>
-                        <span className="menu-shortcut">Ctrl+0</span>
-                      </button>
-                    </div>
-                  ) : null}
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>縮小</span>
+                    <span className="menu-shortcut">Ctrl+マイナス記号 (-)</span>
+                  </button>
+                  <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <span>既定の倍率に戻す</span>
+                    <span className="menu-shortcut">Ctrl+0</span>
+                  </button>
                   <button
                     type="button"
                     className="menu-item"
