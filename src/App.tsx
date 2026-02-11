@@ -922,10 +922,34 @@ function App() {
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.code === "KeyS") {
-        event.preventDefault();
-        void saveActiveTab();
-        return;
+      if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+        switch (event.code) {
+          case "KeyS": {
+            event.preventDefault();
+            void saveActiveTab();
+            return;
+          }
+          case "Equal":
+          case "NumpadAdd": {
+            event.preventDefault();
+            zoomIn();
+            return;
+          }
+          case "Minus":
+          case "NumpadSubtract": {
+            event.preventDefault();
+            zoomOut();
+            return;
+          }
+          case "Digit0":
+          case "Numpad0": {
+            event.preventDefault();
+            resetZoom();
+            return;
+          }
+          default:
+            break;
+        }
       }
       if (!event.ctrlKey || !event.altKey) return;
       switch (event.code) {
@@ -970,6 +994,9 @@ function App() {
     snapLeft,
     snapRight,
     toggleAlwaysOnTop,
+    zoomIn,
+    zoomOut,
+    resetZoom,
   ]);
 
   useEffect(() => {
