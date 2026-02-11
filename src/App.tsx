@@ -113,8 +113,11 @@ function App() {
   const overflowMenuRef = useRef<HTMLDivElement | null>(null);
   const overflowFormatMenuRef = useRef<HTMLDivElement | null>(null);
   const toolbarFormatMenuRef = useRef<HTMLDivElement | null>(null);
-  const headingMenuRef = useRef<HTMLDivElement | null>(null);
+  const overflowHeadingMenuRef = useRef<HTMLDivElement | null>(null);
+  const toolbarHeadingMenuRef = useRef<HTMLDivElement | null>(null);
   const listMenuRef = useRef<HTMLDivElement | null>(null);
+  const toolbarTablePickerRef = useRef<HTMLDivElement | null>(null);
+  const overflowTablePickerRef = useRef<HTMLDivElement | null>(null);
   const [showHeadingMenu, setShowHeadingMenu] = useState(false);
   const [showListMenu, setShowListMenu] = useState(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
@@ -1037,7 +1040,7 @@ function App() {
           : showFormatMenu
             ? toolbarFormatMenuRef.current
             : showHeadingMenu
-              ? headingMenuRef.current
+              ? (showOverflowMenu ? overflowHeadingMenuRef.current : toolbarHeadingMenuRef.current)
               : showListMenu
                 ? listMenuRef.current
                 : openMenu === "file"
@@ -1050,7 +1053,11 @@ function App() {
       const activeSubmenu =
         openMenu === "view" && openViewSubmenu === "markdown"
           ? viewMarkdownSubmenuRef.current
-          : null;
+          : showHeadingMenu
+            ? (showOverflowMenu ? overflowHeadingMenuRef.current : toolbarHeadingMenuRef.current)
+            : showTablePicker
+              ? (showOverflowMenu ? overflowTablePickerRef.current : toolbarTablePickerRef.current)
+              : null;
       const subRect = activeSubmenu?.getBoundingClientRect() ?? rect;
       const panelBottom = Math.max(rect.bottom, subRect.bottom);
       const panelNeededBottom = Math.max(
@@ -1058,10 +1065,13 @@ function App() {
         rect.top + Math.max(panel.scrollHeight, rect.height),
       );
       const overflowCss = panelNeededBottom - window.innerHeight;
-      const overflowRight =
-        openMenu === "view" && openViewSubmenu === "markdown"
-          ? Math.max(rect.right, subRect.right) - window.innerWidth
-          : 0;
+      const allowHorizontalExpand =
+        (openMenu === "view" && openViewSubmenu === "markdown") ||
+        showHeadingMenu ||
+        showTablePicker;
+      const overflowRight = allowHorizontalExpand
+        ? Math.max(rect.right, subRect.right) - window.innerWidth
+        : 0;
       if (overflowCss <= 0 && overflowRight <= 0) return;
 
       try {
@@ -1083,7 +1093,7 @@ function App() {
           maxWidth,
         );
 
-        if (nextHeight > base.height || (openMenu === "view" && nextWidth > base.width)) {
+        if (nextHeight > base.height || nextWidth > base.width) {
           expandedWindowRef.current = true;
           await windowHandle.setSize(new LogicalSize(nextWidth, nextHeight));
         }
@@ -1093,7 +1103,7 @@ function App() {
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [openMenu, openViewSubmenu, showFormatMenu, showHeadingMenu, showListMenu, showOverflowMenu, windowHandle]);
+  }, [openMenu, openViewSubmenu, showFormatMenu, showHeadingMenu, showListMenu, showOverflowMenu, showTablePicker, windowHandle]);
 
   useEffect(() => {
     if (openMenu !== "edit") {
@@ -1932,9 +1942,36 @@ function App() {
             </button>
             {showOverflowMenu ? (
               <div className="format-menu overflow-menu" ref={overflowFormatMenuRef}>
-                <button type="button" className="format-item" onClick={() => { applyHeading(); closeOverflowMenu(); }}>
-                  見出し 1
-                </button>
+                <div className="format-submenu-wrap">
+                  <button type="button" className="format-item" onClick={() => setShowHeadingMenu((prev) => !prev)}>
+                    見出し
+                  </button>
+                  {showHeadingMenu ? (
+                    <div className="format-menu heading-menu heading-menu-side" ref={overflowHeadingMenuRef}>
+                      <button type="button" className="format-item heading-item h1" onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); closeOverflowMenu(); }}>
+                        タイトル
+                      </button>
+                      <button type="button" className="format-item heading-item h2" onClick={() => { applyHeadingLevel(2); closeHeadingMenu(); closeOverflowMenu(); }}>
+                        サブタイトル
+                      </button>
+                      <button type="button" className="format-item heading-item h3" onClick={() => { applyHeadingLevel(3); closeHeadingMenu(); closeOverflowMenu(); }}>
+                        見出し
+                      </button>
+                      <button type="button" className="format-item heading-item h4" onClick={() => { applyHeadingLevel(4); closeHeadingMenu(); closeOverflowMenu(); }}>
+                        小見出し
+                      </button>
+                      <button type="button" className="format-item heading-item h5" onClick={() => { applyHeadingLevel(5); closeHeadingMenu(); closeOverflowMenu(); }}>
+                        セクション
+                      </button>
+                      <button type="button" className="format-item heading-item h6" onClick={() => { applyHeadingLevel(6); closeHeadingMenu(); closeOverflowMenu(); }}>
+                        サブセクション
+                      </button>
+                      <button type="button" className="format-item heading-item body" onClick={() => { applyHeadingLevel(0); closeHeadingMenu(); closeOverflowMenu(); }}>
+                        本文
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
                 <button type="button" className="format-item" onClick={() => { toggleBulletedList(); closeOverflowMenu(); }}>
                   箇条書き
                 </button>
@@ -1944,15 +1981,16 @@ function App() {
                 <button type="button" className="format-item" onClick={() => { toggleBold(); closeOverflowMenu(); }}>
                   太字
                 </button>
-                <button
-                  type="button"
-                  className="format-item"
-                  onClick={() => setShowTablePicker((prev) => !prev)}
-                >
-                  テーブルの作成
-                </button>
+                <div className="format-submenu-wrap">
+                  <button
+                    type="button"
+                    className="format-item"
+                    onClick={() => setShowTablePicker((prev) => !prev)}
+                  >
+                    テーブルの作成
+                  </button>
                 {showTablePicker ? (
-                  <div className="table-picker">
+                  <div className="table-picker table-picker-side" ref={overflowTablePickerRef}>
                     <div className="table-picker-grid">
                       {Array.from({ length: 6 }).map((_, rowIndex) =>
                         Array.from({ length: 6 }).map((__, colIndex) => {
@@ -1983,6 +2021,7 @@ function App() {
                     </div>
                   </div>
                 ) : null}
+                </div>
                 <button type="button" className="format-item" onClick={() => { insertLink(); closeOverflowMenu(); }}>
                   リンクの貼り付け
                 </button>
@@ -1993,15 +2032,16 @@ function App() {
             ) : null}
           </div>
           <div className="format-group" ref={formatGroupRef}>
-            <button
-              type="button"
-              className="chip dropdown"
-              onClick={() => setShowHeadingMenu((prev) => !prev)}
-            >
-              H1 <span className="chip-caret">▾</span>
-            </button>
+            <div className="format-submenu-wrap">
+              <button
+                type="button"
+                className="chip dropdown"
+                onClick={() => setShowHeadingMenu((prev) => !prev)}
+              >
+                H1 <span className="chip-caret">▾</span>
+              </button>
             {showHeadingMenu ? (
-              <div className="format-menu heading-menu" ref={headingMenuRef}>
+              <div className="format-menu heading-menu heading-menu-side" ref={toolbarHeadingMenuRef}>
                 <button type="button" className="format-item heading-item h1" onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); }}>
                   タイトル
                 </button>
@@ -2025,6 +2065,7 @@ function App() {
                 </button>
               </div>
             ) : null}
+            </div>
             <button
               type="button"
               className="chip dropdown"
@@ -2055,15 +2096,16 @@ function App() {
             </button>
             {showFormatMenu ? (
               <div className="format-menu" ref={toolbarFormatMenuRef}>
-                <button
-                  type="button"
-                  className="format-item"
-                  onClick={() => setShowTablePicker((prev) => !prev)}
-                >
-                  テーブルの作成
-                </button>
+                <div className="format-submenu-wrap">
+                  <button
+                    type="button"
+                    className="format-item"
+                    onClick={() => setShowTablePicker((prev) => !prev)}
+                  >
+                    テーブルの作成
+                  </button>
                 {showTablePicker ? (
-                  <div className="table-picker">
+                  <div className="table-picker table-picker-side" ref={toolbarTablePickerRef}>
                     <div className="table-picker-grid">
                       {Array.from({ length: 6 }).map((_, rowIndex) =>
                         Array.from({ length: 6 }).map((__, colIndex) => {
@@ -2094,6 +2136,7 @@ function App() {
                     </div>
                   </div>
                 ) : null}
+                </div>
                 <button type="button" className="format-item" onClick={() => { insertLink(); closeFormatMenu(); }}>
                   リンクの貼り付け
                 </button>
