@@ -1312,17 +1312,6 @@ function App() {
     updateCursorIndex();
   }, [updateContent, updateCursorIndex]);
 
-  const insertLink = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    const url = window.prompt("リンク先URLを入力");
-    if (!url) return;
-    editor.focus();
-    document.execCommand("createLink", false, url);
-    updateContent(editor.innerHTML);
-    updateCursorIndex();
-  }, [updateContent, updateCursorIndex]);
-
   const insertTableWithSize = useCallback(
     (rows: number, cols: number) => {
       const editor = editorRef.current;
@@ -2068,9 +2057,6 @@ function App() {
                   </div>
                 ) : null}
                 </div>
-                <button type="button" className="format-item" onClick={() => { insertLink(); closeOverflowMenu(); }}>
-                  リンクの貼り付け
-                </button>
                 <button type="button" className="format-item" onClick={() => { clearFormatting(); closeOverflowMenu(); }}>
                   書式設定のクリア
                 </button>
@@ -2183,9 +2169,6 @@ function App() {
                   </div>
                 ) : null}
                 </div>
-                <button type="button" className="format-item" onClick={() => { insertLink(); closeFormatMenu(); }}>
-                  リンクの貼り付け
-                </button>
                 <button type="button" className="format-item" onClick={() => { clearFormatting(); closeFormatMenu(); }}>
                   書式設定のクリア
                 </button>
