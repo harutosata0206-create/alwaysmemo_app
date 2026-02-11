@@ -111,6 +111,10 @@ function App() {
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
   const formatGroupRef = useRef<HTMLDivElement | null>(null);
   const overflowMenuRef = useRef<HTMLDivElement | null>(null);
+  const overflowFormatMenuRef = useRef<HTMLDivElement | null>(null);
+  const toolbarFormatMenuRef = useRef<HTMLDivElement | null>(null);
+  const headingMenuRef = useRef<HTMLDivElement | null>(null);
+  const listMenuRef = useRef<HTMLDivElement | null>(null);
   const [showHeadingMenu, setShowHeadingMenu] = useState(false);
   const [showListMenu, setShowListMenu] = useState(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
@@ -1011,7 +1015,13 @@ function App() {
   }, [shortcutActions, useGlobalShortcuts]);
 
   useEffect(() => {
-    if (openMenu !== "file" && openMenu !== "edit" && openMenu !== "view") {
+    const hasPopupOpen =
+      openMenu !== null ||
+      showOverflowMenu ||
+      showFormatMenu ||
+      showHeadingMenu ||
+      showListMenu;
+    if (!hasPopupOpen) {
       if (expandedWindowRef.current && originalWindowSizeRef.current) {
         void windowHandle.setSize(originalWindowSizeRef.current);
         expandedWindowRef.current = false;
@@ -1022,7 +1032,15 @@ function App() {
 
     const frame = window.requestAnimationFrame(async () => {
       const panel =
-        openMenu === "file"
+        showOverflowMenu
+          ? overflowFormatMenuRef.current
+          : showFormatMenu
+            ? toolbarFormatMenuRef.current
+            : showHeadingMenu
+              ? headingMenuRef.current
+              : showListMenu
+                ? listMenuRef.current
+                : openMenu === "file"
           ? fileMenuRef.current
           : openMenu === "edit"
             ? editMenuRef.current
@@ -1040,7 +1058,10 @@ function App() {
         rect.top + Math.max(panel.scrollHeight, rect.height),
       );
       const overflowCss = panelNeededBottom - window.innerHeight;
-      const overflowRight = Math.max(rect.right, subRect.right) - window.innerWidth;
+      const overflowRight =
+        openMenu === "view" && openViewSubmenu === "markdown"
+          ? Math.max(rect.right, subRect.right) - window.innerWidth
+          : 0;
       if (overflowCss <= 0 && overflowRight <= 0) return;
 
       try {
@@ -1057,15 +1078,12 @@ function App() {
           maxHeight,
         );
         const maxWidth = window.screen?.availWidth ?? base.width;
-        const nextWidth =
-          openMenu === "view" && openViewSubmenu === "markdown"
-            ? Math.min(
-                Math.max(window.innerWidth, base.width + Math.max(overflowRight, 0) + 8),
-                maxWidth,
-              )
-            : base.width;
+        const nextWidth = Math.min(
+          Math.max(window.innerWidth, base.width + Math.max(overflowRight, 0) + 8),
+          maxWidth,
+        );
 
-        if (nextHeight > base.height || nextWidth > base.width) {
+        if (nextHeight > base.height || (openMenu === "view" && nextWidth > base.width)) {
           expandedWindowRef.current = true;
           await windowHandle.setSize(new LogicalSize(nextWidth, nextHeight));
         }
@@ -1075,7 +1093,7 @@ function App() {
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [openMenu, openViewSubmenu, windowHandle]);
+  }, [openMenu, openViewSubmenu, showFormatMenu, showHeadingMenu, showListMenu, showOverflowMenu, windowHandle]);
 
   useEffect(() => {
     if (openMenu !== "edit") {
@@ -1913,7 +1931,7 @@ function App() {
               ⋯
             </button>
             {showOverflowMenu ? (
-              <div className="format-menu overflow-menu">
+              <div className="format-menu overflow-menu" ref={overflowFormatMenuRef}>
                 <button type="button" className="format-item" onClick={() => { applyHeading(); closeOverflowMenu(); }}>
                   見出し 1
                 </button>
@@ -1983,7 +2001,7 @@ function App() {
               H1 <span className="chip-caret">▾</span>
             </button>
             {showHeadingMenu ? (
-              <div className="format-menu heading-menu">
+              <div className="format-menu heading-menu" ref={headingMenuRef}>
                 <button type="button" className="format-item heading-item h1" onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); }}>
                   タイトル
                 </button>
@@ -2015,7 +2033,7 @@ function App() {
               ≡ <span className="chip-caret">▾</span>
             </button>
             {showListMenu ? (
-              <div className="format-menu list-menu">
+              <div className="format-menu list-menu" ref={listMenuRef}>
                 <button type="button" className="format-item" onClick={() => { toggleBulletedList(); closeListMenu(); }}>
                   箇条書き
                 </button>
@@ -2036,7 +2054,7 @@ function App() {
               …
             </button>
             {showFormatMenu ? (
-              <div className="format-menu">
+              <div className="format-menu" ref={toolbarFormatMenuRef}>
                 <button
                   type="button"
                   className="format-item"
