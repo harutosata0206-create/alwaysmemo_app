@@ -938,6 +938,11 @@ function App() {
           adjustZoom(0.1);
           return;
         }
+        if (noShift && event.code === "Semicolon") {
+          event.preventDefault();
+          adjustZoom(0.1);
+          return;
+        }
         if (noShift && event.code === "NumpadAdd") {
           event.preventDefault();
           adjustZoom(0.1);
