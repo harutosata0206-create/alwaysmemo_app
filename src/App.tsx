@@ -163,6 +163,7 @@ function App() {
     if (activePlainText.includes("\r\n")) return "Windows (CRLF)";
     return "LF";
   }, [activePlainText]);
+  const zoomPercentLabel = useMemo(() => `${Math.round(zoomLevel * 100)}%`, [zoomLevel]);
 
   const updateCursorIndex = useCallback(() => {
     const editor = editorRef.current;
@@ -930,6 +931,22 @@ function App() {
 
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+        const key = event.key;
+        if (key === "+" || key === "=") {
+          event.preventDefault();
+          adjustZoom(0.1);
+          return;
+        }
+        if (key === "-") {
+          event.preventDefault();
+          adjustZoom(-0.1);
+          return;
+        }
+        if (key === "0") {
+          event.preventDefault();
+          resetZoomLocal();
+          return;
+        }
         switch (event.code) {
           case "KeyS": {
             event.preventDefault();
@@ -2633,7 +2650,7 @@ function App() {
           <span className="bottom-item">
             {activeTab && hasRichFormatting(activeTab.content) ? "書式付き" : "テキスト"}
           </span>
-          <span className="bottom-item">100%</span>
+          <span className="bottom-item">{zoomPercentLabel}</span>
           <span className="bottom-item">{lineEndingLabel}</span>
           <span className="bottom-item">UTF-8</span>
           <span className="bottom-item">
