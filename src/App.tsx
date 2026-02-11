@@ -93,6 +93,7 @@ function App() {
   const [showTabArrows, setShowTabArrows] = useState(false);
   const [cursorIndex, setCursorIndex] = useState(0);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
+  const cursorUpdateRafRef = useRef<number | null>(null);
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const savedTabsRef = useRef<Record<string, { title: string; content: string }>>({});
   const [, setSavedVersion] = useState(0);
@@ -195,6 +196,16 @@ function App() {
       column: (lines[lines.length - 1]?.length ?? 0) + 1,
     });
   }, []);
+
+  const scheduleCursorIndexUpdate = useCallback(() => {
+    if (cursorUpdateRafRef.current !== null) {
+      window.cancelAnimationFrame(cursorUpdateRafRef.current);
+    }
+    cursorUpdateRafRef.current = window.requestAnimationFrame(() => {
+      cursorUpdateRafRef.current = null;
+      updateCursorIndex();
+    });
+  }, [updateCursorIndex]);
 
   const saveEditorSelection = useCallback(() => {
     const editor = editorRef.current;
@@ -871,10 +882,28 @@ function App() {
   useEffect(() => {
     const handleSelectionChange = () => {
       saveEditorSelection();
+      const editor = editorRef.current;
+      const selection = window.getSelection();
+      if (!editor || !selection || selection.rangeCount === 0) return;
+      const range = selection.getRangeAt(0);
+      if (
+        editor.contains(range.startContainer) &&
+        editor.contains(range.endContainer)
+      ) {
+        scheduleCursorIndexUpdate();
+      }
     };
     document.addEventListener("selectionchange", handleSelectionChange);
     return () => document.removeEventListener("selectionchange", handleSelectionChange);
-  }, [saveEditorSelection]);
+  }, [saveEditorSelection, scheduleCursorIndexUpdate]);
+
+  useEffect(() => {
+    return () => {
+      if (cursorUpdateRafRef.current !== null) {
+        window.cancelAnimationFrame(cursorUpdateRafRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const scroller = tabsScrollerRef.current;
@@ -2381,11 +2410,11 @@ function App() {
             data-placeholder="ここにメモを書く"
             onInput={(event) => {
               updateContent(event.currentTarget.innerHTML);
-              updateCursorIndex();
+              scheduleCursorIndexUpdate();
             }}
-            onKeyUp={updateCursorIndex}
-            onMouseUp={updateCursorIndex}
-            onClick={updateCursorIndex}
+            onKeyUp={scheduleCursorIndexUpdate}
+            onMouseUp={scheduleCursorIndexUpdate}
+            onClick={scheduleCursorIndexUpdate}
           />
         </div>
       </section>
