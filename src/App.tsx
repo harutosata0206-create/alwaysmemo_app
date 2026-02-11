@@ -932,24 +932,33 @@ function App() {
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.altKey) {
         const key = event.key;
-        // JIS layout support: Ctrl + Shift + ; can produce "+"
-        const isJisPlus = event.code === "Semicolon" && event.shiftKey;
-        if (key === "+" || key === "=") {
+        const noShift = !event.shiftKey;
+        if (noShift && (key === "+" || key === "=")) {
           event.preventDefault();
           adjustZoom(0.1);
           return;
         }
-        if (isJisPlus) {
+        if (noShift && event.code === "NumpadAdd") {
           event.preventDefault();
           adjustZoom(0.1);
           return;
         }
-        if (key === "-") {
+        if (noShift && key === "-") {
           event.preventDefault();
           adjustZoom(-0.1);
           return;
         }
-        if (key === "0") {
+        if (noShift && event.code === "NumpadSubtract") {
+          event.preventDefault();
+          adjustZoom(-0.1);
+          return;
+        }
+        if (noShift && key === "0") {
+          event.preventDefault();
+          resetZoomLocal();
+          return;
+        }
+        if (noShift && event.code === "Numpad0") {
           event.preventDefault();
           resetZoomLocal();
           return;
@@ -958,24 +967,6 @@ function App() {
           case "KeyS": {
             event.preventDefault();
             void saveActiveTab();
-            return;
-          }
-          case "Equal":
-          case "NumpadAdd": {
-            event.preventDefault();
-            adjustZoom(0.1);
-            return;
-          }
-          case "Minus":
-          case "NumpadSubtract": {
-            event.preventDefault();
-            adjustZoom(-0.1);
-            return;
-          }
-          case "Digit0":
-          case "Numpad0": {
-            event.preventDefault();
-            resetZoomLocal();
             return;
           }
           default:
