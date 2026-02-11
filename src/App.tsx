@@ -932,7 +932,14 @@ function App() {
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.altKey) {
         const key = event.key;
+        // JIS layout support: Ctrl + Shift + ; can produce "+"
+        const isJisPlus = event.code === "Semicolon" && event.shiftKey;
         if (key === "+" || key === "=") {
+          event.preventDefault();
+          adjustZoom(0.1);
+          return;
+        }
+        if (isJisPlus) {
           event.preventDefault();
           adjustZoom(0.1);
           return;
