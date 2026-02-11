@@ -102,6 +102,20 @@ fn open_text_file_dialog() -> Result<Option<OpenedFile>, String> {
 }
 
 #[tauri::command]
+fn open_text_file_by_path(path: String) -> Result<Option<OpenedFile>, String> {
+    let file_path = std::path::PathBuf::from(path);
+    if !file_path.exists() {
+        return Ok(None);
+    }
+    let contents =
+        std::fs::read_to_string(&file_path).map_err(|e| format!("read failed: {e}"))?;
+    Ok(Some(OpenedFile {
+        path: file_path.to_string_lossy().into_owned(),
+        contents,
+    }))
+}
+
+#[tauri::command]
 fn save_text_file_dialog(
     window: tauri::WebviewWindow,
     default_name: Option<String>,
@@ -152,6 +166,7 @@ pub fn run() {
             snap_left,
             snap_right,
             open_text_file_dialog,
+            open_text_file_by_path,
             save_text_file_dialog,
             write_text_file
         ])

@@ -488,6 +488,15 @@ body::-webkit-scrollbar-thumb,
   min-width: 140px;
 }
 
+.menu-subpanel-recent {
+  min-width: 170px;
+  max-width: 220px;
+}
+
+.menu-submenu-wrap {
+  position: relative;
+}
+
 .menu-item.has-submenu {
   padding-right: 12px;
 }
