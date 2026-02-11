@@ -1208,24 +1208,34 @@ function App() {
     updateCursorIndex();
   }, [updateContent, updateCursorIndex]);
 
+  const execFormatBlock = useCallback((tag: string) => {
+    const normalized = tag.toLowerCase();
+    const bracketTag = `<${normalized}>`;
+    // Chromium implementations differ: some accept "h1", others require "<h1>".
+    const applied = document.execCommand("formatBlock", false, normalized);
+    if (!applied) {
+      document.execCommand("formatBlock", false, bracketTag);
+    }
+  }, []);
+
   const applyHeading = useCallback(() => {
     const editor = editorRef.current;
     if (!editor) return;
     editor.focus();
-    document.execCommand("formatBlock", false, "h1");
+    execFormatBlock("h1");
     updateContent(editor.innerHTML);
     updateCursorIndex();
-  }, [updateContent, updateCursorIndex]);
+  }, [execFormatBlock, updateContent, updateCursorIndex]);
 
   const applyHeadingLevel = useCallback((level: number) => {
     const editor = editorRef.current;
     if (!editor) return;
     editor.focus();
     const tag = level >= 1 && level <= 6 ? `h${level}` : "p";
-    document.execCommand("formatBlock", false, tag);
+    execFormatBlock(tag);
     updateContent(editor.innerHTML);
     updateCursorIndex();
-  }, [updateContent, updateCursorIndex]);
+  }, [execFormatBlock, updateContent, updateCursorIndex]);
 
   const toggleBulletedList = useCallback(() => {
     const editor = editorRef.current;
@@ -1303,10 +1313,10 @@ function App() {
     }
     document.execCommand("removeFormat");
     document.execCommand("unlink");
-    document.execCommand("formatBlock", false, "p");
+    execFormatBlock("p");
     updateContent(editor.innerHTML);
     updateCursorIndex();
-  }, [updateContent, updateCursorIndex]);
+  }, [execFormatBlock, updateContent, updateCursorIndex]);
 
   const runEditorCommand = useCallback((command: string) => {
     const editor = editorRef.current;
@@ -1948,25 +1958,25 @@ function App() {
                   </button>
                   {showHeadingMenu ? (
                     <div className="format-menu heading-menu heading-menu-side" ref={overflowHeadingMenuRef}>
-                      <button type="button" className="format-item heading-item h1" onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item h1" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); closeOverflowMenu(); }}>
                         タイトル
                       </button>
-                      <button type="button" className="format-item heading-item h2" onClick={() => { applyHeadingLevel(2); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item h2" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(2); closeHeadingMenu(); closeOverflowMenu(); }}>
                         サブタイトル
                       </button>
-                      <button type="button" className="format-item heading-item h3" onClick={() => { applyHeadingLevel(3); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item h3" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(3); closeHeadingMenu(); closeOverflowMenu(); }}>
                         見出し
                       </button>
-                      <button type="button" className="format-item heading-item h4" onClick={() => { applyHeadingLevel(4); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item h4" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(4); closeHeadingMenu(); closeOverflowMenu(); }}>
                         小見出し
                       </button>
-                      <button type="button" className="format-item heading-item h5" onClick={() => { applyHeadingLevel(5); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item h5" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(5); closeHeadingMenu(); closeOverflowMenu(); }}>
                         セクション
                       </button>
-                      <button type="button" className="format-item heading-item h6" onClick={() => { applyHeadingLevel(6); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item h6" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(6); closeHeadingMenu(); closeOverflowMenu(); }}>
                         サブセクション
                       </button>
-                      <button type="button" className="format-item heading-item body" onClick={() => { applyHeadingLevel(0); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item body" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(0); closeHeadingMenu(); closeOverflowMenu(); }}>
                         本文
                       </button>
                     </div>
@@ -2042,25 +2052,25 @@ function App() {
               </button>
             {showHeadingMenu ? (
               <div className="format-menu heading-menu heading-menu-side" ref={toolbarHeadingMenuRef}>
-                <button type="button" className="format-item heading-item h1" onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item h1" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); }}>
                   タイトル
                 </button>
-                <button type="button" className="format-item heading-item h2" onClick={() => { applyHeadingLevel(2); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item h2" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(2); closeHeadingMenu(); }}>
                   サブタイトル
                 </button>
-                <button type="button" className="format-item heading-item h3" onClick={() => { applyHeadingLevel(3); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item h3" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(3); closeHeadingMenu(); }}>
                   見出し
                 </button>
-                <button type="button" className="format-item heading-item h4" onClick={() => { applyHeadingLevel(4); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item h4" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(4); closeHeadingMenu(); }}>
                   小見出し
                 </button>
-                <button type="button" className="format-item heading-item h5" onClick={() => { applyHeadingLevel(5); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item h5" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(5); closeHeadingMenu(); }}>
                   セクション
                 </button>
-                <button type="button" className="format-item heading-item h6" onClick={() => { applyHeadingLevel(6); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item h6" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(6); closeHeadingMenu(); }}>
                   サブセクション
                 </button>
-                <button type="button" className="format-item heading-item body" onClick={() => { applyHeadingLevel(0); closeHeadingMenu(); }}>
+                <button type="button" className="format-item heading-item body" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(0); closeHeadingMenu(); }}>
                   本文
                 </button>
               </div>
