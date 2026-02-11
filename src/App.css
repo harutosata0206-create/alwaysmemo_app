@@ -686,6 +686,9 @@ body::-webkit-scrollbar-thumb,
   color: #0f172a;
   border-radius: 8px;
   padding: 6px 8px;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   text-align: left;
   font-size: 12px;
   cursor: pointer;
@@ -693,6 +696,10 @@ body::-webkit-scrollbar-thumb,
 
 .format-item:hover {
   background: #f1f5f9;
+}
+
+.format-submenu-wrap > .format-item {
+  width: 100%;
 }
 
 .table-picker {
