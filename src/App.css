@@ -133,6 +133,7 @@ body::-webkit-scrollbar-thumb,
   background: #ffffff;
   border-top: 1px solid #e2e8f0;
   padding: 2px 12px;
+  justify-content: flex-start;
   flex-wrap: nowrap;
   overflow: visible;
 }
@@ -340,6 +341,10 @@ body::-webkit-scrollbar-thumb,
   gap: 8px;
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+.right-group {
+  margin-left: auto;
 }
 
 .search-group {
