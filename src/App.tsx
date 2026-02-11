@@ -1824,10 +1824,6 @@ function App() {
                   <button type="button" className="menu-item disabled" aria-disabled="true">
                     <span>ページ設定</span>
                   </button>
-                  <button type="button" className="menu-item" onClick={() => { window.print(); closeMenus(); }}>
-                    <span>印刷</span>
-                    <span className="menu-shortcut">Ctrl+P</span>
-                  </button>
                   <div className="menu-divider" />
                   <button
                     type="button"
