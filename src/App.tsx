@@ -92,6 +92,7 @@ function App() {
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [showTabArrows, setShowTabArrows] = useState(false);
   const [cursorIndex, setCursorIndex] = useState(0);
+  const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const savedTabsRef = useRef<Record<string, { title: string; content: string }>>({});
   const [, setSavedVersion] = useState(0);
@@ -157,16 +158,6 @@ function App() {
     return instance ? `${STORAGE_KEY}-${instance}` : STORAGE_KEY;
   }, []);
 
-  const cursorPosition = useMemo(() => {
-    const safeIndex = Math.min(cursorIndex, activePlainText.length);
-    const before = activePlainText.slice(0, safeIndex);
-    const lines = before.split(/\r?\n/);
-    return {
-      line: Math.max(lines.length, 1),
-      column: (lines[lines.length - 1]?.length ?? 0) + 1,
-    };
-  }, [activePlainText, cursorIndex]);
-
   const lineEndingLabel = useMemo(() => {
     if (activePlainText.includes("\r\n")) return "Windows (CRLF)";
     return "LF";
@@ -177,16 +168,26 @@ function App() {
     const selection = window.getSelection();
     if (!editor || !selection || selection.rangeCount === 0) {
       setCursorIndex(0);
+      setCursorPosition({ line: 1, column: 1 });
       return;
     }
     const range = selection.getRangeAt(0);
-    if (!editor.contains(range.startContainer)) return;
+    if (!editor.contains(range.startContainer)) {
+      setCursorIndex(0);
+      setCursorPosition({ line: 1, column: 1 });
+      return;
+    }
     const preRange = range.cloneRange();
     preRange.selectNodeContents(editor);
     preRange.setEnd(range.startContainer, range.startOffset);
-    const fragment = preRange.cloneContents();
-    const beforeText = nodeToPlainText(fragment).replace(/\u00a0/g, " ");
-    setCursorIndex(beforeText.length);
+    const beforeText = preRange.toString().replace(/\u00a0/g, " ");
+    const normalized = beforeText.replace(/\r\n/g, "\n");
+    const lines = normalized.split("\n");
+    setCursorIndex(normalized.length);
+    setCursorPosition({
+      line: Math.max(lines.length, 1),
+      column: (lines[lines.length - 1]?.length ?? 0) + 1,
+    });
   }, []);
 
   const saveEditorSelection = useCallback(() => {
