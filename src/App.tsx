@@ -88,6 +88,7 @@ function App() {
   const toggleLockRef = useRef(0);
   const tabsScrollerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const savedSelectionRef = useRef<Range | null>(null);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [showTabArrows, setShowTabArrows] = useState(false);
   const [cursorIndex, setCursorIndex] = useState(0);
@@ -186,6 +187,30 @@ function App() {
     const fragment = preRange.cloneContents();
     const beforeText = nodeToPlainText(fragment).replace(/\u00a0/g, " ");
     setCursorIndex(beforeText.length);
+  }, []);
+
+  const saveEditorSelection = useCallback(() => {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return;
+    savedSelectionRef.current = range.cloneRange();
+  }, []);
+
+  const restoreEditorSelection = useCallback(() => {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    const saved = savedSelectionRef.current;
+    if (!editor || !selection) return;
+    editor.focus();
+    if (!saved) return;
+    try {
+      selection.removeAllRanges();
+      selection.addRange(saved);
+    } catch {
+      // Ignore stale range; keep editor focused and let command apply at caret.
+    }
   }, []);
 
   const persistState = useCallback(
@@ -837,6 +862,14 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const handleSelectionChange = () => {
+      saveEditorSelection();
+    };
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => document.removeEventListener("selectionchange", handleSelectionChange);
+  }, [saveEditorSelection]);
+
+  useEffect(() => {
     const scroller = tabsScrollerRef.current;
     if (!scroller) {
       setShowTabArrows(false);
@@ -1202,11 +1235,11 @@ function App() {
   const toggleBold = useCallback(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus();
+    restoreEditorSelection();
     document.execCommand("bold");
     updateContent(editor.innerHTML);
     updateCursorIndex();
-  }, [updateContent, updateCursorIndex]);
+  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const execFormatBlock = useCallback((tag: string) => {
     const normalized = tag.toLowerCase();
@@ -1254,16 +1287,16 @@ function App() {
   const applyHeading = useCallback(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus();
+    restoreEditorSelection();
     execFormatBlock("h1");
     updateContent(editor.innerHTML);
     updateCursorIndex();
-  }, [execFormatBlock, updateContent, updateCursorIndex]);
+  }, [execFormatBlock, restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const applyHeadingLevel = useCallback((level: number) => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus();
+    restoreEditorSelection();
     const tag = (level >= 1 && level <= 6 ? `h${level}` : "p") as
       | "p"
       | "h1"
@@ -1283,40 +1316,40 @@ function App() {
     }
     updateContent(editor.innerHTML);
     updateCursorIndex();
-  }, [execFormatBlock, getSelectionBlock, replaceBlockTag, updateContent, updateCursorIndex]);
+  }, [execFormatBlock, getSelectionBlock, replaceBlockTag, restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const toggleBulletedList = useCallback(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus();
+    restoreEditorSelection();
     document.execCommand("insertUnorderedList");
     updateContent(editor.innerHTML);
     updateCursorIndex();
-  }, [updateContent, updateCursorIndex]);
+  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const toggleOrderedList = useCallback(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus();
+    restoreEditorSelection();
     document.execCommand("insertOrderedList");
     updateContent(editor.innerHTML);
     updateCursorIndex();
-  }, [updateContent, updateCursorIndex]);
+  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const toggleItalic = useCallback(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus();
+    restoreEditorSelection();
     document.execCommand("italic");
     updateContent(editor.innerHTML);
     updateCursorIndex();
-  }, [updateContent, updateCursorIndex]);
+  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const insertTableWithSize = useCallback(
     (rows: number, cols: number) => {
       const editor = editorRef.current;
       if (!editor) return;
-      editor.focus();
+      restoreEditorSelection();
       const body = Array.from({ length: rows })
         .map(
           () =>
@@ -1330,13 +1363,13 @@ function App() {
       updateContent(editor.innerHTML);
       updateCursorIndex();
     },
-    [updateContent, updateCursorIndex],
+    [restoreEditorSelection, updateContent, updateCursorIndex],
   );
 
   const clearFormatting = useCallback(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus();
+    restoreEditorSelection();
     const selection = window.getSelection();
     const anchorNode = selection?.anchorNode ?? null;
     const anchorElement =
@@ -1353,23 +1386,23 @@ function App() {
     execFormatBlock("p");
     updateContent(editor.innerHTML);
     updateCursorIndex();
-  }, [execFormatBlock, updateContent, updateCursorIndex]);
+  }, [execFormatBlock, restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const runEditorCommand = useCallback((command: string) => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus();
+    restoreEditorSelection();
     document.execCommand(command);
     window.requestAnimationFrame(() => {
       updateContent(editor.innerHTML);
       updateCursorIndex();
     });
-  }, [updateContent, updateCursorIndex]);
+  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const pasteFromClipboard = useCallback(async () => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus();
+    restoreEditorSelection();
     if (navigator.clipboard?.readText) {
       try {
         const text = await navigator.clipboard.readText();
@@ -1385,7 +1418,7 @@ function App() {
       updateContent(editor.innerHTML);
       updateCursorIndex();
     });
-  }, [updateContent, updateCursorIndex]);
+  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const focusSearchBox = useCallback(() => {
     setOpenMenu(null);
