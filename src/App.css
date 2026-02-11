@@ -676,8 +676,8 @@ body::-webkit-scrollbar-thumb,
 }
 
 .heading-item.body {
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .format-item {
