@@ -1891,10 +1891,6 @@ function App() {
                   <button type="button" className="menu-item" onClick={() => { clearFormatting(); closeMenus(); }}>
                     <span>書式設定のクリア</span>
                   </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
-                    <span>Bing で定義</span>
-                    <span className="menu-shortcut">Ctrl+E</span>
-                  </button>
                   <div className="menu-divider" />
                   <button type="button" className="menu-item" onClick={() => { focusSearchBox(); closeMenus(); }}>
                     <span>検索する</span>
@@ -1907,10 +1903,6 @@ function App() {
                   <button type="button" className="menu-item" onClick={openGoToLine}>
                     <span>移動先</span>
                     <span className="menu-shortcut">Ctrl+G</span>
-                  </button>
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
-                    <span>日付と時刻</span>
-                    <span className="menu-shortcut">F5</span>
                   </button>
                   <div className="menu-divider" />
                   <button type="button" className="menu-item disabled" aria-disabled="true">
