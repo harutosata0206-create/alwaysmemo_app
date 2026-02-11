@@ -921,6 +921,13 @@ function App() {
   }, [tabs]);
 
   useEffect(() => {
+    const adjustZoom = (delta: number) => {
+      setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + delta)));
+    };
+    const resetZoomLocal = () => {
+      setZoomLevel(1);
+    };
+
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.altKey) {
         switch (event.code) {
@@ -932,19 +939,19 @@ function App() {
           case "Equal":
           case "NumpadAdd": {
             event.preventDefault();
-            zoomIn();
+            adjustZoom(0.1);
             return;
           }
           case "Minus":
           case "NumpadSubtract": {
             event.preventDefault();
-            zoomOut();
+            adjustZoom(-0.1);
             return;
           }
           case "Digit0":
           case "Numpad0": {
             event.preventDefault();
-            resetZoom();
+            resetZoomLocal();
             return;
           }
           default:
@@ -994,9 +1001,6 @@ function App() {
     snapLeft,
     snapRight,
     toggleAlwaysOnTop,
-    zoomIn,
-    zoomOut,
-    resetZoom,
   ]);
 
   useEffect(() => {
