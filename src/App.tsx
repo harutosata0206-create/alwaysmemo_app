@@ -1084,12 +1084,12 @@ function App() {
         const base = originalWindowSizeRef.current;
         const maxHeight = window.screen?.availHeight ?? base.height;
         const nextHeight = Math.min(
-          Math.max(window.innerHeight, base.height + Math.max(overflowCss, 0) + 8),
+          Math.max(window.innerHeight, window.innerHeight + Math.max(overflowCss, 0) + 8),
           maxHeight,
         );
         const maxWidth = window.screen?.availWidth ?? base.width;
         const nextWidth = Math.min(
-          Math.max(window.innerWidth, base.width + Math.max(overflowRight, 0) + 8),
+          Math.max(window.innerWidth, window.innerWidth + Math.max(overflowRight, 0) + 8),
           maxWidth,
         );
 
