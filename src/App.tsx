@@ -181,9 +181,7 @@ function App() {
     preRange.selectNodeContents(editor);
     preRange.setEnd(range.startContainer, range.startOffset);
     const fragment = preRange.cloneContents();
-    const buffer = document.createElement("div");
-    buffer.appendChild(fragment);
-    const beforeText = (buffer.innerText || "")
+    const beforeText = nodeToPlainText(fragment)
       .replace(/\u00a0/g, " ")
       .replace(/\r\n/g, "\n");
     const normalized = beforeText.replace(/\r\n/g, "\n");
