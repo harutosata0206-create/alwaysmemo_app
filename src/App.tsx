@@ -1218,6 +1218,39 @@ function App() {
     }
   }, []);
 
+  const getSelectionBlock = useCallback((editor: HTMLDivElement): HTMLElement | null => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.startContainer)) return null;
+    let node: Node | null = range.startContainer;
+    if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+    if (!node || node === editor) return null;
+    const element = node as HTMLElement;
+    return (
+      element.closest("p,div,h1,h2,h3,h4,h5,h6") as HTMLElement | null
+    );
+  }, []);
+
+  const replaceBlockTag = useCallback((block: HTMLElement, nextTag: "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6") => {
+    const currentTag = block.tagName.toLowerCase();
+    if (currentTag === nextTag) return block;
+    const replacement = document.createElement(nextTag);
+    while (block.firstChild) {
+      replacement.appendChild(block.firstChild);
+    }
+    block.replaceWith(replacement);
+    const selection = window.getSelection();
+    if (selection) {
+      const range = document.createRange();
+      range.selectNodeContents(replacement);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    return replacement;
+  }, []);
+
   const applyHeading = useCallback(() => {
     const editor = editorRef.current;
     if (!editor) return;
@@ -1231,11 +1264,26 @@ function App() {
     const editor = editorRef.current;
     if (!editor) return;
     editor.focus();
-    const tag = level >= 1 && level <= 6 ? `h${level}` : "p";
+    const tag = (level >= 1 && level <= 6 ? `h${level}` : "p") as
+      | "p"
+      | "h1"
+      | "h2"
+      | "h3"
+      | "h4"
+      | "h5"
+      | "h6";
+    const before = editor.innerHTML;
     execFormatBlock(tag);
+    const unchanged = editor.innerHTML === before;
+    if (unchanged) {
+      const block = getSelectionBlock(editor);
+      if (block && editor.contains(block)) {
+        replaceBlockTag(block, tag);
+      }
+    }
     updateContent(editor.innerHTML);
     updateCursorIndex();
-  }, [execFormatBlock, updateContent, updateCursorIndex]);
+  }, [execFormatBlock, getSelectionBlock, replaceBlockTag, updateContent, updateCursorIndex]);
 
   const toggleBulletedList = useCallback(() => {
     const editor = editorRef.current;
