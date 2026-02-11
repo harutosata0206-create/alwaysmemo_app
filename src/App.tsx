@@ -2004,6 +2004,10 @@ function App() {
               type="button"
               className="icon-button overflow"
               aria-label="More"
+              onMouseDown={(event) => {
+                saveEditorSelection();
+                event.preventDefault();
+              }}
               onClick={() => setShowOverflowMenu((prev) => !prev)}
             >
               ⋯
@@ -2011,30 +2015,38 @@ function App() {
             {showOverflowMenu ? (
               <div className="format-menu overflow-menu" ref={overflowFormatMenuRef}>
                 <div className="format-submenu-wrap">
-                  <button type="button" className="format-item" onClick={() => setShowHeadingMenu((prev) => !prev)}>
+                  <button
+                    type="button"
+                    className="format-item"
+                    onMouseDown={(event) => {
+                      saveEditorSelection();
+                      event.preventDefault();
+                    }}
+                    onClick={() => setShowHeadingMenu((prev) => !prev)}
+                  >
                     見出し
                   </button>
                   {showHeadingMenu ? (
                     <div className="format-menu heading-menu heading-menu-side" ref={overflowHeadingMenuRef}>
-                      <button type="button" className="format-item heading-item h1" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item h1" onMouseDown={(event) => { saveEditorSelection(); event.preventDefault(); }} onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); closeOverflowMenu(); }}>
                         タイトル
                       </button>
-                      <button type="button" className="format-item heading-item h2" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(2); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item h2" onMouseDown={(event) => { saveEditorSelection(); event.preventDefault(); }} onClick={() => { applyHeadingLevel(2); closeHeadingMenu(); closeOverflowMenu(); }}>
                         サブタイトル
                       </button>
-                      <button type="button" className="format-item heading-item h3" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(3); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item h3" onMouseDown={(event) => { saveEditorSelection(); event.preventDefault(); }} onClick={() => { applyHeadingLevel(3); closeHeadingMenu(); closeOverflowMenu(); }}>
                         見出し
                       </button>
-                      <button type="button" className="format-item heading-item h4" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(4); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item h4" onMouseDown={(event) => { saveEditorSelection(); event.preventDefault(); }} onClick={() => { applyHeadingLevel(4); closeHeadingMenu(); closeOverflowMenu(); }}>
                         小見出し
                       </button>
-                      <button type="button" className="format-item heading-item h5" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(5); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item h5" onMouseDown={(event) => { saveEditorSelection(); event.preventDefault(); }} onClick={() => { applyHeadingLevel(5); closeHeadingMenu(); closeOverflowMenu(); }}>
                         セクション
                       </button>
-                      <button type="button" className="format-item heading-item h6" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(6); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item h6" onMouseDown={(event) => { saveEditorSelection(); event.preventDefault(); }} onClick={() => { applyHeadingLevel(6); closeHeadingMenu(); closeOverflowMenu(); }}>
                         サブセクション
                       </button>
-                      <button type="button" className="format-item heading-item body" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(0); closeHeadingMenu(); closeOverflowMenu(); }}>
+                      <button type="button" className="format-item heading-item body" onMouseDown={(event) => { saveEditorSelection(); event.preventDefault(); }} onClick={() => { applyHeadingLevel(0); closeHeadingMenu(); closeOverflowMenu(); }}>
                         本文
                       </button>
                     </div>
