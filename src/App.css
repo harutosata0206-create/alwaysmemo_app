@@ -1036,13 +1036,13 @@ button:active {
   z-index: 15;
   display: grid;
   grid-template-columns: 8% 12% 13% 7% 11% 10% 12% 12% 15%;
-  gap: 4px;
-  padding: 3px 10px;
+  gap: 5px;
+  padding: 4px 10px;
   border-top: 1px solid #e2e8f0;
   background: #ffffff;
   color: #1f2937;
-  font-size: 10px;
-  line-height: 1.1;
+  font-size: 10.5px;
+  line-height: 1.15;
   font-weight: 500;
   white-space: nowrap;
   align-items: center;
@@ -1050,7 +1050,7 @@ button:active {
 
 .bottom-item + .bottom-item {
   border-left: 1px solid #e2e8f0;
-  padding-left: 7px;
+  padding-left: 8px;
 }
 
 .bottom-item {
