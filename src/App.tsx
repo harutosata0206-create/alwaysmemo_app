@@ -95,13 +95,12 @@ function App() {
   const savedSelectionRef = useRef<Range | null>(null);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [showTabArrows, setShowTabArrows] = useState(false);
-  const [cursorIndex, setCursorIndex] = useState(0);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const cursorUpdateRafRef = useRef<number | null>(null);
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const savedTabsRef = useRef<Record<string, { title: string; content: string }>>({});
   const [, setSavedVersion] = useState(0);
-  const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(null);
+  const [openMenu, setOpenMenu] = useState<"file" | "edit" | null>(null);
   const [openFileSubmenu, setOpenFileSubmenu] = useState<"recent" | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -109,28 +108,8 @@ function App() {
   const editMenuRef = useRef<HTMLDivElement | null>(null);
   const editMenuWrapperRef = useRef<HTMLDivElement | null>(null);
   const [editMenuLeft, setEditMenuLeft] = useState<number | null>(null);
-  const viewMenuRef = useRef<HTMLDivElement | null>(null);
-  const viewMenuWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [viewMenuLeft, setViewMenuLeft] = useState<number | null>(null);
-  const [showFormatMenu, setShowFormatMenu] = useState(false);
-  const [showTablePicker, setShowTablePicker] = useState(false);
-  const [tableHover, setTableHover] = useState({ rows: 0, cols: 0 });
   const originalWindowSizeRef = useRef<LogicalSize | null>(null);
   const expandedWindowRef = useRef(false);
-  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
-  const formatGroupRef = useRef<HTMLDivElement | null>(null);
-  const overflowMenuRef = useRef<HTMLDivElement | null>(null);
-  const overflowFormatMenuRef = useRef<HTMLDivElement | null>(null);
-  const toolbarFormatMenuRef = useRef<HTMLDivElement | null>(null);
-  const overflowHeadingMenuRef = useRef<HTMLDivElement | null>(null);
-  const toolbarHeadingMenuRef = useRef<HTMLDivElement | null>(null);
-  const listMenuRef = useRef<HTMLDivElement | null>(null);
-  const toolbarTablePickerRef = useRef<HTMLDivElement | null>(null);
-  const overflowTablePickerRef = useRef<HTMLDivElement | null>(null);
-  const [showHeadingMenu, setShowHeadingMenu] = useState(false);
-  const [showListMenu, setShowListMenu] = useState(false);
-  const [showStatusBar, setShowStatusBar] = useState(true);
-  const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
   const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
@@ -141,7 +120,6 @@ function App() {
   const [goToLineOpen, setGoToLineOpen] = useState(false);
   const [goToLineValue, setGoToLineValue] = useState("1");
   const goToLineInputRef = useRef<HTMLInputElement | null>(null);
-  const [zoomLevel, setZoomLevel] = useState(1);
   const [recentClosedFiles, setRecentClosedFiles] = useState<RecentClosedFile[]>([]);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
@@ -161,23 +139,15 @@ function App() {
   }, []);
   const recentClosedKey = useMemo(() => `${storageKey}-recent-closed`, [storageKey]);
 
-  const lineEndingLabel = useMemo(() => {
-    if (activePlainText.includes("\r\n")) return "Windows (CRLF)";
-    return "LF";
-  }, [activePlainText]);
-  const zoomPercentLabel = useMemo(() => `${Math.round(zoomLevel * 100)}%`, [zoomLevel]);
-
   const updateCursorIndex = useCallback(() => {
     const editor = editorRef.current;
     const selection = window.getSelection();
     if (!editor || !selection || selection.rangeCount === 0) {
-      setCursorIndex(0);
       setCursorPosition({ line: 1, column: 1 });
       return;
     }
     const range = selection.getRangeAt(0);
     if (!editor.contains(range.startContainer)) {
-      setCursorIndex(0);
       setCursorPosition({ line: 1, column: 1 });
       return;
     }
@@ -193,7 +163,6 @@ function App() {
       ? normalized.slice(0, -1)
       : normalized;
     const lines = cursorText.split("\n");
-    setCursorIndex(cursorText.length);
     setCursorPosition({
       line: Math.max(lines.length, 1),
       column: (lines[lines.length - 1]?.length ?? 0) + 1,
@@ -252,20 +221,6 @@ function App() {
     setOpenMenu(null);
     setOpenFileSubmenu(null);
   }, []);
-  const closeFormatMenu = useCallback(() => {
-    setShowFormatMenu(false);
-    setShowTablePicker(false);
-  }, []);
-  const closeOverflowMenu = useCallback(() => {
-    setShowOverflowMenu(false);
-    setShowTablePicker(false);
-  }, []);
-  const closeHeadingMenu = useCallback(() => {
-    setShowHeadingMenu(false);
-  }, []);
-  const closeListMenu = useCallback(() => {
-    setShowListMenu(false);
-  }, []);
   const textToHtml = useCallback((text: string) => {
     const div = document.createElement("div");
     div.textContent = text;
@@ -299,25 +254,6 @@ function App() {
       parent.normalize();
     });
     return container.innerHTML;
-  }, []);
-
-  const hasRichFormatting = useCallback((html: string) => {
-    const container = document.createElement("div");
-    container.innerHTML = html;
-    if (container.querySelector("strong, b, em, i, u, a, table, thead, tbody, tr, td, th, ul, ol, li, h1, h2, h3, h4, h5, h6")) {
-      return true;
-    }
-    return Array.from(container.querySelectorAll<HTMLElement>("span"))
-      .some((el) => {
-        const weight = el.style.fontWeight;
-        const style = el.style.fontStyle;
-        const deco = el.style.textDecorationLine || el.style.textDecoration;
-        return (
-          (weight && weight !== "normal") ||
-          (style && style !== "normal") ||
-          (deco && deco !== "none")
-        );
-      });
   }, []);
 
   const pickSavePath = useCallback(async (suggested: string) => {
@@ -916,52 +852,8 @@ function App() {
   }, [tabs]);
 
   useEffect(() => {
-    const adjustZoom = (delta: number) => {
-      setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + delta)));
-    };
-    const resetZoomLocal = () => {
-      setZoomLevel(1);
-    };
-
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.altKey) {
-        const key = event.key;
-        const noShift = !event.shiftKey;
-        if (noShift && (key === "+" || key === "=")) {
-          event.preventDefault();
-          adjustZoom(0.1);
-          return;
-        }
-        if (noShift && event.code === "Semicolon") {
-          event.preventDefault();
-          adjustZoom(0.1);
-          return;
-        }
-        if (noShift && event.code === "NumpadAdd") {
-          event.preventDefault();
-          adjustZoom(0.1);
-          return;
-        }
-        if (noShift && key === "-") {
-          event.preventDefault();
-          adjustZoom(-0.1);
-          return;
-        }
-        if (noShift && event.code === "NumpadSubtract") {
-          event.preventDefault();
-          adjustZoom(-0.1);
-          return;
-        }
-        if (noShift && key === "0") {
-          event.preventDefault();
-          resetZoomLocal();
-          return;
-        }
-        if (noShift && event.code === "Numpad0") {
-          event.preventDefault();
-          resetZoomLocal();
-          return;
-        }
         switch (event.code) {
           case "KeyS": {
             event.preventDefault();
@@ -1047,33 +939,6 @@ function App() {
   }, [goToLineOpen]);
 
   useEffect(() => {
-    if (!showFormatMenu && !showOverflowMenu && !showHeadingMenu && !showListMenu) return;
-    const handler = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (formatGroupRef.current?.contains(target)) return;
-      if (overflowMenuRef.current?.contains(target)) return;
-      closeFormatMenu();
-      closeOverflowMenu();
-      closeHeadingMenu();
-      closeListMenu();
-    };
-    window.addEventListener("mousedown", handler);
-    return () => window.removeEventListener("mousedown", handler);
-  }, [closeFormatMenu, closeHeadingMenu, closeListMenu, closeOverflowMenu, showFormatMenu, showHeadingMenu, showListMenu, showOverflowMenu]);
-
-  useEffect(() => {
-    const handler = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest(".format-group")) return;
-      setShowFormatMenu(false);
-      setShowHeadingMenu(false);
-      setShowListMenu(false);
-    };
-    window.addEventListener("mousedown", handler);
-    return () => window.removeEventListener("mousedown", handler);
-  }, []);
-
-  useEffect(() => {
     const registerGlobalShortcuts = async () => {
       const attemptRegister = async () => {
         await Promise.all(
@@ -1122,12 +987,7 @@ function App() {
   }, [shortcutActions, useGlobalShortcuts]);
 
   useEffect(() => {
-    const hasPopupOpen =
-      openMenu !== null ||
-      showOverflowMenu ||
-      showFormatMenu ||
-      showHeadingMenu ||
-      showListMenu;
+    const hasPopupOpen = openMenu !== null;
     if (!hasPopupOpen) {
       if (expandedWindowRef.current && originalWindowSizeRef.current) {
         void windowHandle.setSize(originalWindowSizeRef.current);
@@ -1139,29 +999,17 @@ function App() {
 
     const frame = window.requestAnimationFrame(async () => {
       const panel =
-        showOverflowMenu
-          ? overflowFormatMenuRef.current
-          : showFormatMenu
-            ? toolbarFormatMenuRef.current
-            : showHeadingMenu
-              ? (showOverflowMenu ? overflowHeadingMenuRef.current : toolbarHeadingMenuRef.current)
-              : showListMenu
-                ? listMenuRef.current
-                : openMenu === "file"
+        openMenu === "file"
           ? fileMenuRef.current
           : openMenu === "edit"
             ? editMenuRef.current
-            : viewMenuRef.current;
+            : null;
       if (!panel) return;
       const rect = panel.getBoundingClientRect();
       const activeSubmenu =
         openMenu === "file" && openFileSubmenu === "recent"
           ? fileRecentSubmenuRef.current
-          : showHeadingMenu
-              ? (showOverflowMenu ? overflowHeadingMenuRef.current : toolbarHeadingMenuRef.current)
-              : showTablePicker
-                ? (showOverflowMenu ? overflowTablePickerRef.current : toolbarTablePickerRef.current)
-                : null;
+          : null;
       const subRect = activeSubmenu?.getBoundingClientRect() ?? rect;
       const panelBottom = Math.max(rect.bottom, subRect.bottom);
       const panelNeededBottom = Math.max(
@@ -1169,8 +1017,7 @@ function App() {
         rect.top + Math.max(panel.scrollHeight, rect.height),
       );
       const overflowCss = panelNeededBottom - window.innerHeight;
-      const allowHorizontalExpand =
-        (openMenu === "file" && openFileSubmenu === "recent") || showHeadingMenu || showTablePicker;
+      const allowHorizontalExpand = openMenu === "file" && openFileSubmenu === "recent";
       const overflowRight = allowHorizontalExpand
         ? Math.max(rect.right, subRect.right) - window.innerWidth
         : 0;
@@ -1205,7 +1052,7 @@ function App() {
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [openFileSubmenu, openMenu, showFormatMenu, showHeadingMenu, showListMenu, showOverflowMenu, showTablePicker, windowHandle]);
+  }, [openFileSubmenu, openMenu, windowHandle]);
 
   useEffect(() => {
     if (openMenu !== "edit") {
@@ -1221,26 +1068,6 @@ function App() {
       const wrapperRect = editMenuWrapperRef.current.getBoundingClientRect();
       const groupRect = menuRef.current.getBoundingClientRect();
       setEditMenuLeft(groupRect.left - wrapperRect.left);
-    };
-    updateLeft();
-    window.addEventListener("resize", updateLeft);
-    return () => window.removeEventListener("resize", updateLeft);
-  }, [openMenu]);
-
-  useEffect(() => {
-    if (openMenu !== "view") {
-      setViewMenuLeft(null);
-      return;
-    }
-    const updateLeft = () => {
-      if (!viewMenuWrapperRef.current || !menuRef.current) return;
-      if (window.innerWidth > 640) {
-        setViewMenuLeft(null);
-        return;
-      }
-      const wrapperRect = viewMenuWrapperRef.current.getBoundingClientRect();
-      const groupRect = menuRef.current.getBoundingClientRect();
-      setViewMenuLeft(groupRect.left - wrapperRect.left);
     };
     updateLeft();
     window.addEventListener("resize", updateLeft);
@@ -1304,168 +1131,6 @@ function App() {
       prev.map((t) => (t.id === activeTab.id ? { ...t, content: clean } : t)),
     );
   }, [activeTab, stripSearchHighlights]);
-
-  const toggleBold = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    restoreEditorSelection();
-    document.execCommand("bold");
-    updateContent(editor.innerHTML);
-    updateCursorIndex();
-  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
-
-  const execFormatBlock = useCallback((tag: string) => {
-    const normalized = tag.toLowerCase();
-    const bracketTag = `<${normalized}>`;
-    // Chromium implementations differ: some accept "h1", others require "<h1>".
-    const applied = document.execCommand("formatBlock", false, normalized);
-    if (!applied) {
-      document.execCommand("formatBlock", false, bracketTag);
-    }
-  }, []);
-
-  const getSelectionBlock = useCallback((editor: HTMLDivElement): HTMLElement | null => {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return null;
-    const range = selection.getRangeAt(0);
-    if (!editor.contains(range.startContainer)) return null;
-    let node: Node | null = range.startContainer;
-    if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
-    if (!node || node === editor) return null;
-    const element = node as HTMLElement;
-    return (
-      element.closest("p,div,h1,h2,h3,h4,h5,h6") as HTMLElement | null
-    );
-  }, []);
-
-  const replaceBlockTag = useCallback((block: HTMLElement, nextTag: "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6") => {
-    const currentTag = block.tagName.toLowerCase();
-    if (currentTag === nextTag) return block;
-    const replacement = document.createElement(nextTag);
-    while (block.firstChild) {
-      replacement.appendChild(block.firstChild);
-    }
-    block.replaceWith(replacement);
-    const selection = window.getSelection();
-    if (selection) {
-      const range = document.createRange();
-      range.selectNodeContents(replacement);
-      range.collapse(false);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-    return replacement;
-  }, []);
-
-  const applyHeading = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    restoreEditorSelection();
-    execFormatBlock("h1");
-    updateContent(editor.innerHTML);
-    updateCursorIndex();
-  }, [execFormatBlock, restoreEditorSelection, updateContent, updateCursorIndex]);
-
-  const applyHeadingLevel = useCallback((level: number) => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    restoreEditorSelection();
-    const tag = (level >= 1 && level <= 6 ? `h${level}` : "p") as
-      | "p"
-      | "h1"
-      | "h2"
-      | "h3"
-      | "h4"
-      | "h5"
-      | "h6";
-    const before = editor.innerHTML;
-    execFormatBlock(tag);
-    const unchanged = editor.innerHTML === before;
-    if (unchanged) {
-      const block = getSelectionBlock(editor);
-      if (block && editor.contains(block)) {
-        replaceBlockTag(block, tag);
-      }
-    }
-    updateContent(editor.innerHTML);
-    updateCursorIndex();
-  }, [execFormatBlock, getSelectionBlock, replaceBlockTag, restoreEditorSelection, updateContent, updateCursorIndex]);
-
-  const handleOverflowHeadingSelect = useCallback((level: number) => {
-    applyHeadingLevel(level);
-    closeHeadingMenu();
-    closeOverflowMenu();
-  }, [applyHeadingLevel, closeHeadingMenu, closeOverflowMenu]);
-
-  const toggleBulletedList = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    restoreEditorSelection();
-    document.execCommand("insertUnorderedList");
-    updateContent(editor.innerHTML);
-    updateCursorIndex();
-  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
-
-  const toggleOrderedList = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    restoreEditorSelection();
-    document.execCommand("insertOrderedList");
-    updateContent(editor.innerHTML);
-    updateCursorIndex();
-  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
-
-  const toggleItalic = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    restoreEditorSelection();
-    document.execCommand("italic");
-    updateContent(editor.innerHTML);
-    updateCursorIndex();
-  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
-
-  const insertTableWithSize = useCallback(
-    (rows: number, cols: number) => {
-      const editor = editorRef.current;
-      if (!editor) return;
-      restoreEditorSelection();
-      const body = Array.from({ length: rows })
-        .map(
-          () =>
-            `<tr>${Array.from({ length: cols })
-              .map(() => "<td>&nbsp;</td>")
-              .join("")}</tr>`,
-        )
-        .join("");
-      const tableHtml = `<table class="memo-table"><tbody>${body}</tbody></table>`;
-      document.execCommand("insertHTML", false, tableHtml);
-      updateContent(editor.innerHTML);
-      updateCursorIndex();
-    },
-    [restoreEditorSelection, updateContent, updateCursorIndex],
-  );
-
-  const clearFormatting = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    restoreEditorSelection();
-    const selection = window.getSelection();
-    const anchorNode = selection?.anchorNode ?? null;
-    const anchorElement =
-      anchorNode?.nodeType === Node.ELEMENT_NODE
-        ? (anchorNode as Element)
-        : anchorNode?.parentElement ?? null;
-    const listAncestor = anchorElement?.closest("ol, ul");
-    if (listAncestor) {
-      const isOrdered = listAncestor.tagName.toLowerCase() === "ol";
-      document.execCommand(isOrdered ? "insertOrderedList" : "insertUnorderedList");
-    }
-    document.execCommand("removeFormat");
-    document.execCommand("unlink");
-    execFormatBlock("p");
-    updateContent(editor.innerHTML);
-    updateCursorIndex();
-  }, [execFormatBlock, restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const runEditorCommand = useCallback((command: string) => {
     const editor = editorRef.current;
@@ -1592,17 +1257,6 @@ function App() {
       console.error("Failed to move cursor", error);
     }
   }, [activePlainText, updateCursorIndex]);
-
-  const clampZoom = (value: number) => Math.min(2, Math.max(0.5, value));
-
-  const applyZoom = useCallback((next: number) => {
-    const clamped = clampZoom(next);
-    setZoomLevel(clamped);
-  }, []);
-
-  const zoomIn = useCallback(() => applyZoom(zoomLevel + 0.1), [applyZoom, zoomLevel]);
-  const zoomOut = useCallback(() => applyZoom(zoomLevel - 0.1), [applyZoom, zoomLevel]);
-  const resetZoom = useCallback(() => applyZoom(1), [applyZoom]);
 
   const submitGoToLine = useCallback(() => {
     const parsed = Number.parseInt(goToLineValue, 10);
@@ -2029,10 +1683,6 @@ function App() {
                     <span className="menu-shortcut">Ctrl+V</span>
                   </button>
                   <div className="menu-divider" />
-                  <button type="button" className="menu-item" onClick={() => { clearFormatting(); closeMenus(); }}>
-                    <span>書式設定のクリア</span>
-                  </button>
-                  <div className="menu-divider" />
                   <button type="button" className="menu-item" onClick={() => { focusSearchBox(); closeMenus(); }}>
                     <span>検索する</span>
                     <span className="menu-shortcut">Ctrl+F</span>
@@ -2052,329 +1702,6 @@ function App() {
                 </div>
               ) : null}
             </div>
-            <div className="menu-wrapper" ref={viewMenuWrapperRef}>
-              <button
-                type="button"
-                className={`menu-button ${openMenu === "view" ? "active" : ""}`}
-                onClick={() => setOpenMenu((prev) => (prev === "view" ? null : "view"))}
-              >
-                表示
-              </button>
-              {openMenu === "view" ? (
-                <div
-                  className="menu-panel"
-                  ref={viewMenuRef}
-                  style={viewMenuLeft !== null ? { left: `${viewMenuLeft}px` } : undefined}
-                  onMouseDown={(event) => event.stopPropagation()}
-                >
-                  <button type="button" className="menu-item" onClick={zoomIn}>
-                    <span>拡大</span>
-                    <span className="menu-shortcut">Ctrl+プラス記号 (+)</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={zoomOut}>
-                    <span>縮小</span>
-                    <span className="menu-shortcut">Ctrl+マイナス記号 (-)</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={resetZoom}>
-                    <span>既定の倍率に戻す</span>
-                    <span className="menu-shortcut">Ctrl+0</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="menu-item"
-                    onClick={() => setShowStatusBar((prev) => !prev)}
-                  >
-                    <span className={`menu-check ${showStatusBar ? "on" : ""}`}>✓</span>
-                    <span>ステータスバー</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="menu-item"
-                    onClick={() => setWrapAtRightEdge((prev) => !prev)}
-                  >
-                    <span className={`menu-check ${wrapAtRightEdge ? "on" : ""}`}>✓</span>
-                    <span>右端での折り返し</span>
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-          <div className="format-overflow" ref={overflowMenuRef}>
-            <button
-              type="button"
-              className="icon-button overflow"
-              aria-label="More"
-              onMouseDown={(event) => {
-                saveEditorSelection();
-                event.preventDefault();
-              }}
-              onClick={() => setShowOverflowMenu((prev) => !prev)}
-            >
-              ⋯
-            </button>
-            {showOverflowMenu ? (
-              <div className="format-menu overflow-menu" ref={overflowFormatMenuRef}>
-                <div className="format-submenu-wrap">
-                  <button
-                    type="button"
-                    className="format-item"
-                    onMouseDown={(event) => {
-                      saveEditorSelection();
-                      event.preventDefault();
-                    }}
-                    onClick={() => setShowHeadingMenu((prev) => !prev)}
-                  >
-                    見出し
-                  </button>
-                  {showHeadingMenu ? (
-                    <div className="format-menu heading-menu heading-menu-side" ref={overflowHeadingMenuRef}>
-                      <button
-                        type="button"
-                        className="format-item heading-item h1"
-                        onMouseDown={(event) => {
-                          saveEditorSelection();
-                          event.preventDefault();
-                          handleOverflowHeadingSelect(1);
-                        }}
-                      >
-                        タイトル
-                      </button>
-                      <button
-                        type="button"
-                        className="format-item heading-item h2"
-                        onMouseDown={(event) => {
-                          saveEditorSelection();
-                          event.preventDefault();
-                          handleOverflowHeadingSelect(2);
-                        }}
-                      >
-                        サブタイトル
-                      </button>
-                      <button
-                        type="button"
-                        className="format-item heading-item h3"
-                        onMouseDown={(event) => {
-                          saveEditorSelection();
-                          event.preventDefault();
-                          handleOverflowHeadingSelect(3);
-                        }}
-                      >
-                        見出し
-                      </button>
-                      <button
-                        type="button"
-                        className="format-item heading-item h4"
-                        onMouseDown={(event) => {
-                          saveEditorSelection();
-                          event.preventDefault();
-                          handleOverflowHeadingSelect(4);
-                        }}
-                      >
-                        小見出し
-                      </button>
-                      <button
-                        type="button"
-                        className="format-item heading-item h5"
-                        onMouseDown={(event) => {
-                          saveEditorSelection();
-                          event.preventDefault();
-                          handleOverflowHeadingSelect(5);
-                        }}
-                      >
-                        セクション
-                      </button>
-                      <button
-                        type="button"
-                        className="format-item heading-item h6"
-                        onMouseDown={(event) => {
-                          saveEditorSelection();
-                          event.preventDefault();
-                          handleOverflowHeadingSelect(6);
-                        }}
-                      >
-                        サブセクション
-                      </button>
-                      <button
-                        type="button"
-                        className="format-item heading-item body"
-                        onMouseDown={(event) => {
-                          saveEditorSelection();
-                          event.preventDefault();
-                          handleOverflowHeadingSelect(0);
-                        }}
-                      >
-                        本文
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-                <button type="button" className="format-item" onClick={() => { toggleBulletedList(); closeOverflowMenu(); }}>
-                  箇条書き
-                </button>
-                <button type="button" className="format-item" onClick={() => { toggleOrderedList(); closeOverflowMenu(); }}>
-                  番号付きリスト
-                </button>
-                <button type="button" className="format-item" onClick={() => { toggleBold(); closeOverflowMenu(); }}>
-                  太字
-                </button>
-                <div className="format-submenu-wrap">
-                  <button
-                    type="button"
-                    className="format-item"
-                    onClick={() => setShowTablePicker((prev) => !prev)}
-                  >
-                    テーブルの作成
-                  </button>
-                {showTablePicker ? (
-                  <div className="table-picker table-picker-side" ref={overflowTablePickerRef}>
-                    <div className="table-picker-grid">
-                      {Array.from({ length: 6 }).map((_, rowIndex) =>
-                        Array.from({ length: 6 }).map((__, colIndex) => {
-                          const rows = rowIndex + 1;
-                          const cols = colIndex + 1;
-                          const active =
-                            rows <= tableHover.rows && cols <= tableHover.cols;
-                          return (
-                            <button
-                              key={`overflow-${rows}-${cols}`}
-                              type="button"
-                              className={`table-cell ${active ? "active" : ""}`}
-                              onMouseEnter={() => setTableHover({ rows, cols })}
-                              onFocus={() => setTableHover({ rows, cols })}
-                              onClick={() => {
-                                insertTableWithSize(rows, cols);
-                                setShowTablePicker(false);
-                                closeOverflowMenu();
-                              }}
-                              aria-label={`${rows} x ${cols}`}
-                            />
-                          );
-                        }),
-                      )}
-                    </div>
-                    <div className="table-picker-label">
-                      {tableHover.rows} x {tableHover.cols}
-                    </div>
-                  </div>
-                ) : null}
-                </div>
-                <button type="button" className="format-item" onClick={() => { clearFormatting(); closeOverflowMenu(); }}>
-                  書式設定のクリア
-                </button>
-              </div>
-            ) : null}
-          </div>
-          <div className="format-group" ref={formatGroupRef}>
-            <div className="format-submenu-wrap">
-              <button
-                type="button"
-                className="chip dropdown"
-                onClick={() => setShowHeadingMenu((prev) => !prev)}
-              >
-                H1 <span className="chip-caret">▾</span>
-              </button>
-            {showHeadingMenu ? (
-              <div className="format-menu heading-menu heading-menu-side" ref={toolbarHeadingMenuRef}>
-                <button type="button" className="format-item heading-item h1" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(1); closeHeadingMenu(); }}>
-                  タイトル
-                </button>
-                <button type="button" className="format-item heading-item h2" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(2); closeHeadingMenu(); }}>
-                  サブタイトル
-                </button>
-                <button type="button" className="format-item heading-item h3" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(3); closeHeadingMenu(); }}>
-                  見出し
-                </button>
-                <button type="button" className="format-item heading-item h4" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(4); closeHeadingMenu(); }}>
-                  小見出し
-                </button>
-                <button type="button" className="format-item heading-item h5" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(5); closeHeadingMenu(); }}>
-                  セクション
-                </button>
-                <button type="button" className="format-item heading-item h6" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(6); closeHeadingMenu(); }}>
-                  サブセクション
-                </button>
-                <button type="button" className="format-item heading-item body" onMouseDown={(event) => event.preventDefault()} onClick={() => { applyHeadingLevel(0); closeHeadingMenu(); }}>
-                  本文
-                </button>
-              </div>
-            ) : null}
-            </div>
-            <button
-              type="button"
-              className="chip dropdown"
-              onClick={() => setShowListMenu((prev) => !prev)}
-            >
-              ≡ <span className="chip-caret">▾</span>
-            </button>
-            {showListMenu ? (
-              <div className="format-menu list-menu" ref={listMenuRef}>
-                <button type="button" className="format-item" onClick={() => { toggleBulletedList(); closeListMenu(); }}>
-                  箇条書き
-                </button>
-                <button type="button" className="format-item" onClick={() => { toggleOrderedList(); closeListMenu(); }}>
-                  番号付きリスト
-                </button>
-              </div>
-            ) : null}
-            <button type="button" className="chip" onClick={toggleBold} aria-label="Bold">
-              B
-            </button>
-            <button
-              type="button"
-              className="chip"
-              onClick={() => setShowFormatMenu((prev) => !prev)}
-              aria-label="More formatting"
-            >
-              …
-            </button>
-            {showFormatMenu ? (
-              <div className="format-menu" ref={toolbarFormatMenuRef}>
-                <div className="format-submenu-wrap">
-                  <button
-                    type="button"
-                    className="format-item"
-                    onClick={() => setShowTablePicker((prev) => !prev)}
-                  >
-                    テーブルの作成
-                  </button>
-                {showTablePicker ? (
-                  <div className="table-picker table-picker-side" ref={toolbarTablePickerRef}>
-                    <div className="table-picker-grid">
-                      {Array.from({ length: 6 }).map((_, rowIndex) =>
-                        Array.from({ length: 6 }).map((__, colIndex) => {
-                          const rows = rowIndex + 1;
-                          const cols = colIndex + 1;
-                          const active =
-                            rows <= tableHover.rows && cols <= tableHover.cols;
-                          return (
-                            <button
-                              key={`${rows}-${cols}`}
-                              type="button"
-                              className={`table-cell ${active ? "active" : ""}`}
-                              onMouseEnter={() => setTableHover({ rows, cols })}
-                              onFocus={() => setTableHover({ rows, cols })}
-                              onClick={() => {
-                                insertTableWithSize(rows, cols);
-                                setShowTablePicker(false);
-                                closeFormatMenu();
-                              }}
-                              aria-label={`${rows} x ${cols}`}
-                            />
-                          );
-                        }),
-                      )}
-                    </div>
-                    <div className="table-picker-label">
-                      {tableHover.rows} x {tableHover.cols}
-                    </div>
-                  </div>
-                ) : null}
-                </div>
-                <button type="button" className="format-item" onClick={() => { clearFormatting(); closeFormatMenu(); }}>
-                  書式設定のクリア
-                </button>
-              </div>
-            ) : null}
           </div>
           {showSearchBox ? (
             <div className="search-group">
@@ -2454,7 +1781,7 @@ function App() {
         </div>
       </div>
 
-      <section className="card memo" style={{ zoom: zoomLevel }}>
+      <section className="card memo">
         <div className="editor">
           <div className="editor-header">
           </div>
@@ -2462,7 +1789,6 @@ function App() {
           <div
             ref={editorRef}
             className="editor-body"
-            data-wrap={wrapAtRightEdge ? "on" : "off"}
             contentEditable
             suppressContentEditableWarning
             data-placeholder="ここにメモを書く"
@@ -2569,26 +1895,6 @@ function App() {
         </div>
       ) : null}
 
-      {showStatusBar ? (
-        <div className="bottom-bar">
-          <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
-          <span className="bottom-item">{activePlainText.length} 文字</span>
-          <span className="bottom-item">
-            {activeTab && hasRichFormatting(activeTab.content) ? "書式付き" : "テキスト"}
-          </span>
-          <span className="bottom-item">{zoomPercentLabel}</span>
-          <span className="bottom-item">{lineEndingLabel}</span>
-          <span className="bottom-item">UTF-8</span>
-          <span className="bottom-item">
-            <span className="bottom-label">Top: </span>
-            <span className="bottom-value">{alwaysOnTop ? "ON" : "OFF"}</span>
-          </span>
-          <span className="bottom-item">
-            <span className="bottom-label">Shortcuts: </span>
-            <span className="bottom-value">{useGlobalShortcuts ? "ON" : "OFF"}</span>
-          </span>
-        </div>
-      ) : null}
     </div>
   );
 }
