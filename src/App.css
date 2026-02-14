@@ -440,8 +440,8 @@ body::-webkit-scrollbar-thumb,
   background: transparent;
   color: #0f172a;
   font-family: inherit;
-  font-weight: 370;
-  font-size: 14px;
+  font-weight: 390;
+  font-size: 13px;
   line-height: 1;
   min-width: 52px;
   height: 22px;
@@ -1036,12 +1036,13 @@ button:active {
   z-index: 15;
   display: grid;
   grid-template-columns: 8% 12% 13% 7% 11% 10% 12% 12% 15%;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 4px;
+  padding: 3px 10px;
   border-top: 1px solid #e2e8f0;
   background: #ffffff;
   color: #1f2937;
-  font-size: 11px;
+  font-size: 10px;
+  line-height: 1.1;
   font-weight: 500;
   white-space: nowrap;
   align-items: center;
@@ -1049,7 +1050,7 @@ button:active {
 
 .bottom-item + .bottom-item {
   border-left: 1px solid #e2e8f0;
-  padding-left: 10px;
+  padding-left: 7px;
 }
 
 .bottom-item {
