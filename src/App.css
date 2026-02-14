@@ -443,7 +443,12 @@ body::-webkit-scrollbar-thumb,
   font-weight: 500;
   font-size: 11px;
   line-height: 1;
-  padding: 0 5px;
+  min-width: 52px;
+  height: 22px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   box-shadow: none;
   transform: none;
   white-space: nowrap;
