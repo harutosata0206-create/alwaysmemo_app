@@ -29,8 +29,6 @@ type PersistedState = {
   useGlobalShortcuts: boolean;
 };
 
-type SaveFormatChoice = "markdown" | "text" | "cancel";
-type SaveLossyChoice = "markdown" | "text" | "cancel";
 type RecentClosedFile = {
   path: string;
   title: string;
@@ -133,12 +131,6 @@ function App() {
   const [showListMenu, setShowListMenu] = useState(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
-  const [openViewSubmenu, setOpenViewSubmenu] = useState<"markdown" | null>(null);
-  const viewMarkdownSubmenuRef = useRef<HTMLDivElement | null>(null);
-  const [saveFormatPromptOpen, setSaveFormatPromptOpen] = useState(false);
-  const saveFormatResolverRef = useRef<((choice: SaveFormatChoice) => void) | null>(null);
-  const [saveLossyPromptOpen, setSaveLossyPromptOpen] = useState(false);
-  const saveLossyResolverRef = useRef<((choice: SaveLossyChoice) => void) | null>(null);
   const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
@@ -259,7 +251,6 @@ function App() {
   const closeMenus = useCallback(() => {
     setOpenMenu(null);
     setOpenFileSubmenu(null);
-    setOpenViewSubmenu(null);
   }, []);
   const closeFormatMenu = useCallback(() => {
     setShowFormatMenu(false);
@@ -275,10 +266,6 @@ function App() {
   const closeListMenu = useCallback(() => {
     setShowListMenu(false);
   }, []);
-  const closeViewSubmenu = useCallback(() => {
-    setOpenViewSubmenu(null);
-  }, []);
-
   const textToHtml = useCallback((text: string) => {
     const div = document.createElement("div");
     div.textContent = text;
@@ -314,32 +301,6 @@ function App() {
     return container.innerHTML;
   }, []);
 
-  const htmlToMarkdown = useCallback((html: string) => {
-    const container = document.createElement("div");
-    container.innerHTML = html;
-
-    const toMarkdown = (node: Node): string => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent ?? "";
-      }
-      if (node.nodeType !== Node.ELEMENT_NODE) return "";
-      const el = node as HTMLElement;
-      const tag = el.tagName.toLowerCase();
-      const childText = Array.from(el.childNodes).map(toMarkdown).join("");
-
-      if (tag === "br") return "\n";
-      if (tag === "strong" || tag === "b") return `**${childText}**`;
-      if (tag === "div" || tag === "p") return `${childText}\n`;
-      return childText;
-    };
-
-    return Array.from(container.childNodes)
-      .map(toMarkdown)
-      .join("")
-      .replace(/\n{3,}/g, "\n\n")
-      .trimEnd();
-  }, []);
-
   const hasRichFormatting = useCallback((html: string) => {
     const container = document.createElement("div");
     container.innerHTML = html;
@@ -359,61 +320,12 @@ function App() {
       });
   }, []);
 
-  const chooseSaveFormat = useCallback(() => {
-    if (saveFormatResolverRef.current) {
-      saveFormatResolverRef.current("cancel");
-      saveFormatResolverRef.current = null;
-    }
-    setSaveFormatPromptOpen(true);
-    return new Promise<SaveFormatChoice>((resolve) => {
-      saveFormatResolverRef.current = resolve;
-    });
-  }, []);
-
-  const resolveSaveFormat = useCallback((choice: SaveFormatChoice) => {
-    setSaveFormatPromptOpen(false);
-    const resolver = saveFormatResolverRef.current;
-    saveFormatResolverRef.current = null;
-    if (resolver) resolver(choice);
-  }, []);
-
-  const chooseLossySave = useCallback(() => {
-    if (saveLossyResolverRef.current) {
-      saveLossyResolverRef.current("cancel");
-      saveLossyResolverRef.current = null;
-    }
-    setSaveLossyPromptOpen(true);
-    return new Promise<SaveLossyChoice>((resolve) => {
-      saveLossyResolverRef.current = resolve;
-    });
-  }, []);
-
-  const resolveLossySave = useCallback((choice: SaveLossyChoice) => {
-    setSaveLossyPromptOpen(false);
-    const resolver = saveLossyResolverRef.current;
-    saveLossyResolverRef.current = null;
-    if (resolver) resolver(choice);
-  }, []);
-
-  const pickSavePath = useCallback(async (format: "markdown" | "text", suggested: string) => {
-    const withExt = suggested.includes(".")
-      ? suggested
-      : format === "markdown"
-        ? `${suggested}.md`
-        : `${suggested}.txt`;
+  const pickSavePath = useCallback(async (suggested: string) => {
+    const withExt = suggested.includes(".") ? suggested : `${suggested}.txt`;
     const defaultPath = withExt;
     let resolvedPath: string | null = null;
     let dialogFailed = false;
-    const filters =
-      format === "markdown"
-        ? [
-            { name: "Markdown", extensions: ["md"] },
-            { name: "Text", extensions: ["txt"] },
-          ]
-        : [
-            { name: "Text", extensions: ["txt"] },
-            { name: "Markdown", extensions: ["md"] },
-          ];
+    const filters = [{ name: "Text", extensions: ["txt"] }];
     try {
       const picked = await save({
         defaultPath,
@@ -460,7 +372,7 @@ function App() {
   };
   const isRecentEligiblePath = useCallback((path?: string | null) => {
     if (!path) return false;
-    return /\.(txt|md)$/i.test(path);
+    return /\.txt$/i.test(path);
   }, []);
 
   const pushRecentClosedFile = useCallback((tab: Tab) => {
@@ -559,18 +471,11 @@ function App() {
     }
   }, [closeMenus, getPathMap, persistState, setPathMap, tabs, textToHtml]);
 
-  const saveTabAs = useCallback(async (tab: Tab, forcedFormat?: "markdown" | "text") => {
+  const saveTabAs = useCallback(async (tab: Tab) => {
     try {
       setStatus("Opening save dialog...");
-      const format =
-        forcedFormat ??
-        (hasRichFormatting(tab.content) ? await chooseSaveFormat() : "text");
-      if (format === "cancel") {
-        setStatus("Save canceled");
-        return false;
-      }
       const suggested = tab.title.trim() || "memo";
-      const resolvedPath = await pickSavePath(format, suggested);
+      const resolvedPath = await pickSavePath(suggested);
       if (!resolvedPath) {
         setStatus("Save dialog returned no path");
         return false;
@@ -578,10 +483,7 @@ function App() {
       setStatus(`Saving to ${resolvedPath}...`);
       await invoke("write_text_file", {
         path: resolvedPath,
-        contents:
-          format === "markdown"
-            ? htmlToMarkdown(tab.content)
-            : htmlToText(tab.content),
+        contents: htmlToText(tab.content),
       });
       const nextTitle = getFileNameFromPath(resolvedPath);
       const pathMap = getPathMap();
@@ -609,11 +511,8 @@ function App() {
       return false;
     }
   }, [
-    chooseSaveFormat,
     closeMenus,
     getFileNameFromPath,
-    hasRichFormatting,
-    htmlToMarkdown,
     htmlToText,
     getPathMap,
     pickSavePath,
@@ -621,9 +520,9 @@ function App() {
     setPathMap,
   ]);
 
-  const saveActiveTabAs = useCallback(async (forcedFormat?: "markdown" | "text") => {
+  const saveActiveTabAs = useCallback(async () => {
     if (!activeTab) return;
-    await saveTabAs(activeTab, forcedFormat);
+    await saveTabAs(activeTab);
   }, [activeTab, saveTabAs]);
 
   const saveTab = useCallback(async (tab: Tab) => {
@@ -636,18 +535,10 @@ function App() {
       return await saveTabAs(tab);
     }
     try {
-      const isMarkdown = resolvedPath.toLowerCase().endsWith(".md");
-      if (!isMarkdown && hasRichFormatting(tab.content)) {
-        const choice = await chooseLossySave();
-        if (choice === "cancel") return false;
-        if (choice === "markdown") {
-          return await saveTabAs(tab, "markdown");
-        }
-      }
       setStatus(`Saving to ${resolvedPath}...`);
       await invoke("write_text_file", {
         path: resolvedPath,
-        contents: isMarkdown ? htmlToMarkdown(tab.content) : htmlToText(tab.content),
+        contents: htmlToText(tab.content),
       });
       const pathMap = getPathMap();
       if (!pathMap[tab.id] || !pathMap[tab.title]) {
@@ -675,11 +566,8 @@ function App() {
       return false;
     }
   }, [
-    chooseLossySave,
     closeMenus,
     htmlToText,
-    htmlToMarkdown,
-    hasRichFormatting,
     getPathMap,
     persistState,
     saveTabAs,
@@ -703,10 +591,7 @@ function App() {
         tabsWithPath.map((tab) =>
           invoke("write_text_file", {
             path: tab.filePath,
-            contents:
-              tab.filePath?.toLowerCase().endsWith(".md")
-                ? htmlToMarkdown(tab.content)
-                : htmlToText(tab.content),
+            contents: htmlToText(tab.content),
           }),
         ),
       );
@@ -724,7 +609,7 @@ function App() {
       console.error(error);
       setStatus("Failed to save all");
     }
-  }, [closeMenus, htmlToMarkdown, htmlToText, persistState, tabs]);
+  }, [closeMenus, htmlToText, persistState, tabs]);
 
   const openNewWindow = useCallback(async () => {
     try {
@@ -996,7 +881,12 @@ function App() {
         return;
       }
       const cleaned = parsed
-        .filter((item) => Boolean(item?.path) && Boolean(item?.title))
+        .filter(
+          (item) =>
+            Boolean(item?.path) &&
+            Boolean(item?.title) &&
+            /\.txt$/i.test(item.path),
+        )
         .slice(0, MAX_RECENT_CLOSED_FILES);
       setRecentClosedFiles(cleaned);
     } catch {
@@ -1184,16 +1074,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const handler = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest(".menu-panel")) return;
-      closeViewSubmenu();
-    };
-    window.addEventListener("mousedown", handler);
-    return () => window.removeEventListener("mousedown", handler);
-  }, [closeViewSubmenu]);
-
-  useEffect(() => {
     const registerGlobalShortcuts = async () => {
       const attemptRegister = async () => {
         await Promise.all(
@@ -1277,9 +1157,7 @@ function App() {
       const activeSubmenu =
         openMenu === "file" && openFileSubmenu === "recent"
           ? fileRecentSubmenuRef.current
-          : openMenu === "view" && openViewSubmenu === "markdown"
-            ? viewMarkdownSubmenuRef.current
-            : showHeadingMenu
+          : showHeadingMenu
               ? (showOverflowMenu ? overflowHeadingMenuRef.current : toolbarHeadingMenuRef.current)
               : showTablePicker
                 ? (showOverflowMenu ? overflowTablePickerRef.current : toolbarTablePickerRef.current)
@@ -1292,10 +1170,7 @@ function App() {
       );
       const overflowCss = panelNeededBottom - window.innerHeight;
       const allowHorizontalExpand =
-        (openMenu === "file" && openFileSubmenu === "recent") ||
-        (openMenu === "view" && openViewSubmenu === "markdown") ||
-        showHeadingMenu ||
-        showTablePicker;
+        (openMenu === "file" && openFileSubmenu === "recent") || showHeadingMenu || showTablePicker;
       const overflowRight = allowHorizontalExpand
         ? Math.max(rect.right, subRect.right) - window.innerWidth
         : 0;
@@ -1330,7 +1205,7 @@ function App() {
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [openFileSubmenu, openMenu, openViewSubmenu, showFormatMenu, showHeadingMenu, showListMenu, showOverflowMenu, showTablePicker, windowHandle]);
+  }, [openFileSubmenu, openMenu, showFormatMenu, showHeadingMenu, showListMenu, showOverflowMenu, showTablePicker, windowHandle]);
 
   useEffect(() => {
     if (openMenu !== "edit") {
@@ -2220,25 +2095,6 @@ function App() {
                     <span className={`menu-check ${wrapAtRightEdge ? "on" : ""}`}>✓</span>
                     <span>右端での折り返し</span>
                   </button>
-                  <button
-                    type="button"
-                    className="menu-item has-submenu"
-                    onMouseEnter={() => setOpenViewSubmenu("markdown")}
-                    onClick={() => setOpenViewSubmenu((prev) => (prev === "markdown" ? null : "markdown"))}
-                  >
-                    <span>マークダウン</span>
-                    <span className="menu-shortcut">›</span>
-                  </button>
-                  {openViewSubmenu === "markdown" ? (
-                    <div className="menu-panel menu-subpanel menu-subpanel-markdown" ref={viewMarkdownSubmenuRef}>
-                      <button type="button" className="menu-item disabled" aria-disabled="true">
-                        <span>書式付き</span>
-                      </button>
-                      <button type="button" className="menu-item disabled" aria-disabled="true">
-                        <span>構文</span>
-                      </button>
-                    </div>
-                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -2621,90 +2477,6 @@ function App() {
         </div>
       </section>
 
-      {saveFormatPromptOpen ? (
-        <div className="format-choice-overlay" role="presentation">
-          <div
-            className="format-choice-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="format-choice-title"
-            aria-describedby="format-choice-desc"
-          >
-            <h2 id="format-choice-title">
-              書式設定を保持するためにマークダウンとして保存する
-            </h2>
-            <p id="format-choice-desc">
-              これはテキストファイルです。太字や見出しなどの現在の書式設定を保持するには、
-              マークダウンファイル(.md)として保存します。書式なしテキストファイルとして保存すると、
-              すべての書式が失われます。
-            </p>
-            <div className="format-choice-actions">
-              <button
-                type="button"
-                className="format-choice primary"
-                onClick={() => resolveSaveFormat("markdown")}
-              >
-                マークダウンファイルとして...
-              </button>
-              <button
-                type="button"
-                className="format-choice"
-                onClick={() => resolveSaveFormat("text")}
-              >
-                テキストファイルとして...
-              </button>
-              <button
-                type="button"
-                className="format-choice ghost"
-                onClick={() => resolveSaveFormat("cancel")}
-              >
-                キャンセル
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {saveLossyPromptOpen ? (
-        <div className="format-choice-overlay" role="presentation">
-          <div
-            className="format-choice-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="lossy-save-title"
-            aria-describedby="lossy-save-desc"
-          >
-            <h2 id="lossy-save-title">書式付きの内容をテキストで上書き保存しますか？</h2>
-            <p id="lossy-save-desc">
-              このファイルはテキスト形式で保存されています。太字や表などの書式を保持するには、
-              マークダウンファイル(.md)として保存してください。テキストで上書き保存すると、
-              書式はすべて失われます。
-            </p>
-            <div className="format-choice-actions">
-              <button
-                type="button"
-                className="format-choice primary"
-                onClick={() => resolveLossySave("markdown")}
-              >
-                マークダウンとして保存...
-              </button>
-              <button
-                type="button"
-                className="format-choice"
-                onClick={() => resolveLossySave("text")}
-              >
-                テキストで上書き保存
-              </button>
-              <button
-                type="button"
-                className="format-choice ghost"
-                onClick={() => resolveLossySave("cancel")}
-              >
-                キャンセル
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
       {deletePromptTab ? (
         <div className="format-choice-overlay" role="presentation">
           <div

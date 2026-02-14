@@ -484,10 +484,6 @@ body::-webkit-scrollbar-thumb,
   z-index: 110;
 }
 
-.menu-subpanel-markdown {
-  min-width: 140px;
-}
-
 .menu-subpanel-recent {
   min-width: 170px;
   max-width: 220px;

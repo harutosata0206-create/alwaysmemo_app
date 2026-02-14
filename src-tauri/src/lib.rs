@@ -88,7 +88,7 @@ struct OpenedFile {
 #[tauri::command]
 fn open_text_file_dialog() -> Result<Option<OpenedFile>, String> {
     let file = rfd::FileDialog::new()
-        .add_filter("Text", &["txt", "md"])
+        .add_filter("Text", &["txt"])
         .pick_file();
     let Some(path) = file else {
         return Ok(None);
