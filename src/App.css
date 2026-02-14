@@ -100,7 +100,7 @@ body::-webkit-scrollbar-thumb,
 .titlebar-row.top {
   padding: 0;
   align-items: stretch;
-  height: 30px;
+  height: 32px;
   margin-top: -1px;
   overflow: hidden;
 }
@@ -132,7 +132,8 @@ body::-webkit-scrollbar-thumb,
 .titlebar-row.toolbar {
   background: #ffffff;
   border-top: 1px solid #e2e8f0;
-  padding: 2px 12px;
+  padding: 0 10px;
+  min-height: 24px;
   justify-content: flex-start;
   flex-wrap: nowrap;
   overflow: visible;
@@ -156,8 +157,8 @@ body::-webkit-scrollbar-thumb,
 }
 
 .tab-scroll-button {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -175,7 +176,7 @@ body::-webkit-scrollbar-thumb,
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 10px;
+  padding: 5px 10px;
   border: 1px solid #cbd5e1;
   border-bottom: 0;
   border-radius: 8px 8px 0 0;
@@ -296,8 +297,8 @@ body::-webkit-scrollbar-thumb,
   border-radius: 8px;
   background: #ffffff;
   color: #0f172a;
-  width: 26px;
-  height: 20px;
+  width: 28px;
+  height: 22px;
   flex: 0 0 auto;
   padding: 0;
   box-shadow: none;
@@ -338,7 +339,7 @@ body::-webkit-scrollbar-thumb,
 .right-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: 0 0 auto;
   white-space: nowrap;
 }
@@ -350,8 +351,8 @@ body::-webkit-scrollbar-thumb,
 .search-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-left: 8px;
+  gap: 6px;
+  margin-left: 6px;
   flex-direction: column;
   align-items: stretch;
 }
@@ -359,11 +360,11 @@ body::-webkit-scrollbar-thumb,
 .search-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: #2f2f2f;
   border: 1px solid #3b3b3b;
   border-radius: 10px;
-  padding: 4px 8px;
+  padding: 2px 6px;
   min-width: 320px;
 }
 
@@ -375,11 +376,11 @@ body::-webkit-scrollbar-thumb,
 .search-input {
   flex: 1 1 auto;
   min-width: 120px;
-  height: 26px;
+  height: 22px;
   border-radius: 6px;
   border: 0;
-  padding: 0 6px;
-  font-size: 12px;
+  padding: 0 4px;
+  font-size: 11px;
   background: transparent;
   color: #f8fafc;
 }
@@ -397,8 +398,8 @@ body::-webkit-scrollbar-thumb,
 .search-action {
   border: 0;
   border-radius: 8px;
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: 3px 8px;
+  font-size: 11px;
   font-weight: 600;
   color: #f8fafc;
   background: #3a3f45;
@@ -440,8 +441,9 @@ body::-webkit-scrollbar-thumb,
   color: #0f172a;
   font-family: inherit;
   font-weight: 500;
-  font-size: 12px;
-  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0 5px;
   box-shadow: none;
   transform: none;
   white-space: nowrap;
@@ -808,8 +810,8 @@ body::-webkit-scrollbar-thumb,
   border: 0;
   background: transparent;
   color: #0f172a;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   padding: 0;
   box-shadow: none;
