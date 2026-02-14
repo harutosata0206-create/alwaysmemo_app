@@ -100,7 +100,7 @@ function App() {
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const savedTabsRef = useRef<Record<string, { title: string; content: string }>>({});
   const [, setSavedVersion] = useState(0);
-  const [openMenu, setOpenMenu] = useState<"file" | "edit" | null>(null);
+  const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(null);
   const [openFileSubmenu, setOpenFileSubmenu] = useState<"recent" | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -108,8 +108,13 @@ function App() {
   const editMenuRef = useRef<HTMLDivElement | null>(null);
   const editMenuWrapperRef = useRef<HTMLDivElement | null>(null);
   const [editMenuLeft, setEditMenuLeft] = useState<number | null>(null);
+  const viewMenuRef = useRef<HTMLDivElement | null>(null);
+  const viewMenuWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [viewMenuLeft, setViewMenuLeft] = useState<number | null>(null);
   const originalWindowSizeRef = useRef<LogicalSize | null>(null);
   const expandedWindowRef = useRef(false);
+  const [showStatusBar, setShowStatusBar] = useState(true);
+  const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
   const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
@@ -120,6 +125,7 @@ function App() {
   const [goToLineOpen, setGoToLineOpen] = useState(false);
   const [goToLineValue, setGoToLineValue] = useState("1");
   const goToLineInputRef = useRef<HTMLInputElement | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [recentClosedFiles, setRecentClosedFiles] = useState<RecentClosedFile[]>([]);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
@@ -138,6 +144,11 @@ function App() {
     return instance ? `${STORAGE_KEY}-${instance}` : STORAGE_KEY;
   }, []);
   const recentClosedKey = useMemo(() => `${storageKey}-recent-closed`, [storageKey]);
+  const lineEndingLabel = useMemo(() => {
+    if (activePlainText.includes("\r\n")) return "Windows (CRLF)";
+    return "LF";
+  }, [activePlainText]);
+  const zoomPercentLabel = useMemo(() => `${Math.round(zoomLevel * 100)}%`, [zoomLevel]);
 
   const updateCursorIndex = useCallback(() => {
     const editor = editorRef.current;
@@ -254,6 +265,16 @@ function App() {
       parent.normalize();
     });
     return container.innerHTML;
+  }, []);
+
+  const hasRichFormatting = useCallback((html: string) => {
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    return Boolean(
+      container.querySelector(
+        "strong, b, em, i, u, a, table, thead, tbody, tr, td, th, ul, ol, li, h1, h2, h3, h4, h5, h6",
+      ),
+    );
   }, []);
 
   const pickSavePath = useCallback(async (suggested: string) => {
@@ -854,6 +875,43 @@ function App() {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+        const key = event.key;
+        const noShift = !event.shiftKey;
+        if (noShift && (key === "+" || key === "=")) {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
+          return;
+        }
+        if (noShift && event.code === "Semicolon") {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
+          return;
+        }
+        if (noShift && event.code === "NumpadAdd") {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
+          return;
+        }
+        if (noShift && key === "-") {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev - 0.1)));
+          return;
+        }
+        if (noShift && event.code === "NumpadSubtract") {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev - 0.1)));
+          return;
+        }
+        if (noShift && key === "0") {
+          event.preventDefault();
+          setZoomLevel(1);
+          return;
+        }
+        if (noShift && event.code === "Numpad0") {
+          event.preventDefault();
+          setZoomLevel(1);
+          return;
+        }
         switch (event.code) {
           case "KeyS": {
             event.preventDefault();
@@ -1003,7 +1061,7 @@ function App() {
           ? fileMenuRef.current
           : openMenu === "edit"
             ? editMenuRef.current
-            : null;
+            : viewMenuRef.current;
       if (!panel) return;
       const rect = panel.getBoundingClientRect();
       const activeSubmenu =
@@ -1068,6 +1126,26 @@ function App() {
       const wrapperRect = editMenuWrapperRef.current.getBoundingClientRect();
       const groupRect = menuRef.current.getBoundingClientRect();
       setEditMenuLeft(groupRect.left - wrapperRect.left);
+    };
+    updateLeft();
+    window.addEventListener("resize", updateLeft);
+    return () => window.removeEventListener("resize", updateLeft);
+  }, [openMenu]);
+
+  useEffect(() => {
+    if (openMenu !== "view") {
+      setViewMenuLeft(null);
+      return;
+    }
+    const updateLeft = () => {
+      if (!viewMenuWrapperRef.current || !menuRef.current) return;
+      if (window.innerWidth > 640) {
+        setViewMenuLeft(null);
+        return;
+      }
+      const wrapperRect = viewMenuWrapperRef.current.getBoundingClientRect();
+      const groupRect = menuRef.current.getBoundingClientRect();
+      setViewMenuLeft(groupRect.left - wrapperRect.left);
     };
     updateLeft();
     window.addEventListener("resize", updateLeft);
@@ -1257,6 +1335,14 @@ function App() {
       console.error("Failed to move cursor", error);
     }
   }, [activePlainText, updateCursorIndex]);
+
+  const clampZoom = (value: number) => Math.min(2, Math.max(0.5, value));
+  const applyZoom = useCallback((next: number) => {
+    setZoomLevel(clampZoom(next));
+  }, []);
+  const zoomIn = useCallback(() => applyZoom(zoomLevel + 0.1), [applyZoom, zoomLevel]);
+  const zoomOut = useCallback(() => applyZoom(zoomLevel - 0.1), [applyZoom, zoomLevel]);
+  const resetZoom = useCallback(() => applyZoom(1), [applyZoom]);
 
   const submitGoToLine = useCallback(() => {
     const parsed = Number.parseInt(goToLineValue, 10);
@@ -1702,6 +1788,52 @@ function App() {
                 </div>
               ) : null}
             </div>
+            <div className="menu-wrapper" ref={viewMenuWrapperRef}>
+              <button
+                type="button"
+                className={`menu-button ${openMenu === "view" ? "active" : ""}`}
+                onClick={() => setOpenMenu((prev) => (prev === "view" ? null : "view"))}
+              >
+                表示
+              </button>
+              {openMenu === "view" ? (
+                <div
+                  className="menu-panel"
+                  ref={viewMenuRef}
+                  style={viewMenuLeft !== null ? { left: `${viewMenuLeft}px` } : undefined}
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
+                  <button type="button" className="menu-item" onClick={zoomIn}>
+                    <span>拡大</span>
+                    <span className="menu-shortcut">Ctrl+プラス記号 (+)</span>
+                  </button>
+                  <button type="button" className="menu-item" onClick={zoomOut}>
+                    <span>縮小</span>
+                    <span className="menu-shortcut">Ctrl+マイナス記号 (-)</span>
+                  </button>
+                  <button type="button" className="menu-item" onClick={resetZoom}>
+                    <span>既定の倍率に戻す</span>
+                    <span className="menu-shortcut">Ctrl+0</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="menu-item"
+                    onClick={() => setShowStatusBar((prev) => !prev)}
+                  >
+                    <span className={`menu-check ${showStatusBar ? "on" : ""}`}>✓</span>
+                    <span>ステータスバー</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="menu-item"
+                    onClick={() => setWrapAtRightEdge((prev) => !prev)}
+                  >
+                    <span className={`menu-check ${wrapAtRightEdge ? "on" : ""}`}>✓</span>
+                    <span>右端での折り返し</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
           {showSearchBox ? (
             <div className="search-group">
@@ -1781,7 +1913,7 @@ function App() {
         </div>
       </div>
 
-      <section className="card memo">
+      <section className="card memo" style={{ zoom: zoomLevel }}>
         <div className="editor">
           <div className="editor-header">
           </div>
@@ -1789,6 +1921,7 @@ function App() {
           <div
             ref={editorRef}
             className="editor-body"
+            data-wrap={wrapAtRightEdge ? "on" : "off"}
             contentEditable
             suppressContentEditableWarning
             data-placeholder="ここにメモを書く"
@@ -1892,6 +2025,27 @@ function App() {
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {showStatusBar ? (
+        <div className="bottom-bar">
+          <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
+          <span className="bottom-item">{activePlainText.length} 文字</span>
+          <span className="bottom-item">
+            {activeTab && hasRichFormatting(activeTab.content) ? "書式付き" : "テキスト"}
+          </span>
+          <span className="bottom-item">{zoomPercentLabel}</span>
+          <span className="bottom-item">{lineEndingLabel}</span>
+          <span className="bottom-item">UTF-8</span>
+          <span className="bottom-item">
+            <span className="bottom-label">Top: </span>
+            <span className="bottom-value">{alwaysOnTop ? "ON" : "OFF"}</span>
+          </span>
+          <span className="bottom-item">
+            <span className="bottom-label">Shortcuts: </span>
+            <span className="bottom-value">{useGlobalShortcuts ? "ON" : "OFF"}</span>
+          </span>
         </div>
       ) : null}
 
