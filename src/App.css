@@ -535,6 +535,10 @@ body::-webkit-scrollbar-thumb,
   pointer-events: auto;
 }
 
+.menu-item > span:first-child {
+  font-size: 13px;
+}
+
 .menu-item:hover {
   background: #f1f5f9;
 }
@@ -1047,7 +1051,7 @@ button:active {
   color: #1f2937;
   font-size: 12px;
   line-height: 1.15;
-  font-weight: 500;
+  font-weight: 400;
   white-space: nowrap;
   align-items: center;
 }
