@@ -455,7 +455,7 @@ body::-webkit-scrollbar-thumb,
 }
 
 .menu-button.file-menu-button {
-  letter-spacing: -0.02em;
+  letter-spacing: -0.09em;
 }
 
 .menu-button:hover {
