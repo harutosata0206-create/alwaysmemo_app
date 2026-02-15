@@ -440,8 +440,9 @@ body::-webkit-scrollbar-thumb,
   background: transparent;
   color: #0f172a;
   font-family: inherit;
-  font-weight: 400;
+  font-weight: 525;
   font-size: 14px;
+  letter-spacing: -0.02em;
   line-height: 1;
   min-width: 52px;
   height: 22px;
