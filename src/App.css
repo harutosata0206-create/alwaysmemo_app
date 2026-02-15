@@ -440,9 +440,8 @@ body::-webkit-scrollbar-thumb,
   background: transparent;
   color: #0f172a;
   font-family: inherit;
-  font-weight: 525;
+  font-weight: 515;
   font-size: 14px;
-  letter-spacing: -0.02em;
   line-height: 1;
   min-width: 52px;
   height: 22px;
@@ -453,6 +452,10 @@ body::-webkit-scrollbar-thumb,
   box-shadow: none;
   transform: none;
   white-space: nowrap;
+}
+
+.menu-button.file-menu-button {
+  letter-spacing: -0.02em;
 }
 
 .menu-button:hover {

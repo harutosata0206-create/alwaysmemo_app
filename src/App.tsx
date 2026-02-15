@@ -1620,7 +1620,7 @@ function App() {
             <div className="menu-wrapper">
               <button
                 type="button"
-                className={`menu-button ${openMenu === "file" ? "active" : ""}`}
+                className={`menu-button file-menu-button ${openMenu === "file" ? "active" : ""}`}
                 onClick={() => setOpenMenu((prev) => (prev === "file" ? null : "file"))}
               >
                 ファイル
