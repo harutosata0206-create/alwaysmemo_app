@@ -330,6 +330,7 @@ body::-webkit-scrollbar-thumb,
 .editor {
   border-top: 0;
   padding: 0;
+  margin-top: 8px;
   background: transparent;
   display: flex;
   flex-direction: column;
