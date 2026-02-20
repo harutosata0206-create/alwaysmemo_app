@@ -1479,13 +1479,14 @@ function App() {
   };
 
   const handleTopTabsWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
+    // While pointer is on the top bar, block vertical page/editor scrolling.
+    event.preventDefault();
     const scroller = tabsScrollerRef.current;
     if (!scroller) return;
     if (scroller.scrollWidth <= scroller.clientWidth) return;
     const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
     if (delta === 0) return;
-    scroller.scrollBy({ left: delta, behavior: "auto" });
-    event.preventDefault();
+    scroller.scrollBy({ left: delta * 1.2, behavior: "smooth" });
   }, []);
 
   const getTabLabel = (tab: Tab) => {
