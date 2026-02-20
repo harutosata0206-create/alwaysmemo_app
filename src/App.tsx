@@ -97,7 +97,6 @@ function App() {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
-  const [showTabArrows, setShowTabArrows] = useState(false);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const cursorUpdateRafRef = useRef<number | null>(null);
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -861,21 +860,6 @@ function App() {
   }, [openMenu]);
 
   useEffect(() => {
-    const scroller = tabsScrollerRef.current;
-    if (!scroller) {
-      setShowTabArrows(false);
-      return;
-    }
-    const updateOverflow = () => {
-      setShowTabArrows(scroller.scrollWidth > scroller.clientWidth + 1);
-    };
-    updateOverflow();
-    const observer = new ResizeObserver(updateOverflow);
-    observer.observe(scroller);
-    return () => observer.disconnect();
-  }, [tabs]);
-
-  useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.altKey) {
         const key = event.key;
@@ -1173,13 +1157,37 @@ function App() {
     const scroller = tabsScrollerRef.current;
     if (!scroller) return;
 
-    const frame = window.requestAnimationFrame(() => {
-      const targetTab = scroller.querySelector<HTMLElement>(`.tab[data-tab-id="${pendingId}"]`);
+    const reveal = () => {
+      const targetTab = Array.from(scroller.querySelectorAll<HTMLElement>(".tab")).find(
+        (element) => element.dataset.tabId === pendingId,
+      );
       if (!targetTab) return;
-      targetTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+      const viewLeft = scroller.scrollLeft;
+      const viewRight = viewLeft + scroller.clientWidth;
+      const tabLeft = targetTab.offsetLeft;
+      const tabRight = tabLeft + targetTab.offsetWidth;
+      let nextLeft = viewLeft;
+      if (tabLeft < viewLeft) {
+        nextLeft = tabLeft - 8;
+      } else if (tabRight > viewRight) {
+        nextLeft = tabRight - scroller.clientWidth + 8;
+      }
+      const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+      nextLeft = Math.max(0, Math.min(maxLeft, nextLeft));
+      scroller.scrollTo({ left: nextLeft, behavior: "smooth" });
       pendingRevealTabIdRef.current = null;
+    };
+
+    let frame2: number | null = null;
+    const frame1 = window.requestAnimationFrame(() => {
+      frame2 = window.requestAnimationFrame(reveal);
     });
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame1);
+      if (frame2 !== null) {
+        window.cancelAnimationFrame(frame2);
+      }
+    };
   }, [activeTabId, tabs]);
 
   const performRemoveTab = useCallback((id: string) => {
@@ -1491,12 +1499,6 @@ function App() {
     await windowHandle.close();
   };
 
-  const scrollTabs = (direction: -1 | 1) => {
-    const scroller = tabsScrollerRef.current;
-    if (!scroller) return;
-    scroller.scrollBy({ left: direction * 110, behavior: "smooth" });
-  };
-
   const handleTopTabsWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
     // While pointer is on the top bar, block vertical page/editor scrolling.
     event.preventDefault();
@@ -1562,17 +1564,6 @@ function App() {
         <div className="titlebar-row top" data-tauri-drag-region onWheelCapture={handleTopTabsWheel}>
           <div className="tabs-area" data-tauri-drag-region>
             <div className="tabs-bar" data-tauri-drag-region>
-              {showTabArrows ? (
-                <button
-                  type="button"
-                  className="tab-scroll-button"
-                  onClick={() => scrollTabs(-1)}
-                  aria-label="Scroll tabs left"
-                  data-tauri-drag-region="false"
-                >
-                  ◀
-                </button>
-              ) : null}
               <div className="tabs" ref={tabsScrollerRef} data-tauri-drag-region>
                 {tabs.map((tab) => (
                   <button
@@ -1618,17 +1609,6 @@ function App() {
                   </button>
                 ))}
               </div>
-              {showTabArrows ? (
-                <button
-                  type="button"
-                  className="tab-scroll-button"
-                  onClick={() => scrollTabs(1)}
-                  aria-label="Scroll tabs right"
-                  data-tauri-drag-region="false"
-                >
-                  ▶
-                </button>
-              ) : null}
             </div>
             <button
               className="add-tab"
