@@ -1575,7 +1575,7 @@ function App() {
               title="新規タブ"
               data-tauri-drag-region="false"
             >
-              ＋
+              +
             </button>
           </div>
           <div className="window-controls">
