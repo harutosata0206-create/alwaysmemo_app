@@ -1149,19 +1149,20 @@ function App() {
     pendingRevealTabIdRef.current = id;
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(id);
-  };
-
-  useEffect(() => {
-    const pendingId = pendingRevealTabIdRef.current;
-    if (!pendingId || activeTabId !== pendingId) return;
-    const scroller = tabsScrollerRef.current;
-    if (!scroller) return;
-
-    const reveal = () => {
+    const revealNewTab = (retriesLeft: number) => {
+      const pendingId = pendingRevealTabIdRef.current;
+      if (!pendingId) return;
+      const scroller = tabsScrollerRef.current;
+      if (!scroller) return;
       const targetTab = Array.from(scroller.querySelectorAll<HTMLElement>(".tab")).find(
         (element) => element.dataset.tabId === pendingId,
       );
-      if (!targetTab) return;
+      if (!targetTab) {
+        if (retriesLeft > 0) {
+          window.requestAnimationFrame(() => revealNewTab(retriesLeft - 1));
+        }
+        return;
+      }
       const viewLeft = scroller.scrollLeft;
       const viewRight = viewLeft + scroller.clientWidth;
       const tabLeft = targetTab.offsetLeft;
@@ -1177,18 +1178,8 @@ function App() {
       scroller.scrollTo({ left: nextLeft, behavior: "smooth" });
       pendingRevealTabIdRef.current = null;
     };
-
-    let frame2: number | null = null;
-    const frame1 = window.requestAnimationFrame(() => {
-      frame2 = window.requestAnimationFrame(reveal);
-    });
-    return () => {
-      window.cancelAnimationFrame(frame1);
-      if (frame2 !== null) {
-        window.cancelAnimationFrame(frame2);
-      }
-    };
-  }, [activeTabId, tabs]);
+    window.requestAnimationFrame(() => revealNewTab(10));
+  };
 
   const performRemoveTab = useCallback((id: string) => {
     setTabs((prev) => {
