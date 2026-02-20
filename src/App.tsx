@@ -92,6 +92,8 @@ function App() {
   const toggleLockRef = useRef(0);
   const tabsScrollerRef = useRef<HTMLDivElement | null>(null);
   const pendingRevealTabIdRef = useRef<string | null>(null);
+  const tabsWheelTargetRef = useRef<number | null>(null);
+  const tabsWheelRafRef = useRef<number | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
@@ -1504,8 +1506,36 @@ function App() {
     const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
     if (delta === 0) return;
     const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-    const nextLeft = scroller.scrollLeft + delta * 0.95;
-    scroller.scrollLeft = Math.max(0, Math.min(maxLeft, Math.round(nextLeft)));
+    const baseLeft = tabsWheelTargetRef.current ?? scroller.scrollLeft;
+    tabsWheelTargetRef.current = Math.max(0, Math.min(maxLeft, baseLeft + delta));
+    if (tabsWheelRafRef.current !== null) return;
+
+    const animate = () => {
+      const currentScroller = tabsScrollerRef.current;
+      const target = tabsWheelTargetRef.current;
+      if (!currentScroller || target === null) {
+        tabsWheelRafRef.current = null;
+        return;
+      }
+      const diff = target - currentScroller.scrollLeft;
+      if (Math.abs(diff) < 0.3) {
+        currentScroller.scrollLeft = target;
+        tabsWheelRafRef.current = null;
+        return;
+      }
+      currentScroller.scrollLeft += diff * 0.3;
+      tabsWheelRafRef.current = window.requestAnimationFrame(animate);
+    };
+
+    tabsWheelRafRef.current = window.requestAnimationFrame(animate);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (tabsWheelRafRef.current !== null) {
+        window.cancelAnimationFrame(tabsWheelRafRef.current);
+      }
+    };
   }, []);
 
   const getTabLabel = (tab: Tab) => {
