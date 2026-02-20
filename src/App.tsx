@@ -1543,8 +1543,8 @@ function App() {
   return (
     <div className="app">
       <div className="titlebar">
-        <div className="titlebar-row top" data-tauri-drag-region>
-          <div className="tabs-area" data-tauri-drag-region onWheel={handleTopTabsWheel}>
+        <div className="titlebar-row top" data-tauri-drag-region onWheelCapture={handleTopTabsWheel}>
+          <div className="tabs-area" data-tauri-drag-region>
             <div className="tabs-bar" data-tauri-drag-region>
               {showTabArrows ? (
                 <button
