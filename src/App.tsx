@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type WheelEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
@@ -1478,6 +1478,16 @@ function App() {
     scroller.scrollBy({ left: direction * 110, behavior: "smooth" });
   };
 
+  const handleTopTabsWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
+    const scroller = tabsScrollerRef.current;
+    if (!scroller) return;
+    if (scroller.scrollWidth <= scroller.clientWidth) return;
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    if (delta === 0) return;
+    scroller.scrollBy({ left: delta, behavior: "auto" });
+    event.preventDefault();
+  }, []);
+
   const getTabLabel = (tab: Tab) => {
     if (!DEFAULT_TITLE_REGEX.test(tab.title)) return tab.title;
     const trimmed = htmlToText(tab.content).trimStart();
@@ -1500,7 +1510,7 @@ function App() {
     <div className="app">
       <div className="titlebar">
         <div className="titlebar-row top" data-tauri-drag-region>
-          <div className="tabs-area" data-tauri-drag-region>
+          <div className="tabs-area" data-tauri-drag-region onWheel={handleTopTabsWheel}>
             <div className="tabs-bar" data-tauri-drag-region>
               {showTabArrows ? (
                 <button
