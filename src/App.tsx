@@ -91,6 +91,7 @@ function App() {
   const [snap, setSnap] = useState<SnapPosition>(null);
   const toggleLockRef = useRef(0);
   const tabsScrollerRef = useRef<HTMLDivElement | null>(null);
+  const pendingRevealTabIdRef = useRef<string | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
@@ -1159,9 +1160,25 @@ function App() {
       ...savedTabsRef.current,
       [id]: { title: newTab.title, content: newTab.content },
     };
+    pendingRevealTabIdRef.current = id;
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(id);
   };
+
+  useEffect(() => {
+    const pendingId = pendingRevealTabIdRef.current;
+    if (!pendingId || activeTabId !== pendingId) return;
+    const scroller = tabsScrollerRef.current;
+    if (!scroller) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const targetTab = scroller.querySelector<HTMLElement>(`.tab[data-tab-id="${pendingId}"]`);
+      if (!targetTab) return;
+      targetTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+      pendingRevealTabIdRef.current = null;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeTabId, tabs]);
 
   const performRemoveTab = useCallback((id: string) => {
     setTabs((prev) => {
@@ -1530,6 +1547,7 @@ function App() {
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
+                    data-tab-id={tab.id}
                     className={`tab ${tab.id === activeTabId ? "active" : ""} ${draggedTabId === tab.id ? "dragging" : ""}`}
                     onClick={() => setActiveTabId(tab.id)}
                     onDoubleClick={() => {
