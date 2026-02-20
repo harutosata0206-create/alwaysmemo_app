@@ -103,6 +103,7 @@ body::-webkit-scrollbar-thumb,
   height: 34px;
   margin-top: 0;
   border-bottom: 0;
+  background: #e2e2e2;
   overflow: visible;
 }
 
