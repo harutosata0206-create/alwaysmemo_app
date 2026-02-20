@@ -1075,7 +1075,11 @@ function App() {
         rect.top + Math.max(panel.scrollHeight, rect.height),
       );
       const overflowCss = panelNeededBottom - window.innerHeight;
-      if (overflowCss <= 0) return;
+      const allowHorizontalExpand = openMenu === "file" && openFileSubmenu === "recent";
+      const overflowRight = allowHorizontalExpand
+        ? Math.max(rect.right, subRect.right) - window.innerWidth
+        : 0;
+      if (overflowCss <= 0 && overflowRight <= 0) return;
 
       try {
         if (!originalWindowSizeRef.current) {
@@ -1090,9 +1094,15 @@ function App() {
           Math.max(window.innerHeight, window.innerHeight + Math.max(overflowCss, 0) + 8),
           maxHeight,
         );
-        if (nextHeight > base.height) {
+        const maxWidth = window.screen?.availWidth ?? base.width;
+        const nextWidth = Math.min(
+          Math.max(window.innerWidth, window.innerWidth + Math.max(overflowRight, 0) + 8),
+          maxWidth,
+        );
+
+        if (nextHeight > base.height || nextWidth > base.width) {
           expandedWindowRef.current = true;
-          await windowHandle.setSize(new LogicalSize(base.width, nextHeight));
+          await windowHandle.setSize(new LogicalSize(nextWidth, nextHeight));
         }
       } catch (error) {
         console.error("Failed to expand window for menu", error);
