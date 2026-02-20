@@ -9,6 +9,7 @@ import "./App.css";
 const MIN_WINDOW_WIDTH = 300;
 const MIN_WINDOW_HEIGHT = 200;
 const STORAGE_KEY = "alwaysmemo-state";
+const TAB_CLOSE_ANIMATION_MS = 140;
 
 type Tab = {
   id: string;
@@ -119,6 +120,8 @@ function App() {
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
   const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
+  const [closingTabIds, setClosingTabIds] = useState<string[]>([]);
+  const tabCloseTimerRef = useRef<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -1206,15 +1209,35 @@ function App() {
     });
   }, [activeTabId, pushRecentClosedFile]);
 
+  const closeTabWithAnimation = useCallback((id: string) => {
+    if (tabCloseTimerRef.current[id]) return;
+    setClosingTabIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    tabCloseTimerRef.current[id] = window.setTimeout(() => {
+      delete tabCloseTimerRef.current[id];
+      setClosingTabIds((prev) => prev.filter((tabId) => tabId !== id));
+      performRemoveTab(id);
+    }, TAB_CLOSE_ANIMATION_MS);
+  }, [performRemoveTab]);
+
   const requestRemoveTab = useCallback((id: string) => {
+    if (closingTabIds.includes(id)) return;
     const tab = tabs.find((t) => t.id === id);
     if (!tab) return;
     if (isTabDirty(tab)) {
       setDeletePromptTabId(tab.id);
       return;
     }
-    performRemoveTab(id);
-  }, [performRemoveTab, tabs]);
+    closeTabWithAnimation(id);
+  }, [closeTabWithAnimation, closingTabIds, tabs]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(tabCloseTimerRef.current).forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+      tabCloseTimerRef.current = {};
+    };
+  }, []);
 
   const closeActiveTab = useCallback(() => {
     if (!activeTab) return;
@@ -1506,7 +1529,7 @@ function App() {
     if (delta === 0) return;
     const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
     const baseLeft = tabsWheelTargetRef.current ?? scroller.scrollLeft;
-    tabsWheelTargetRef.current = Math.max(0, Math.min(maxLeft, baseLeft + delta * 1.4));
+    tabsWheelTargetRef.current = Math.max(0, Math.min(maxLeft, baseLeft + delta * 1.45));
     if (tabsWheelRafRef.current !== null) return;
 
     const animate = () => {
@@ -1585,7 +1608,7 @@ function App() {
                   <button
                     key={tab.id}
                     data-tab-id={tab.id}
-                    className={`tab ${tab.id === activeTabId ? "active" : ""} ${draggedTabId === tab.id ? "dragging" : ""}`}
+                    className={`tab ${tab.id === activeTabId ? "active" : ""} ${draggedTabId === tab.id ? "dragging" : ""} ${closingTabIds.includes(tab.id) ? "closing" : ""}`}
                     onClick={() => setActiveTabId(tab.id)}
                     onDoubleClick={() => {
                       const next = window.prompt("タブ名を変更", tab.title);
@@ -1615,6 +1638,7 @@ function App() {
                       className={`tab-close ${isTabDirty(tab) ? "dirty" : ""}`}
                       onClick={(event) => {
                         event.stopPropagation();
+                        if (closingTabIds.includes(tab.id)) return;
                         void requestRemoveTab(tab.id);
                       }}
                       data-tauri-drag-region="false"
@@ -2017,7 +2041,7 @@ function App() {
                     const saved = await saveTab(tab);
                     if (saved) {
                       setDeletePromptTabId(null);
-                      performRemoveTab(tab.id);
+                      closeTabWithAnimation(tab.id);
                     }
                   })();
                 }}
@@ -2028,7 +2052,7 @@ function App() {
                 type="button"
                 className="delete-choice"
                 onClick={() => {
-                  performRemoveTab(deletePromptTab.id);
+                  closeTabWithAnimation(deletePromptTab.id);
                   setDeletePromptTabId(null);
                 }}
               >

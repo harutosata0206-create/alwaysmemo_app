@@ -283,6 +283,22 @@ body::-webkit-scrollbar-thumb,
   opacity: 0.6;
 }
 
+.tab.closing {
+  pointer-events: none;
+  animation: tab-close 140ms ease forwards;
+}
+
+@keyframes tab-close {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
 .tab-title {
   max-width: 140px;
   font-size: 12px;
