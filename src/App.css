@@ -189,6 +189,14 @@ body::-webkit-scrollbar-thumb,
   position: relative;
 }
 
+.titlebar .tab,
+.titlebar .tab:hover,
+.titlebar .tab:active {
+  transform: none;
+  box-shadow: none;
+  transition: none;
+}
+
 .tab.active {
   background: #f5f5f5;
   color: #1f1f1f;
