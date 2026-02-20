@@ -100,7 +100,7 @@ body::-webkit-scrollbar-thumb,
 .titlebar-row.top {
   padding: 0;
   align-items: stretch;
-  height: 34px;
+  height: 32px;
   margin-top: 0;
   border-bottom: 0;
   background: #e2e2e2;
@@ -109,7 +109,7 @@ body::-webkit-scrollbar-thumb,
 
 .tabs-area {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 6px;
   min-width: 0;
   flex: 1 1 auto;
