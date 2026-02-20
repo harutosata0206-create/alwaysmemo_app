@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type WheelEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
@@ -91,6 +91,7 @@ function App() {
   const [snap, setSnap] = useState<SnapPosition>(null);
   const toggleLockRef = useRef(0);
   const tabsScrollerRef = useRef<HTMLDivElement | null>(null);
+  const topTitlebarRef = useRef<HTMLDivElement | null>(null);
   const pendingRevealTabIdRef = useRef<string | null>(null);
   const tabsWheelTargetRef = useRef<number | null>(null);
   const tabsWheelRafRef = useRef<number | null>(null);
@@ -1175,6 +1176,11 @@ function App() {
       }
       const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
       nextLeft = Math.max(0, Math.min(maxLeft, nextLeft));
+      if (tabsWheelRafRef.current !== null) {
+        window.cancelAnimationFrame(tabsWheelRafRef.current);
+        tabsWheelRafRef.current = null;
+      }
+      tabsWheelTargetRef.current = nextLeft;
       scroller.scrollTo({ left: nextLeft, behavior: "smooth" });
       pendingRevealTabIdRef.current = null;
     };
@@ -1490,7 +1496,7 @@ function App() {
     await windowHandle.close();
   };
 
-  const handleTopTabsWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
+  const handleTopTabsWheel = useCallback((event: WheelEvent) => {
     // While pointer is on the top bar, block vertical page/editor scrolling.
     event.preventDefault();
     const scroller = tabsScrollerRef.current;
@@ -1524,6 +1530,16 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const topBar = topTitlebarRef.current;
+    if (!topBar) return;
+    const listener = (event: WheelEvent) => {
+      handleTopTabsWheel(event);
+    };
+    topBar.addEventListener("wheel", listener, { passive: false });
+    return () => topBar.removeEventListener("wheel", listener);
+  }, [handleTopTabsWheel]);
+
+  useEffect(() => {
     return () => {
       if (tabsWheelRafRef.current !== null) {
         window.cancelAnimationFrame(tabsWheelRafRef.current);
@@ -1552,10 +1568,19 @@ function App() {
   return (
     <div className="app">
       <div className="titlebar">
-        <div className="titlebar-row top" data-tauri-drag-region onWheelCapture={handleTopTabsWheel}>
+        <div className="titlebar-row top" data-tauri-drag-region ref={topTitlebarRef}>
           <div className="tabs-area" data-tauri-drag-region>
             <div className="tabs-bar" data-tauri-drag-region>
-              <div className="tabs" ref={tabsScrollerRef} data-tauri-drag-region>
+              <div
+                className="tabs"
+                ref={tabsScrollerRef}
+                data-tauri-drag-region
+                onScroll={() => {
+                  const scroller = tabsScrollerRef.current;
+                  if (!scroller) return;
+                  tabsWheelTargetRef.current = scroller.scrollLeft;
+                }}
+              >
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
