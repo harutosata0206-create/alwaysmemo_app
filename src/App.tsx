@@ -731,27 +731,6 @@ function App() {
     }
   }, [windowHandle]);
 
-  const shortcutActions = useMemo(
-    () => [
-      { id: "closeTab", combo: "Ctrl+W", action: closeActiveTab },
-      { id: "closeWindow", combo: "Ctrl+Shift+W", action: closeWindow },
-      { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: toggleAlwaysOnTop },
-      { id: "snapLeft", combo: "Ctrl+Alt+Left", action: snapLeft },
-      { id: "snapRight", combo: "Ctrl+Alt+Right", action: snapRight },
-      { id: "minimumSize", combo: "Ctrl+Alt+J", action: resizeToMinimum },
-      { id: "fitContent", combo: "Ctrl+Alt+K", action: resizeToFitContent },
-    ],
-    [
-      closeActiveTab,
-      closeWindow,
-      resizeToFitContent,
-      resizeToMinimum,
-      snapLeft,
-      snapRight,
-      toggleAlwaysOnTop,
-    ],
-  );
-
   useEffect(() => {
     const initState = async () => {
       try {
@@ -1265,6 +1244,27 @@ function App() {
     void requestRemoveTab(activeTab.id);
     closeMenus();
   }, [activeTab, closeMenus, requestRemoveTab]);
+
+  const shortcutActions = useMemo(
+    () => [
+      { id: "closeTab", combo: "Ctrl+W", action: closeActiveTab },
+      { id: "closeWindow", combo: "Ctrl+Shift+W", action: closeWindow },
+      { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: toggleAlwaysOnTop },
+      { id: "snapLeft", combo: "Ctrl+Alt+Left", action: snapLeft },
+      { id: "snapRight", combo: "Ctrl+Alt+Right", action: snapRight },
+      { id: "minimumSize", combo: "Ctrl+Alt+J", action: resizeToMinimum },
+      { id: "fitContent", combo: "Ctrl+Alt+K", action: resizeToFitContent },
+    ],
+    [
+      closeActiveTab,
+      closeWindow,
+      resizeToFitContent,
+      resizeToMinimum,
+      snapLeft,
+      snapRight,
+      toggleAlwaysOnTop,
+    ],
+  );
 
   const renameTab = (id: string, title: string) => {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
