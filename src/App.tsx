@@ -733,13 +733,23 @@ function App() {
 
   const shortcutActions = useMemo(
     () => [
+      { id: "closeTab", combo: "Ctrl+W", action: closeActiveTab },
+      { id: "closeWindow", combo: "Ctrl+Shift+W", action: closeWindow },
       { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: toggleAlwaysOnTop },
       { id: "snapLeft", combo: "Ctrl+Alt+Left", action: snapLeft },
       { id: "snapRight", combo: "Ctrl+Alt+Right", action: snapRight },
       { id: "minimumSize", combo: "Ctrl+Alt+J", action: resizeToMinimum },
       { id: "fitContent", combo: "Ctrl+Alt+K", action: resizeToFitContent },
     ],
-    [resizeToFitContent, resizeToMinimum, snapLeft, snapRight, toggleAlwaysOnTop],
+    [
+      closeActiveTab,
+      closeWindow,
+      resizeToFitContent,
+      resizeToMinimum,
+      snapLeft,
+      snapRight,
+      toggleAlwaysOnTop,
+    ],
   );
 
   useEffect(() => {
@@ -909,6 +919,15 @@ function App() {
             void saveActiveTab();
             return;
           }
+          case "KeyW": {
+            event.preventDefault();
+            if (event.shiftKey) {
+              void closeWindow();
+              return;
+            }
+            closeActiveTab();
+            return;
+          }
           default:
             break;
         }
@@ -950,6 +969,8 @@ function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [
+    closeActiveTab,
+    closeWindow,
     resizeToFitContent,
     resizeToMinimum,
     saveActiveTab,
@@ -2113,9 +2134,6 @@ function App() {
         <div className="bottom-bar">
           <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
           <span className="bottom-item">{activePlainText.length} 文字</span>
-          <span className="bottom-item">
-            {activeTab && hasRichFormatting(activeTab.content) ? "書式付き" : "テキスト"}
-          </span>
           <span className="bottom-item">{zoomPercentLabel}</span>
           <span className="bottom-item">{lineEndingLabel}</span>
           <span className="bottom-item">UTF-8</span>

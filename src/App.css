@@ -1075,7 +1075,7 @@ button:active {
   bottom: 0;
   z-index: 15;
   display: grid;
-  grid-template-columns: 8% 12% 13% 7% 11% 10% 12% 12% 15%;
+  grid-template-columns: 15% 14% 10% 13% 12% 18% 18%;
   gap: 6px;
   padding: 5px 11px;
   border-top: 1px solid #e2e8f0;
