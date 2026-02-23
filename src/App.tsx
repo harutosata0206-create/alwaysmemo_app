@@ -853,112 +853,6 @@ function App() {
   }, [openMenu]);
 
   useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && !event.altKey) {
-        const key = event.key;
-        const noShift = !event.shiftKey;
-        if (noShift && (key === "+" || key === "=")) {
-          event.preventDefault();
-          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
-          return;
-        }
-        if (noShift && event.code === "Semicolon") {
-          event.preventDefault();
-          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
-          return;
-        }
-        if (noShift && event.code === "NumpadAdd") {
-          event.preventDefault();
-          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
-          return;
-        }
-        if (noShift && key === "-") {
-          event.preventDefault();
-          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev - 0.1)));
-          return;
-        }
-        if (noShift && event.code === "NumpadSubtract") {
-          event.preventDefault();
-          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev - 0.1)));
-          return;
-        }
-        if (noShift && key === "0") {
-          event.preventDefault();
-          setZoomLevel(1);
-          return;
-        }
-        if (noShift && event.code === "Numpad0") {
-          event.preventDefault();
-          setZoomLevel(1);
-          return;
-        }
-        switch (event.code) {
-          case "KeyS": {
-            event.preventDefault();
-            void saveActiveTab();
-            return;
-          }
-          case "KeyW": {
-            event.preventDefault();
-            if (event.shiftKey) {
-              void closeWindow();
-              return;
-            }
-            closeActiveTab();
-            return;
-          }
-          default:
-            break;
-        }
-      }
-      if (!event.ctrlKey || !event.altKey) return;
-      switch (event.code) {
-        case "KeyT": {
-          event.preventDefault();
-          setStatus("Hotkey: toggle always on top");
-          void toggleAlwaysOnTop();
-          break;
-        }
-        case "ArrowLeft": {
-          event.preventDefault();
-          setStatus("Hotkey: snap left");
-          void snapLeft();
-          break;
-        }
-        case "ArrowRight": {
-          event.preventDefault();
-          setStatus("Hotkey: snap right");
-          void snapRight();
-          break;
-        }
-        case "KeyJ": {
-          event.preventDefault();
-          void resizeToMinimum();
-          break;
-        }
-        case "KeyK": {
-          event.preventDefault();
-          void resizeToFitContent();
-          break;
-        }
-        default:
-          break;
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [
-    closeActiveTab,
-    closeWindow,
-    resizeToFitContent,
-    resizeToMinimum,
-    saveActiveTab,
-    snapLeft,
-    snapRight,
-    toggleAlwaysOnTop,
-  ]);
-
-  useEffect(() => {
     const handler = (event: MouseEvent) => {
       if (!menuRef.current) return;
       if (menuRef.current.contains(event.target as Node)) return;
@@ -1265,6 +1159,112 @@ function App() {
       toggleAlwaysOnTop,
     ],
   );
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+        const key = event.key;
+        const noShift = !event.shiftKey;
+        if (noShift && (key === "+" || key === "=")) {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
+          return;
+        }
+        if (noShift && event.code === "Semicolon") {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
+          return;
+        }
+        if (noShift && event.code === "NumpadAdd") {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
+          return;
+        }
+        if (noShift && key === "-") {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev - 0.1)));
+          return;
+        }
+        if (noShift && event.code === "NumpadSubtract") {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev - 0.1)));
+          return;
+        }
+        if (noShift && key === "0") {
+          event.preventDefault();
+          setZoomLevel(1);
+          return;
+        }
+        if (noShift && event.code === "Numpad0") {
+          event.preventDefault();
+          setZoomLevel(1);
+          return;
+        }
+        switch (event.code) {
+          case "KeyS": {
+            event.preventDefault();
+            void saveActiveTab();
+            return;
+          }
+          case "KeyW": {
+            event.preventDefault();
+            if (event.shiftKey) {
+              void closeWindow();
+              return;
+            }
+            closeActiveTab();
+            return;
+          }
+          default:
+            break;
+        }
+      }
+      if (!event.ctrlKey || !event.altKey) return;
+      switch (event.code) {
+        case "KeyT": {
+          event.preventDefault();
+          setStatus("Hotkey: toggle always on top");
+          void toggleAlwaysOnTop();
+          break;
+        }
+        case "ArrowLeft": {
+          event.preventDefault();
+          setStatus("Hotkey: snap left");
+          void snapLeft();
+          break;
+        }
+        case "ArrowRight": {
+          event.preventDefault();
+          setStatus("Hotkey: snap right");
+          void snapRight();
+          break;
+        }
+        case "KeyJ": {
+          event.preventDefault();
+          void resizeToMinimum();
+          break;
+        }
+        case "KeyK": {
+          event.preventDefault();
+          void resizeToFitContent();
+          break;
+        }
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [
+    closeActiveTab,
+    closeWindow,
+    resizeToFitContent,
+    resizeToMinimum,
+    saveActiveTab,
+    snapLeft,
+    snapRight,
+    toggleAlwaysOnTop,
+  ]);
 
   const renameTab = (id: string, title: string) => {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
