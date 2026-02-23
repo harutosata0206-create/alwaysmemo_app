@@ -882,54 +882,6 @@ function App() {
   }, [goToLineOpen]);
 
   useEffect(() => {
-    const registerGlobalShortcuts = async () => {
-      const attemptRegister = async () => {
-        await Promise.all(
-          shortcutActions.map(({ combo, action }) => register(combo, action)),
-        );
-      };
-
-      try {
-        await unregisterAll();
-        await attemptRegister();
-      } catch (error: unknown) {
-        const message = String(error);
-        // If dev hot-reload left stale registrations, clear and retry once.
-        if (message.includes("already registered")) {
-          await unregisterAll();
-          await attemptRegister();
-        } else {
-          setStatus(`Global shortcut error: ${message}`);
-          throw error;
-        }
-      }
-      setStatus("Global shortcuts active");
-    };
-
-    const configure = async () => {
-      try {
-        if (useGlobalShortcuts) {
-          await registerGlobalShortcuts();
-        } else {
-          await unregisterAll();
-          setStatus("Local shortcuts active (window focused)");
-        }
-      } catch (error) {
-        console.error(error);
-        setStatus("Failed to configure shortcuts");
-      }
-    };
-
-    void configure();
-
-    return () => {
-      void unregisterAll().catch((error) => {
-        console.error("Failed to unregister shortcuts", error);
-      });
-    };
-  }, [shortcutActions, useGlobalShortcuts]);
-
-  useEffect(() => {
     const hasPopupOpen = openMenu !== null;
     if (!hasPopupOpen) {
       if (expandedWindowRef.current && originalWindowSizeRef.current) {
@@ -1265,6 +1217,54 @@ function App() {
     snapRight,
     toggleAlwaysOnTop,
   ]);
+
+  useEffect(() => {
+    const registerGlobalShortcuts = async () => {
+      const attemptRegister = async () => {
+        await Promise.all(
+          shortcutActions.map(({ combo, action }) => register(combo, action)),
+        );
+      };
+
+      try {
+        await unregisterAll();
+        await attemptRegister();
+      } catch (error: unknown) {
+        const message = String(error);
+        // If dev hot-reload left stale registrations, clear and retry once.
+        if (message.includes("already registered")) {
+          await unregisterAll();
+          await attemptRegister();
+        } else {
+          setStatus(`Global shortcut error: ${message}`);
+          throw error;
+        }
+      }
+      setStatus("Global shortcuts active");
+    };
+
+    const configure = async () => {
+      try {
+        if (useGlobalShortcuts) {
+          await registerGlobalShortcuts();
+        } else {
+          await unregisterAll();
+          setStatus("Local shortcuts active (window focused)");
+        }
+      } catch (error) {
+        console.error(error);
+        setStatus("Failed to configure shortcuts");
+      }
+    };
+
+    void configure();
+
+    return () => {
+      void unregisterAll().catch((error) => {
+        console.error("Failed to unregister shortcuts", error);
+      });
+    };
+  }, [shortcutActions, useGlobalShortcuts]);
 
   const renameTab = (id: string, title: string) => {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
