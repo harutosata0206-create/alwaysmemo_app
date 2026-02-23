@@ -1529,7 +1529,7 @@ function App() {
     if (delta === 0) return;
     const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
     const baseLeft = tabsWheelTargetRef.current ?? scroller.scrollLeft;
-    tabsWheelTargetRef.current = Math.max(0, Math.min(maxLeft, baseLeft + delta * 1.45));
+    tabsWheelTargetRef.current = Math.max(0, Math.min(maxLeft, baseLeft + delta * 3));
     if (tabsWheelRafRef.current !== null) return;
 
     const animate = () => {
