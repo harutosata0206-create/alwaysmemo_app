@@ -1540,6 +1540,181 @@ function App() {
     await windowHandle.close();
   };
 
+  const shortcutActions = useMemo(
+    () => [
+      { id: "closeTab", combo: "Ctrl+W", action: closeActiveTab },
+      { id: "closeWindow", combo: "Ctrl+Shift+W", action: closeWindow },
+      { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: toggleAlwaysOnTop },
+      { id: "snapLeft", combo: "Ctrl+Alt+Left", action: snapLeft },
+      { id: "snapRight", combo: "Ctrl+Alt+Right", action: snapRight },
+      { id: "minimumSize", combo: "Ctrl+Alt+J", action: resizeToMinimum },
+      { id: "fitContent", combo: "Ctrl+Alt+K", action: resizeToFitContent },
+    ],
+    [
+      closeActiveTab,
+      closeWindow,
+      resizeToFitContent,
+      resizeToMinimum,
+      snapLeft,
+      snapRight,
+      toggleAlwaysOnTop,
+    ],
+  );
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+        const key = event.key;
+        const noShift = !event.shiftKey;
+        if (noShift && (key === "+" || key === "=")) {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
+          return;
+        }
+        if (noShift && event.code === "Semicolon") {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
+          return;
+        }
+        if (noShift && event.code === "NumpadAdd") {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
+          return;
+        }
+        if (noShift && key === "-") {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev - 0.1)));
+          return;
+        }
+        if (noShift && event.code === "NumpadSubtract") {
+          event.preventDefault();
+          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev - 0.1)));
+          return;
+        }
+        if (noShift && key === "0") {
+          event.preventDefault();
+          setZoomLevel(1);
+          return;
+        }
+        if (noShift && event.code === "Numpad0") {
+          event.preventDefault();
+          setZoomLevel(1);
+          return;
+        }
+        switch (event.code) {
+          case "KeyS": {
+            event.preventDefault();
+            void saveActiveTab();
+            return;
+          }
+          case "KeyW": {
+            event.preventDefault();
+            if (event.shiftKey) {
+              void closeWindow();
+              return;
+            }
+            closeActiveTab();
+            return;
+          }
+          default:
+            break;
+        }
+      }
+      if (!event.ctrlKey || !event.altKey) return;
+      switch (event.code) {
+        case "KeyT": {
+          event.preventDefault();
+          setStatus("Hotkey: toggle always on top");
+          void toggleAlwaysOnTop();
+          break;
+        }
+        case "ArrowLeft": {
+          event.preventDefault();
+          setStatus("Hotkey: snap left");
+          void snapLeft();
+          break;
+        }
+        case "ArrowRight": {
+          event.preventDefault();
+          setStatus("Hotkey: snap right");
+          void snapRight();
+          break;
+        }
+        case "KeyJ": {
+          event.preventDefault();
+          void resizeToMinimum();
+          break;
+        }
+        case "KeyK": {
+          event.preventDefault();
+          void resizeToFitContent();
+          break;
+        }
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [
+    closeActiveTab,
+    closeWindow,
+    resizeToFitContent,
+    resizeToMinimum,
+    saveActiveTab,
+    snapLeft,
+    snapRight,
+    toggleAlwaysOnTop,
+  ]);
+
+  useEffect(() => {
+    const registerGlobalShortcuts = async () => {
+      const attemptRegister = async () => {
+        await Promise.all(
+          shortcutActions.map(({ combo, action }) => register(combo, action)),
+        );
+      };
+
+      try {
+        await unregisterAll();
+        await attemptRegister();
+      } catch (error: unknown) {
+        const message = String(error);
+        // If dev hot-reload left stale registrations, clear and retry once.
+        if (message.includes("already registered")) {
+          await unregisterAll();
+          await attemptRegister();
+        } else {
+          setStatus(`Global shortcut error: ${message}`);
+          throw error;
+        }
+      }
+      setStatus("Global shortcuts active");
+    };
+
+    const configure = async () => {
+      try {
+        if (useGlobalShortcuts) {
+          await registerGlobalShortcuts();
+        } else {
+          await unregisterAll();
+          setStatus("Local shortcuts active (window focused)");
+        }
+      } catch (error) {
+        console.error(error);
+        setStatus("Failed to configure shortcuts");
+      }
+    };
+
+    void configure();
+
+    return () => {
+      void unregisterAll().catch((error) => {
+        console.error("Failed to unregister shortcuts", error);
+      });
+    };
+  }, [shortcutActions, useGlobalShortcuts]);
+
   const handleTopTabsWheel = useCallback((event: WheelEvent) => {
     // While pointer is on the top bar, block vertical page/editor scrolling.
     event.preventDefault();
