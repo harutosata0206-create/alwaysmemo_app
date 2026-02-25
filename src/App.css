@@ -205,6 +205,14 @@ body::-webkit-scrollbar-thumb,
   z-index: 2;
 }
 
+.tab.active .tab-title {
+  font-weight: 700;
+}
+
+.tab:not(.active) .tab-title {
+  color: #7b7b7b;
+}
+
 .drag-region {
   flex: 1;
   height: 34px;
