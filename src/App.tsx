@@ -1384,6 +1384,8 @@ function App() {
 
   const shortcutActions = useMemo(
     () => [
+      { id: "newTab", combo: "Ctrl+N", action: addTab },
+      { id: "newWindow", combo: "Ctrl+Shift+N", action: openNewWindow },
       { id: "closeTab", combo: "Ctrl+W", action: closeActiveTab },
       { id: "closeWindow", combo: "Ctrl+Shift+W", action: closeWindow },
       { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: toggleAlwaysOnTop },
@@ -1393,8 +1395,10 @@ function App() {
       { id: "fitContent", combo: "Ctrl+Alt+K", action: resizeToFitContent },
     ],
     [
+      addTab,
       closeActiveTab,
       closeWindow,
+      openNewWindow,
       resizeToFitContent,
       resizeToMinimum,
       snapLeft,
@@ -1449,6 +1453,15 @@ function App() {
           return;
         }
         switch (event.code) {
+          case "KeyN": {
+            event.preventDefault();
+            if (event.shiftKey) {
+              void openNewWindow();
+              return;
+            }
+            addTab();
+            return;
+          }
           case "KeyS": {
             event.preventDefault();
             void saveActiveTab();
@@ -1504,9 +1517,11 @@ function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [
+    addTab,
     cycleActiveTab,
     closeActiveTab,
     closeWindow,
+    openNewWindow,
     resizeToFitContent,
     resizeToMinimum,
     saveActiveTab,
