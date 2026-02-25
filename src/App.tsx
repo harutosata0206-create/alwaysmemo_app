@@ -1384,8 +1384,6 @@ function App() {
 
   const shortcutActions = useMemo(
     () => [
-      { id: "newTab", combo: "Ctrl+N", action: addTab },
-      { id: "newWindow", combo: "Ctrl+Shift+N", action: openNewWindow },
       { id: "closeTab", combo: "Ctrl+W", action: closeActiveTab },
       { id: "closeWindow", combo: "Ctrl+Shift+W", action: closeWindow },
       { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: toggleAlwaysOnTop },
@@ -1395,10 +1393,8 @@ function App() {
       { id: "fitContent", combo: "Ctrl+Alt+K", action: resizeToFitContent },
     ],
     [
-      addTab,
       closeActiveTab,
       closeWindow,
-      openNewWindow,
       resizeToFitContent,
       resizeToMinimum,
       snapLeft,
