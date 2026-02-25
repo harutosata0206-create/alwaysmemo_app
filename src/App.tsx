@@ -989,17 +989,9 @@ function App() {
     return () => window.removeEventListener("resize", updateLeft);
   }, [openMenu]);
 
-  const addTab = () => {
-    const id = crypto.randomUUID();
-    const newTab: Tab = { id, title: "タイトルなし", content: "" };
-    savedTabsRef.current = {
-      ...savedTabsRef.current,
-      [id]: { title: newTab.title, content: newTab.content },
-    };
+  const revealTabById = useCallback((id: string, retriesLeft = 10) => {
     pendingRevealTabIdRef.current = id;
-    setTabs((prev) => [...prev, newTab]);
-    setActiveTabId(id);
-    const revealNewTab = (retriesLeft: number) => {
+    const reveal = (retries: number) => {
       const pendingId = pendingRevealTabIdRef.current;
       if (!pendingId) return;
       const scroller = tabsScrollerRef.current;
@@ -1008,11 +1000,12 @@ function App() {
         (element) => element.dataset.tabId === pendingId,
       );
       if (!targetTab) {
-        if (retriesLeft > 0) {
-          window.requestAnimationFrame(() => revealNewTab(retriesLeft - 1));
+        if (retries > 0) {
+          window.requestAnimationFrame(() => reveal(retries - 1));
         }
         return;
       }
+
       const viewLeft = scroller.scrollLeft;
       const viewRight = viewLeft + scroller.clientWidth;
       const tabLeft = targetTab.offsetLeft;
@@ -1023,6 +1016,7 @@ function App() {
       } else if (tabRight > viewRight) {
         nextLeft = tabRight - scroller.clientWidth + 8;
       }
+
       const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
       nextLeft = Math.max(0, Math.min(maxLeft, nextLeft));
       if (tabsWheelRafRef.current !== null) {
@@ -1033,7 +1027,20 @@ function App() {
       scroller.scrollTo({ left: nextLeft, behavior: "smooth" });
       pendingRevealTabIdRef.current = null;
     };
-    window.requestAnimationFrame(() => revealNewTab(10));
+
+    window.requestAnimationFrame(() => reveal(retriesLeft));
+  }, []);
+
+  const addTab = () => {
+    const id = crypto.randomUUID();
+    const newTab: Tab = { id, title: "タイトルなし", content: "" };
+    savedTabsRef.current = {
+      ...savedTabsRef.current,
+      [id]: { title: newTab.title, content: newTab.content },
+    };
+    setTabs((prev) => [...prev, newTab]);
+    setActiveTabId(id);
+    revealTabById(id);
   };
 
   const performRemoveTab = useCallback((id: string) => {
@@ -1096,8 +1103,10 @@ function App() {
     const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId);
     const safeIndex = currentIndex >= 0 ? currentIndex : 0;
     const nextIndex = (safeIndex + direction + tabs.length) % tabs.length;
-    setActiveTabId(tabs[nextIndex].id);
-  }, [activeTabId, tabs]);
+    const nextTabId = tabs[nextIndex].id;
+    setActiveTabId(nextTabId);
+    revealTabById(nextTabId);
+  }, [activeTabId, revealTabById, tabs]);
 
   const renameTab = (id: string, title: string) => {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
