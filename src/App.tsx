@@ -1091,6 +1091,14 @@ function App() {
     closeMenus();
   }, [activeTab, closeMenus, requestRemoveTab]);
 
+  const cycleActiveTab = useCallback((direction: 1 | -1) => {
+    if (tabs.length <= 1) return;
+    const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    const nextIndex = (safeIndex + direction + tabs.length) % tabs.length;
+    setActiveTabId(tabs[nextIndex].id);
+  }, [activeTabId, tabs]);
+
   const renameTab = (id: string, title: string) => {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
   };
@@ -1389,6 +1397,11 @@ function App() {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+        if (event.code === "Tab") {
+          event.preventDefault();
+          cycleActiveTab(event.shiftKey ? -1 : 1);
+          return;
+        }
         const key = event.key;
         const noShift = !event.shiftKey;
         if (noShift && (key === "+" || key === "=")) {
@@ -1482,6 +1495,7 @@ function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [
+    cycleActiveTab,
     closeActiveTab,
     closeWindow,
     resizeToFitContent,
