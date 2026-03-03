@@ -1648,6 +1648,21 @@ function App() {
               <div
                 className="tabs"
                 ref={tabsScrollerRef}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const fromId = event.dataTransfer.getData("text/plain") || draggedTabId;
+                  const lastTab = tabs[tabs.length - 1];
+                  if (!fromId || !lastTab || fromId === lastTab.id) {
+                    setDraggedTabId(null);
+                    return;
+                  }
+                  moveTab(fromId, lastTab.id);
+                  setDraggedTabId(null);
+                }}
                 onScroll={() => {
                   const scroller = tabsScrollerRef.current;
                   if (!scroller) return;
@@ -1677,7 +1692,12 @@ function App() {
                     }}
                     onDrop={(event) => {
                       event.preventDefault();
-                      const fromId = event.dataTransfer.getData("text/plain");
+                      event.stopPropagation();
+                      const fromId = event.dataTransfer.getData("text/plain") || draggedTabId;
+                      if (!fromId) {
+                        setDraggedTabId(null);
+                        return;
+                      }
                       moveTab(fromId, tab.id);
                       setDraggedTabId(null);
                     }}
