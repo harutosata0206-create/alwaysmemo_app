@@ -234,8 +234,8 @@ body::-webkit-scrollbar-thumb,
   height: 100%;
   border: 0;
   border-radius: 0;
-  background: #f8fafc;
-  color: #374151;
+  background: #e2e2e2;
+  color: #3a3a3a;
   font-size: 22px;
   line-height: 1;
   font-weight: 200;
@@ -256,17 +256,17 @@ body::-webkit-scrollbar-thumb,
 }
 
 .window-button + .window-button {
-  border-left: 1px solid #e2e8f0;
+  border-left: 1px solid #d2d2d2;
 }
 
 .window-button:hover {
-  background: #e2e8f0;
+  background: #d6d6d6;
   transform: none;
   box-shadow: none;
 }
 
 .window-button:active {
-  background: #cbd5e1;
+  background: #c7c7c7;
 }
 
 .window-button.close:hover {
