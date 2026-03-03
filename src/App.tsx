@@ -121,6 +121,14 @@ function App() {
   const expandedWindowRef = useRef(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [expandedSettingSections, setExpandedSettingSections] = useState<Record<string, boolean>>({
+    appearance: true,
+    text: true,
+    features: true,
+    startup: true,
+    about: true,
+  });
   const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
   const [closingTabIds, setClosingTabIds] = useState<string[]>([]);
   const tabCloseTimerRef = useRef<Record<string, number>>({});
@@ -140,6 +148,10 @@ function App() {
   const deletePromptTab =
     deletePromptTabId ? tabs.find((tab) => tab.id === deletePromptTabId) ?? null : null;
   const windowHandle = getCurrentWindow();
+
+  const toggleSettingSection = useCallback((key: string) => {
+    setExpandedSettingSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   useEffect(() => {
     activeTabIdRef.current = activeTabId;
@@ -1771,7 +1783,21 @@ function App() {
           </div>
         </div>
         <div className="titlebar-row toolbar">
-          <div className="menu-group" ref={menuRef}>
+          {settingsOpen ? (
+            <div className="settings-toolbar">
+              <button
+                type="button"
+                className="settings-back"
+                onClick={() => setSettingsOpen(false)}
+                aria-label="Back to editor"
+              >
+                ←
+              </button>
+              <span className="settings-toolbar-title">設定</span>
+            </div>
+          ) : (
+            <>
+              <div className="menu-group" ref={menuRef}>
             <div className="menu-wrapper">
               <button
                 type="button"
@@ -2057,39 +2083,156 @@ function App() {
               </div>
             </div>
           ) : null}
-          <div className="right-group">
-            <button type="button" className="icon-button account" aria-label="Account">
-              ●
-            </button>
-            <button type="button" className="icon-button" aria-label="Settings">
-              ⚙
-            </button>
-          </div>
+              <div className="right-group">
+                <button type="button" className="icon-button account" aria-label="Account">
+                  ●
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Settings"
+                  onClick={() => {
+                    closeMenus();
+                    setShowSearchBox(false);
+                    setSettingsOpen(true);
+                  }}
+                >
+                  ⚙
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      <section className="card memo" style={{ zoom: zoomLevel }}>
-        <div className="editor">
-          <div className="editor-header">
-          </div>
+      {settingsOpen ? (
+        <section className="settings-screen">
+          <div className="settings-screen-inner">
+            <h1 className="settings-title">設定</h1>
 
-          <div
-            ref={editorRef}
-            className="editor-body"
-            data-wrap={wrapAtRightEdge ? "on" : "off"}
-            contentEditable
-            suppressContentEditableWarning
-            data-placeholder="ここにメモを書く"
-            onInput={(event) => {
-              updateContent(event.currentTarget.innerHTML);
-              scheduleCursorIndexUpdate();
-            }}
-            onKeyUp={scheduleCursorIndexUpdate}
-            onMouseUp={scheduleCursorIndexUpdate}
-            onClick={scheduleCursorIndexUpdate}
-          />
-        </div>
-      </section>
+            <div className="settings-section">
+              <button type="button" className="settings-accordion" onClick={() => toggleSettingSection("appearance")}>
+                <span>外観</span>
+                <span>{expandedSettingSections.appearance ? "⌃" : "⌄"}</span>
+              </button>
+              {expandedSettingSections.appearance ? (
+                <div className="settings-panel">
+                  <label className="settings-radio"><input type="radio" name="theme" defaultChecked /> ライト</label>
+                  <label className="settings-radio"><input type="radio" name="theme" /> ダーク</label>
+                  <label className="settings-radio"><input type="radio" name="theme" /> システム設定を使用する</label>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="settings-section">
+              <button type="button" className="settings-accordion" onClick={() => toggleSettingSection("text")}>
+                <span>テキストの書式設定</span>
+                <span>{expandedSettingSections.text ? "⌃" : "⌄"}</span>
+              </button>
+              {expandedSettingSections.text ? (
+                <div className="settings-panel">
+                  <div className="settings-row-item">
+                    <span>フォント</span>
+                    <select defaultValue="default">
+                      <option value="default">既定</option>
+                      <option value="serif">Serif</option>
+                      <option value="mono">Monospace</option>
+                    </select>
+                  </div>
+                  <div className="settings-row-item">
+                    <span>文字列の折り返し</span>
+                    <label className="settings-switch"><input type="checkbox" checked={wrapAtRightEdge} readOnly /><span>オン</span></label>
+                  </div>
+                  <div className="settings-row-item">
+                    <span>書式設定</span>
+                    <label className="settings-switch"><input type="checkbox" defaultChecked /><span>オン</span></label>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="settings-section">
+              <button type="button" className="settings-accordion" onClick={() => toggleSettingSection("features")}>
+                <span>機能</span>
+                <span>{expandedSettingSections.features ? "⌃" : "⌄"}</span>
+              </button>
+              {expandedSettingSections.features ? (
+                <div className="settings-panel">
+                  <div className="settings-row-item">
+                    <span>Always on Top</span>
+                    <label className="settings-switch"><input type="checkbox" checked={alwaysOnTop} readOnly /><span>{alwaysOnTop ? "オン" : "オフ"}</span></label>
+                  </div>
+                  <div className="settings-row-item">
+                    <span>Global Shortcuts</span>
+                    <label className="settings-switch"><input type="checkbox" checked={useGlobalShortcuts} readOnly /><span>{useGlobalShortcuts ? "オン" : "オフ"}</span></label>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="settings-section">
+              <button type="button" className="settings-accordion" onClick={() => toggleSettingSection("startup")}>
+                <span>起動時の設定</span>
+                <span>{expandedSettingSections.startup ? "⌃" : "⌄"}</span>
+              </button>
+              {expandedSettingSections.startup ? (
+                <div className="settings-panel">
+                  <div className="settings-row-item">
+                    <span>セッション</span>
+                    <select defaultValue="restore">
+                      <option value="restore">前回の状態を復元</option>
+                      <option value="new">常に新規セッション</option>
+                    </select>
+                  </div>
+                  <div className="settings-row-item">
+                    <span>ファイルを開く方法</span>
+                    <select defaultValue="window">
+                      <option value="window">新しいウィンドウで開く</option>
+                      <option value="tab">既存ウィンドウに追加</option>
+                    </select>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="settings-section">
+              <button type="button" className="settings-accordion" onClick={() => toggleSettingSection("about")}>
+                <span>AlwaysMemo について</span>
+                <span>{expandedSettingSections.about ? "⌃" : "⌄"}</span>
+              </button>
+              {expandedSettingSections.about ? (
+                <div className="settings-panel">
+                  <p>AlwaysMemo v0.1</p>
+                  <p>作業を中断しないための常駐メモツール</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="card memo" style={{ zoom: zoomLevel }}>
+          <div className="editor">
+            <div className="editor-header">
+            </div>
+
+            <div
+              ref={editorRef}
+              className="editor-body"
+              data-wrap={wrapAtRightEdge ? "on" : "off"}
+              contentEditable
+              suppressContentEditableWarning
+              data-placeholder="ここにメモを書く"
+              onInput={(event) => {
+                updateContent(event.currentTarget.innerHTML);
+                scheduleCursorIndexUpdate();
+              }}
+              onKeyUp={scheduleCursorIndexUpdate}
+              onMouseUp={scheduleCursorIndexUpdate}
+              onClick={scheduleCursorIndexUpdate}
+            />
+          </div>
+        </section>
+      )}
 
       {deletePromptTab ? (
         <div className="format-choice-overlay" role="presentation">
