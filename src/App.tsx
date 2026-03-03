@@ -1642,13 +1642,12 @@ function App() {
   return (
     <div className="app">
       <div className="titlebar">
-        <div className="titlebar-row top" data-tauri-drag-region ref={topTitlebarRef}>
-          <div className="tabs-area" data-tauri-drag-region>
-            <div className="tabs-bar" data-tauri-drag-region>
+        <div className="titlebar-row top" ref={topTitlebarRef}>
+          <div className="tabs-area">
+            <div className="tabs-bar">
               <div
                 className="tabs"
                 ref={tabsScrollerRef}
-                data-tauri-drag-region
                 onScroll={() => {
                   const scroller = tabsScrollerRef.current;
                   if (!scroller) return;
@@ -1682,7 +1681,6 @@ function App() {
                       moveTab(fromId, tab.id);
                       setDraggedTabId(null);
                     }}
-                    data-tauri-drag-region="false"
                   >
                     <span className="tab-title">{getTabLabel(tab)}</span>
                     <span
@@ -1692,7 +1690,6 @@ function App() {
                         if (closingTabIds.includes(tab.id)) return;
                         void requestRemoveTab(tab.id);
                       }}
-                      data-tauri-drag-region="false"
                       aria-label={isTabDirty(tab) ? "Unsaved" : "Close"}
                     >
                       {isTabDirty(tab) ? "●" : "×"}
@@ -1705,18 +1702,17 @@ function App() {
               className="add-tab"
               onClick={addTab}
               title="新規タブ"
-              data-tauri-drag-region="false"
             >
               +
             </button>
           </div>
+          <div className="drag-region" data-tauri-drag-region />
           <div className="window-controls">
             <button
               type="button"
               className="window-button"
               onClick={minimizeWindow}
               aria-label="Minimize"
-              data-tauri-drag-region="false"
             >
               <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
                 <line x1="2" y1="7" x2="8" y2="7" />
@@ -1727,7 +1723,6 @@ function App() {
               className="window-button"
               onClick={toggleMaximizeWindow}
               aria-label="Maximize"
-              data-tauri-drag-region="false"
             >
               <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
                 <rect x="2" y="2" width="6" height="6" fill="none" />
@@ -1738,7 +1733,6 @@ function App() {
               className="window-button close"
               onClick={closeWindow}
               aria-label="Close"
-              data-tauri-drag-region="false"
             >
               <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
                 <line x1="2.2" y1="2.2" x2="7.8" y2="7.8" />

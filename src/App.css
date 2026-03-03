@@ -214,8 +214,8 @@ body::-webkit-scrollbar-thumb,
 }
 
 .drag-region {
-  flex: 1;
-  height: 34px;
+  flex: 0 0 16px;
+  height: 100%;
 }
 
 .window-controls {
