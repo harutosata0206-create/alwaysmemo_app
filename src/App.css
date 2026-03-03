@@ -287,6 +287,10 @@ body::-webkit-scrollbar-thumb,
   box-shadow: none;
 }
 
+.tab:not(.active):hover {
+  background: #d6d6d6;
+}
+
 .tab.dragging {
   opacity: 0.6;
 }
