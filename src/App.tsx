@@ -1725,7 +1725,6 @@ function App() {
                     </span>
                   </button>
                 ))}
-                <div className="tabs-drag-spacer" data-tauri-drag-region />
               </div>
             </div>
             <button

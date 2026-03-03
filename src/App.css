@@ -112,7 +112,7 @@ body::-webkit-scrollbar-thumb,
   align-items: flex-end;
   gap: 6px;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   padding: 0 0 0 6px;
   overflow: visible;
 }
@@ -151,11 +151,6 @@ body::-webkit-scrollbar-thumb,
   overflow-y: visible;
   max-width: 100%;
   scrollbar-width: none;
-}
-
-.tabs-drag-spacer {
-  flex: 1 0 24px;
-  align-self: stretch;
 }
 
 .tabs::-webkit-scrollbar {
@@ -219,8 +214,9 @@ body::-webkit-scrollbar-thumb,
 }
 
 .drag-region {
-  flex: 0 0 16px;
+  flex: 1 1 auto;
   height: 100%;
+  min-width: 24px;
 }
 
 .window-controls {
