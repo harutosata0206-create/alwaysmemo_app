@@ -153,6 +153,11 @@ body::-webkit-scrollbar-thumb,
   scrollbar-width: none;
 }
 
+.tabs-drag-spacer {
+  flex: 1 0 24px;
+  align-self: stretch;
+}
+
 .tabs::-webkit-scrollbar {
   height: 0;
 }

@@ -1669,7 +1669,16 @@ function App() {
   return (
     <div className="app">
       <div className="titlebar">
-        <div className="titlebar-row top" ref={topTitlebarRef}>
+        <div
+          className="titlebar-row top"
+          ref={topTitlebarRef}
+          onPointerDown={(event) => {
+            const target = event.target as HTMLElement;
+            if (!target.closest(".tab")) {
+              setDraggedTabId(null);
+            }
+          }}
+        >
           <div className="tabs-area">
             <div className="tabs-bar">
               <div
@@ -1716,6 +1725,7 @@ function App() {
                     </span>
                   </button>
                 ))}
+                <div className="tabs-drag-spacer" data-tauri-drag-region />
               </div>
             </div>
             <button
