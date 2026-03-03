@@ -1365,6 +1365,19 @@ function App() {
     });
   };
 
+  useEffect(() => {
+    if (!draggedTabId) return;
+    const clearDraggedTab = () => setDraggedTabId(null);
+    window.addEventListener("pointerup", clearDraggedTab);
+    window.addEventListener("pointercancel", clearDraggedTab);
+    window.addEventListener("blur", clearDraggedTab);
+    return () => {
+      window.removeEventListener("pointerup", clearDraggedTab);
+      window.removeEventListener("pointercancel", clearDraggedTab);
+      window.removeEventListener("blur", clearDraggedTab);
+    };
+  }, [draggedTabId]);
+
   const minimizeWindow = async () => {
     await windowHandle.minimize();
   };
@@ -1648,21 +1661,6 @@ function App() {
               <div
                 className="tabs"
                 ref={tabsScrollerRef}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = "move";
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const fromId = event.dataTransfer.getData("text/plain") || draggedTabId;
-                  const lastTab = tabs[tabs.length - 1];
-                  if (!fromId || !lastTab || fromId === lastTab.id) {
-                    setDraggedTabId(null);
-                    return;
-                  }
-                  moveTab(fromId, lastTab.id);
-                  setDraggedTabId(null);
-                }}
                 onScroll={() => {
                   const scroller = tabsScrollerRef.current;
                   if (!scroller) return;
@@ -1679,32 +1677,20 @@ function App() {
                       const next = window.prompt("タブ名を変更", tab.title);
                       if (next?.trim()) renameTab(tab.id, next.trim());
                     }}
-                    draggable
-                    onDragStart={(event) => {
-                      event.dataTransfer.setData("text/plain", tab.id);
-                      event.dataTransfer.effectAllowed = "move";
+                    onPointerDown={(event) => {
+                      if (event.button !== 0) return;
                       setDraggedTabId(tab.id);
                     }}
-                    onDragEnd={() => setDraggedTabId(null)}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "move";
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      const fromId = event.dataTransfer.getData("text/plain") || draggedTabId;
-                      if (!fromId) {
-                        setDraggedTabId(null);
-                        return;
-                      }
-                      moveTab(fromId, tab.id);
-                      setDraggedTabId(null);
+                    onPointerEnter={(event) => {
+                      if (!draggedTabId || draggedTabId === tab.id) return;
+                      if ((event.buttons & 1) !== 1) return;
+                      moveTab(draggedTabId, tab.id);
                     }}
                   >
                     <span className="tab-title">{getTabLabel(tab)}</span>
                     <span
                       className={`tab-close ${isTabDirty(tab) ? "dirty" : ""}`}
+                      onPointerDown={(event) => event.stopPropagation()}
                       onClick={(event) => {
                         event.stopPropagation();
                         if (closingTabIds.includes(tab.id)) return;
