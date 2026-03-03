@@ -93,6 +93,8 @@ function App() {
   const toggleLockRef = useRef(0);
   const tabsScrollerRef = useRef<HTMLDivElement | null>(null);
   const topTitlebarRef = useRef<HTMLDivElement | null>(null);
+  const activeTabIdRef = useRef<string>("initial");
+  const tabHistoryRef = useRef<string[]>([]);
   const pendingRevealTabIdRef = useRef<string | null>(null);
   const tabsWheelTargetRef = useRef<number | null>(null);
   const tabsWheelRafRef = useRef<number | null>(null);
@@ -138,6 +140,12 @@ function App() {
   const deletePromptTab =
     deletePromptTabId ? tabs.find((tab) => tab.id === deletePromptTabId) ?? null : null;
   const windowHandle = getCurrentWindow();
+
+  useEffect(() => {
+    activeTabIdRef.current = activeTabId;
+    if (!activeTabId) return;
+    tabHistoryRef.current = [...tabHistoryRef.current.filter((id) => id !== activeTabId), activeTabId].slice(-100);
+  }, [activeTabId]);
   const activeHtml = activeTab?.content ?? "";
   const activePlainText = useMemo(() => {
     const div = document.createElement("div");
@@ -1049,18 +1057,24 @@ function App() {
       if (removed) {
         pushRecentClosedFile(removed);
       }
+      tabHistoryRef.current = tabHistoryRef.current.filter((tabId) => tabId !== id);
       const nextTabs = prev.filter((t) => t.id !== id);
       if (nextTabs.length === 0) {
         const fallback: Tab = { id: "initial", title: "タイトルなし", content: "" };
         setActiveTabId(fallback.id);
         return [fallback];
       }
-      if (activeTabId === id) {
-        setActiveTabId(nextTabs[0]?.id ?? nextTabs[0].id);
+      if (activeTabIdRef.current === id) {
+        const nextActiveId =
+          [...tabHistoryRef.current]
+            .reverse()
+            .find((tabId) => tabId !== id && nextTabs.some((tab) => tab.id === tabId)) ??
+          nextTabs[0].id;
+        setActiveTabId(nextActiveId);
       }
       return nextTabs;
     });
-  }, [activeTabId, pushRecentClosedFile]);
+  }, [pushRecentClosedFile]);
 
   const closeTabWithAnimation = useCallback((id: string) => {
     if (tabCloseTimerRef.current[id]) return;
