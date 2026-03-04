@@ -1303,6 +1303,10 @@ body::-webkit-scrollbar-thumb,
   margin: 0 0 2px;
 }
 
+.settings-preview[data-line-spacing="relaxed"] .settings-preview-line {
+  margin: 0 0 6px;
+}
+
 .settings-preview-line:last-child {
   margin-bottom: 0;
 }

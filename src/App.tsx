@@ -23,6 +23,7 @@ const DEFAULT_TITLE_REGEX = /^タイトルなし$/;
 type SnapPosition = "left" | "right" | null;
 type SessionBehavior = "restore" | "new";
 type FileOpenBehavior = "existing" | "new_window";
+type LineSpacing = "standard" | "relaxed";
 
 type PersistedState = {
   tabs: Tab[];
@@ -33,6 +34,7 @@ type PersistedState = {
   sessionBehavior?: SessionBehavior;
   fileOpenBehavior?: FileOpenBehavior;
   editorFontSizePx?: number;
+  lineSpacing?: LineSpacing;
 };
 
 type RecentClosedFile = {
@@ -129,6 +131,7 @@ function App() {
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
   const [editorFontSizePx, setEditorFontSizePx] = useState(14);
   const [editorFontSizeInput, setEditorFontSizeInput] = useState("14");
+  const [lineSpacing, setLineSpacing] = useState<LineSpacing>("standard");
   const [sessionBehavior, setSessionBehavior] = useState<SessionBehavior>("restore");
   const [fileOpenBehavior, setFileOpenBehavior] = useState<FileOpenBehavior>("existing");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -214,6 +217,10 @@ function App() {
     if (Number.isNaN(parsed)) return editorFontSizePx;
     return Math.max(8, Math.min(72, parsed));
   }, [editorFontSizeInput, editorFontSizePx]);
+  const editorLineHeight = useMemo(
+    () => (lineSpacing === "relaxed" ? 1.35 : 1.15),
+    [lineSpacing],
+  );
 
   const updateCursorIndex = useCallback(() => {
     const editor = editorRef.current;
@@ -290,10 +297,11 @@ function App() {
         sessionBehavior,
         fileOpenBehavior,
         editorFontSizePx,
+        lineSpacing,
       };
       window.localStorage.setItem(storageKey, JSON.stringify(state));
     },
-    [activeTabId, alwaysOnTop, editorFontSizePx, fileOpenBehavior, sessionBehavior, snap, storageKey, useGlobalShortcuts],
+    [activeTabId, alwaysOnTop, editorFontSizePx, fileOpenBehavior, lineSpacing, sessionBehavior, snap, storageKey, useGlobalShortcuts],
   );
 
   const closeMenus = useCallback(() => {
@@ -867,9 +875,11 @@ function App() {
           const nextSessionBehavior = parsed.sessionBehavior ?? "restore";
           const nextFileOpenBehavior = parsed.fileOpenBehavior ?? "existing";
           const nextEditorFontSizePx = parsed.editorFontSizePx ?? 14;
+          const nextLineSpacing = parsed.lineSpacing ?? "standard";
           setSessionBehavior(nextSessionBehavior);
           setFileOpenBehavior(nextFileOpenBehavior);
           setEditorFontSizePx(nextEditorFontSizePx);
+          setLineSpacing(nextLineSpacing);
           const pathMap = getPathMap();
           const shouldRestoreTabs = nextSessionBehavior === "restore";
           const restoredTabs = ((shouldRestoreTabs && parsed.tabs.length)
@@ -907,6 +917,7 @@ function App() {
           setSessionBehavior("restore");
           setFileOpenBehavior("existing");
           setEditorFontSizePx(14);
+          setLineSpacing("standard");
           const nextAlwaysOnTop = forceAlwaysOnTopDefined
             ? forceAlwaysOnTop
             : current;
@@ -960,7 +971,7 @@ function App() {
   useEffect(() => {
     if (!settingsReadyRef.current) return;
     persistState(tabs, activeTabId);
-  }, [activeTabId, fileOpenBehavior, persistState, sessionBehavior, tabs]);
+  }, [activeTabId, fileOpenBehavior, lineSpacing, persistState, sessionBehavior, tabs]);
 
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -2376,7 +2387,15 @@ function App() {
                   </div>
                   <div className="settings-field-row">
                     <div><strong>行間</strong><small>行どうしの間隔を調整します</small></div>
-                    <select defaultValue="standard"><option value="standard">標準</option><option value="relaxed">広い</option></select>
+                    <select
+                      value={lineSpacing}
+                      onChange={(event) => {
+                        setLineSpacing(event.target.value as LineSpacing);
+                      }}
+                    >
+                      <option value="standard">標準</option>
+                      <option value="relaxed">広い</option>
+                    </select>
                   </div>
                   <div className="settings-field-row switch">
                     <div><strong>折り返し</strong><small>長い行を自動で折り返します</small></div>
@@ -2397,7 +2416,8 @@ function App() {
                   <div
                     className="settings-preview"
                     data-wrap={wrapAtRightEdge ? "on" : "off"}
-                    style={{ fontSize: `${previewFontSizePx}px` }}
+                    data-line-spacing={lineSpacing}
+                    style={{ fontSize: `${previewFontSizePx}px`, lineHeight: editorLineHeight }}
                   >
                     <p className="settings-preview-title">プレビュー:</p>
                     <p className="settings-preview-line">alwaysmemoの表示サンプルです。</p>
@@ -2516,7 +2536,7 @@ function App() {
               ref={editorRef}
               className="editor-body"
               data-wrap={wrapAtRightEdge ? "on" : "off"}
-              style={{ fontSize: `${editorFontSizePx}px` }}
+              style={{ fontSize: `${editorFontSizePx}px`, lineHeight: editorLineHeight }}
               contentEditable
               suppressContentEditableWarning
               data-placeholder="ここにメモを書く"
