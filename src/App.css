@@ -581,6 +581,15 @@ body::-webkit-scrollbar-thumb,
   position: relative;
 }
 
+.menu-submenu-wrap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -8px;
+  width: 8px;
+  height: 100%;
+}
+
 .menu-item.has-submenu {
   padding-right: 12px;
 }
