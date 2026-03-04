@@ -1474,6 +1474,152 @@ body::-webkit-scrollbar-thumb,
   color: rgba(255, 255, 255, 0.86);
 }
 
+.app.theme-dark {
+  background: #0a1223;
+  border-color: #15233f;
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.45);
+}
+
+.app.theme-dark .settings-screen {
+  background: #081126;
+}
+
+.app.theme-dark .settings-window-controls .window-button {
+  background: #081126;
+  color: #9fb3d8;
+}
+
+.app.theme-dark .settings-window-controls .window-button:hover {
+  background: #12203c;
+}
+
+.app.theme-dark .settings-window-controls .window-button:active {
+  background: #1a2c50;
+}
+
+.app.theme-dark .settings-sidebar {
+  background: #09172f;
+  border-right-color: #1a2b4c;
+}
+
+.app.theme-dark .settings-brand-name {
+  color: #e6eeff;
+}
+
+.app.theme-dark .settings-brand-back {
+  background: #09172f;
+  color: #c4d4f5;
+}
+
+.app.theme-dark .settings-brand-back:hover {
+  background: #12264a;
+  color: #4f8cff;
+}
+
+.app.theme-dark .settings-nav-item {
+  color: #c9d7f1;
+}
+
+.app.theme-dark .settings-nav-item:hover {
+  background: #112348;
+}
+
+.app.theme-dark .settings-nav-item.active {
+  background: #102850;
+  color: #4f8cff;
+}
+
+.app.theme-dark .settings-content {
+  color: transparent;
+}
+
+.app.theme-dark .settings-content::-webkit-scrollbar-thumb {
+  background-color: #2d4369;
+}
+
+.app.theme-dark .settings-sections {
+  color: #e5edff;
+}
+
+.app.theme-dark .settings-block h2 {
+  color: #f1f5ff;
+}
+
+.app.theme-dark .settings-desc {
+  color: #8ea4c8;
+}
+
+.app.theme-dark .theme-card {
+  border-color: #20345a;
+  background: #0e1d3a;
+  color: #d8e5ff;
+}
+
+.app.theme-dark .theme-card:hover {
+  border-color: #3e67ad;
+}
+
+.app.theme-dark .theme-card.active {
+  border-color: #2f5fe8;
+  box-shadow: inset 0 0 0 1px #2f5fe8;
+}
+
+.app.theme-dark .theme-icon {
+  color: #96add3;
+}
+
+.app.theme-dark .settings-card,
+.app.theme-dark .feature-row,
+.app.theme-dark .startup-card {
+  border-color: #1f3155;
+  background: #0c1a35;
+}
+
+.app.theme-dark .settings-field-row {
+  border-bottom-color: #1c2d50;
+}
+
+.app.theme-dark .settings-field-row strong,
+.app.theme-dark .feature-row strong,
+.app.theme-dark .startup-card strong {
+  color: #eef3ff;
+}
+
+.app.theme-dark .settings-field-row small,
+.app.theme-dark .feature-row small {
+  color: #91a5c8;
+}
+
+.app.theme-dark .settings-field-row select,
+.app.theme-dark .settings-number-input {
+  border-color: #29406e;
+  background: #172a4a;
+  color: #e7efff;
+}
+
+.app.theme-dark .settings-preview {
+  border-color: #273e69;
+  background: #111f3d;
+  color: #dce7ff;
+}
+
+.app.theme-dark .modern-switch span {
+  background: #334764;
+}
+
+.app.theme-dark .modern-switch input:checked + span {
+  background: #2f5fe8;
+}
+
+.app.theme-dark .startup-card label {
+  color: #c8d6f0;
+}
+
+.app.theme-dark .settings-about-card {
+  border: 1px solid #2b4ea5;
+  background: linear-gradient(160deg, #11307a 0%, #0f2a67 100%);
+}
+
 .status span.on {
   color: #0f8a34;
 }

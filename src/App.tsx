@@ -24,6 +24,7 @@ type SnapPosition = "left" | "right" | null;
 type SessionBehavior = "restore" | "new";
 type FileOpenBehavior = "existing" | "new_window";
 type LineSpacing = "standard" | "relaxed";
+type ThemeMode = "light" | "dark" | "system";
 
 type PersistedState = {
   tabs: Tab[];
@@ -35,6 +36,7 @@ type PersistedState = {
   fileOpenBehavior?: FileOpenBehavior;
   editorFontSizePx?: number;
   lineSpacing?: LineSpacing;
+  themeMode?: ThemeMode;
 };
 
 type RecentClosedFile = {
@@ -132,6 +134,10 @@ function App() {
   const [editorFontSizePx, setEditorFontSizePx] = useState(14);
   const [editorFontSizeInput, setEditorFontSizeInput] = useState("14");
   const [lineSpacing, setLineSpacing] = useState<LineSpacing>("standard");
+  const [themeMode, setThemeMode] = useState<ThemeMode>("system");
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() =>
+    window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
   const [sessionBehavior, setSessionBehavior] = useState<SessionBehavior>("restore");
   const [fileOpenBehavior, setFileOpenBehavior] = useState<FileOpenBehavior>("existing");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -156,6 +162,10 @@ function App() {
   const deletePromptTab =
     deletePromptTabId ? tabs.find((tab) => tab.id === deletePromptTabId) ?? null : null;
   const windowHandle = getCurrentWindow();
+  const effectiveTheme = useMemo(
+    () => (themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : themeMode),
+    [systemPrefersDark, themeMode],
+  );
 
   const jumpToSettingsSection = useCallback((key: "appearance" | "formatting" | "features" | "startup" | "about") => {
     setSettingsNav(key);
@@ -303,10 +313,11 @@ function App() {
         fileOpenBehavior,
         editorFontSizePx,
         lineSpacing,
+        themeMode,
       };
       window.localStorage.setItem(storageKey, JSON.stringify(state));
     },
-    [activeTabId, alwaysOnTop, editorFontSizePx, fileOpenBehavior, lineSpacing, sessionBehavior, snap, storageKey, useGlobalShortcuts],
+    [activeTabId, alwaysOnTop, editorFontSizePx, fileOpenBehavior, lineSpacing, sessionBehavior, snap, storageKey, themeMode, useGlobalShortcuts],
   );
 
   const closeMenus = useCallback(() => {
@@ -881,10 +892,12 @@ function App() {
           const nextFileOpenBehavior = parsed.fileOpenBehavior ?? "existing";
           const nextEditorFontSizePx = parsed.editorFontSizePx ?? 14;
           const nextLineSpacing = parsed.lineSpacing ?? "standard";
+          const nextThemeMode = parsed.themeMode ?? "system";
           setSessionBehavior(nextSessionBehavior);
           setFileOpenBehavior(nextFileOpenBehavior);
           setEditorFontSizePx(nextEditorFontSizePx);
           setLineSpacing(nextLineSpacing);
+          setThemeMode(nextThemeMode);
           const pathMap = getPathMap();
           const shouldRestoreTabs = nextSessionBehavior === "restore";
           const restoredTabs = ((shouldRestoreTabs && parsed.tabs.length)
@@ -923,6 +936,7 @@ function App() {
           setFileOpenBehavior("existing");
           setEditorFontSizePx(14);
           setLineSpacing("standard");
+          setThemeMode("system");
           const nextAlwaysOnTop = forceAlwaysOnTopDefined
             ? forceAlwaysOnTop
             : current;
@@ -974,9 +988,19 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = (event: MediaQueryListEvent) => {
+      setSystemPrefersDark(event.matches);
+    };
+    setSystemPrefersDark(media.matches);
+    media.addEventListener("change", handleChange);
+    return () => media.removeEventListener("change", handleChange);
+  }, []);
+
+  useEffect(() => {
     if (!settingsReadyRef.current) return;
     persistState(tabs, activeTabId);
-  }, [activeTabId, fileOpenBehavior, lineSpacing, persistState, sessionBehavior, tabs]);
+  }, [activeTabId, fileOpenBehavior, lineSpacing, persistState, sessionBehavior, tabs, themeMode]);
 
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -1849,7 +1873,7 @@ function App() {
   };
 
   return (
-    <div className="app">
+    <div className={`app theme-${effectiveTheme}`}>
       {!settingsOpen ? (
       <div className="titlebar">
         <div
@@ -2346,15 +2370,27 @@ function App() {
                 <h2>外観</h2>
                 <p className="settings-desc">メモ画面の見た目を調整します。</p>
                 <div className="theme-options">
-                  <button type="button" className="theme-card active">
+                  <button
+                    type="button"
+                    className={`theme-card ${themeMode === "light" ? "active" : ""}`}
+                    onClick={() => setThemeMode("light")}
+                  >
                     <span className="theme-icon">☀</span>
                     <span>ライト</span>
                   </button>
-                  <button type="button" className="theme-card">
+                  <button
+                    type="button"
+                    className={`theme-card ${themeMode === "dark" ? "active" : ""}`}
+                    onClick={() => setThemeMode("dark")}
+                  >
                     <span className="theme-icon">☾</span>
                     <span>ダーク</span>
                   </button>
-                  <button type="button" className="theme-card">
+                  <button
+                    type="button"
+                    className={`theme-card ${themeMode === "system" ? "active" : ""}`}
+                    onClick={() => setThemeMode("system")}
+                  >
                     <span className="theme-icon">◧</span>
                     <span>システム</span>
                   </button>
