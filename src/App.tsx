@@ -2208,7 +2208,14 @@ function App() {
                   </div>
                   <div className="settings-field-row switch">
                     <div><strong>折り返し</strong><small>長い行を自動で折り返します</small></div>
-                    <label className="modern-switch"><input type="checkbox" checked={wrapAtRightEdge} readOnly /><span /></label>
+                    <label className="modern-switch">
+                      <input
+                        type="checkbox"
+                        checked={wrapAtRightEdge}
+                        onChange={(event) => setWrapAtRightEdge(event.target.checked)}
+                      />
+                      <span />
+                    </label>
                   </div>
                 </div>
               </section>
@@ -2218,11 +2225,27 @@ function App() {
                 <p className="settings-desc">作業効率を高める機能を設定します。</p>
                 <div className="feature-row">
                   <div><strong>常に手前に表示</strong><small>他のアプリより前面に表示します</small></div>
-                  <label className="modern-switch"><input type="checkbox" checked={alwaysOnTop} readOnly /><span /></label>
+                  <label className="modern-switch">
+                    <input
+                      type="checkbox"
+                      checked={alwaysOnTop}
+                      onChange={(event) => {
+                        void setAlwaysOnTop(event.target.checked);
+                      }}
+                    />
+                    <span />
+                  </label>
                 </div>
                 <div className="feature-row">
                   <div><strong>グローバルショートカット</strong><small>OS 全体から操作を呼び出せます</small></div>
-                  <label className="modern-switch"><input type="checkbox" checked={useGlobalShortcuts} readOnly /><span /></label>
+                  <label className="modern-switch">
+                    <input
+                      type="checkbox"
+                      checked={useGlobalShortcuts}
+                      onChange={(event) => setUseGlobalShortcuts(event.target.checked)}
+                    />
+                    <span />
+                  </label>
                 </div>
               </section>
 
