@@ -1612,6 +1612,11 @@ function App() {
             void saveActiveTab();
             return;
           }
+          case "KeyO": {
+            event.preventDefault();
+            void openFilePicker();
+            return;
+          }
           case "KeyW": {
             event.preventDefault();
             if (event.shiftKey) {
@@ -1666,6 +1671,7 @@ function App() {
     cycleActiveTab,
     closeActiveTab,
     closeWindow,
+    openFilePicker,
     openNewWindow,
     resizeToFitContent,
     resizeToMinimum,
