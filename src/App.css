@@ -1654,12 +1654,17 @@ body::-webkit-scrollbar-thumb,
   font-family: inherit;
   resize: none;
   background: transparent;
+  color: #0f172a;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
   outline: none;
+}
+
+.app.theme-dark .editor-body {
+  color: #f8fafc;
 }
 
 .editor-body > *:first-child {
