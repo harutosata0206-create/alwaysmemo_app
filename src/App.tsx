@@ -261,10 +261,20 @@ function App() {
       .replace(/\r\n/g, "\n");
     const normalized = beforeText.replace(/\r\n/g, "\n");
     const lines = normalized.split("\n");
-    const lastBreakIndex = normalized.lastIndexOf("\n");
+    const currentLine = Math.max(lines.length, 1);
+    const editorText = (editor.innerText ?? "").replace(/\u00a0/g, " ").replace(/\r\n/g, "\n");
+    const editorLines = editorText.split("\n");
+    const charsBeforeCurrentLine = editorLines
+      .slice(0, Math.max(0, currentLine - 1))
+      .reduce((total, lineText) => total + lineText.length, 0);
+    const caretCharsNoBreak = preRange
+      .toString()
+      .replace(/\u00a0/g, " ")
+      .replace(/\r\n/g, "\n")
+      .replace(/\n/g, "").length;
     setCursorPosition({
-      line: Math.max(lines.length, 1),
-      column: normalized.length - lastBreakIndex,
+      line: currentLine,
+      column: Math.max(1, caretCharsNoBreak - charsBeforeCurrentLine + 1),
     });
   }, []);
 
