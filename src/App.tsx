@@ -649,43 +649,29 @@ function App() {
     [],
   );
 
-  const withSettingsScrollLock = useCallback((runner: () => void | Promise<void>) => {
+  const keepSettingsViewport = useCallback(
+    (anchor: HTMLElement | null, runner: () => void | Promise<void>) => {
     const container = settingsContentRef.current;
-    const lockedTop = container?.scrollTop ?? 0;
-    const restore = () => {
-      const current = settingsContentRef.current;
-      if (!current) return;
-      const maxTop = Math.max(0, current.scrollHeight - current.clientHeight);
-      current.scrollTop = Math.max(0, Math.min(lockedTop, maxTop));
-    };
+    if (!container) {
+      void runner();
+      return;
+    }
+    const beforeTop = anchor?.getBoundingClientRect().top ?? null;
     void Promise.resolve(runner()).finally(() => {
       window.requestAnimationFrame(() => {
-        restore();
-        // Run once more after layout settles (prevents residual blank area).
-        window.requestAnimationFrame(restore);
+        const current = settingsContentRef.current;
+        if (!current) return;
+        if (anchor && beforeTop !== null) {
+          const afterTop = anchor.getBoundingClientRect().top;
+          current.scrollTop += afterTop - beforeTop;
+        }
+        const maxTop = Math.max(0, current.scrollHeight - current.clientHeight);
+        current.scrollTop = Math.max(0, Math.min(current.scrollTop, maxTop));
       });
     });
-  }, []);
-
-  const handleAlwaysOnTopChange = useCallback((checked: boolean) => {
-    withSettingsScrollLock(async () => {
-      await setAlwaysOnTop(checked);
-    });
-  }, [setAlwaysOnTop, withSettingsScrollLock]);
-
-  useEffect(() => {
-    if (!settingsOpen) return;
-    const clamp = () => {
-      const current = settingsContentRef.current;
-      if (!current) return;
-      const maxTop = Math.max(0, current.scrollHeight - current.clientHeight);
-      if (current.scrollTop > maxTop) {
-        current.scrollTop = maxTop;
-      }
-    };
-    window.addEventListener("resize", clamp);
-    return () => window.removeEventListener("resize", clamp);
-  }, [settingsOpen]);
+    },
+    [],
+  );
 
   const toggleAlwaysOnTop = useCallback(async () => {
     const now = performance.now();
@@ -2251,7 +2237,8 @@ function App() {
                         type="checkbox"
                         checked={wrapAtRightEdge}
                         onChange={(event) => {
-                          withSettingsScrollLock(() => {
+                          const anchor = event.currentTarget.closest(".settings-field-row") as HTMLElement | null;
+                          keepSettingsViewport(anchor, () => {
                             setWrapAtRightEdge(event.target.checked);
                           });
                         }}
@@ -2271,7 +2258,12 @@ function App() {
                     <input
                       type="checkbox"
                       checked={alwaysOnTop}
-                      onChange={(event) => handleAlwaysOnTopChange(event.target.checked)}
+                      onChange={(event) => {
+                        const anchor = event.currentTarget.closest(".feature-row") as HTMLElement | null;
+                        keepSettingsViewport(anchor, async () => {
+                          await setAlwaysOnTop(event.target.checked);
+                        });
+                      }}
                     />
                     <span />
                   </label>
@@ -2283,7 +2275,8 @@ function App() {
                       type="checkbox"
                       checked={useGlobalShortcuts}
                       onChange={(event) => {
-                        withSettingsScrollLock(() => {
+                        const anchor = event.currentTarget.closest(".feature-row") as HTMLElement | null;
+                        keepSettingsViewport(anchor, () => {
                           setUseGlobalShortcuts(event.target.checked);
                         });
                       }}
