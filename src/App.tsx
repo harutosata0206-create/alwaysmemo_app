@@ -209,6 +209,11 @@ function App() {
     return "LF";
   }, [activePlainText]);
   const zoomPercentLabel = useMemo(() => `${Math.round(zoomLevel * 100)}%`, [zoomLevel]);
+  const previewFontSizePx = useMemo(() => {
+    const parsed = Number.parseInt(editorFontSizeInput, 10);
+    if (Number.isNaN(parsed)) return editorFontSizePx;
+    return Math.max(8, Math.min(72, parsed));
+  }, [editorFontSizeInput, editorFontSizePx]);
 
   const updateCursorIndex = useCallback(() => {
     const editor = editorRef.current;
@@ -2392,7 +2397,7 @@ function App() {
                   <div
                     className="settings-preview"
                     data-wrap={wrapAtRightEdge ? "on" : "off"}
-                    style={{ fontSize: `${editorFontSizePx}px` }}
+                    style={{ fontSize: `${previewFontSizePx}px` }}
                   >
                     <p>プレビュー: AlwaysMemo の表示サンプルです。</p>
                     <p>この文章は折り返し設定の確認用に、少し長めのテキストを表示しています。</p>

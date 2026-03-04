@@ -1292,7 +1292,7 @@ body::-webkit-scrollbar-thumb,
   background: #f4f7fc;
   padding: 10px 12px;
   color: #1f2937;
-  line-height: 1.45;
+  line-height: 1.15;
 }
 
 .settings-preview p {
