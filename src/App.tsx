@@ -998,6 +998,15 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const root = document.documentElement;
+    const dark = effectiveTheme === "dark";
+    root.classList.toggle("global-dark", dark);
+    return () => {
+      root.classList.remove("global-dark");
+    };
+  }, [effectiveTheme]);
+
+  useEffect(() => {
     if (!settingsReadyRef.current) return;
     persistState(tabs, activeTabId);
   }, [activeTabId, fileOpenBehavior, lineSpacing, persistState, sessionBehavior, tabs, themeMode]);

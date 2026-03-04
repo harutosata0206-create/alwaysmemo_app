@@ -1520,8 +1520,12 @@ body::-webkit-scrollbar-thumb,
 }
 
 .app.theme-dark .tab .tab-title,
-.app.theme-dark .tab:not(.active) .tab-title {
+.app.theme-dark .tab.active .tab-title {
   color: #f8fafc;
+}
+
+.app.theme-dark .tab:not(.active) .tab-title {
+  color: #9fb3d8;
 }
 
 .app.theme-dark .tab-close,
@@ -1803,6 +1807,12 @@ body::-webkit-scrollbar-thumb,
 
 .app.theme-dark .menu-divider {
   background: #1e3563;
+}
+
+html.global-dark,
+html.global-dark body,
+html.global-dark #root {
+  background: #030b20;
 }
 
 .editor-body > *:first-child {
