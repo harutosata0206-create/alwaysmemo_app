@@ -1203,6 +1203,10 @@ function App() {
   }, [pushRecentClosedFile]);
 
   const closeTabWithAnimation = useCallback((id: string) => {
+    if (tabs.length === 1 && tabs[0]?.id === id) {
+      void closeWindow();
+      return;
+    }
     if (tabCloseTimerRef.current[id]) return;
     setClosingTabIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
     tabCloseTimerRef.current[id] = window.setTimeout(() => {
@@ -1210,7 +1214,7 @@ function App() {
       setClosingTabIds((prev) => prev.filter((tabId) => tabId !== id));
       performRemoveTab(id);
     }, TAB_CLOSE_ANIMATION_MS);
-  }, [performRemoveTab]);
+  }, [closeWindow, performRemoveTab, tabs]);
 
   const requestRemoveTab = useCallback((id: string) => {
     if (closingTabIds.includes(id)) return;
