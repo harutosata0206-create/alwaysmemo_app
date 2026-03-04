@@ -1484,6 +1484,42 @@ body::-webkit-scrollbar-thumb,
   background: #081126;
 }
 
+.app.theme-dark .titlebar {
+  border-bottom-color: #1a2b4c;
+  background: #071026;
+}
+
+.app.theme-dark .titlebar-row.top {
+  background: #071026;
+}
+
+.app.theme-dark .tab {
+  background: #050c1e;
+  color: #f8fafc;
+  border-color: #0f1d3d;
+}
+
+.app.theme-dark .tab.active {
+  background: #0a1223;
+  color: #f8fafc;
+  border-color: #1a2b4c;
+  border-bottom-color: transparent;
+}
+
+.app.theme-dark .tab:not(.active):hover {
+  background: #0a1430;
+}
+
+.app.theme-dark .tab .tab-title,
+.app.theme-dark .tab:not(.active) .tab-title {
+  color: #f8fafc;
+}
+
+.app.theme-dark .tab-close,
+.app.theme-dark .tab-close.dirty {
+  color: #dbe7ff;
+}
+
 .app.theme-dark .settings-window-controls .window-button {
   background: #081126;
   color: #9fb3d8;
