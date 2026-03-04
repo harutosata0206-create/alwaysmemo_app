@@ -1774,7 +1774,7 @@ function App() {
     };
     topBar.addEventListener("wheel", listener, { passive: false });
     return () => topBar.removeEventListener("wheel", listener);
-  }, [handleTopTabsWheel]);
+  }, [handleTopTabsWheel, settingsOpen]);
 
   useEffect(() => {
     return () => {
