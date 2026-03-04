@@ -261,9 +261,14 @@ function App() {
       .replace(/\r\n/g, "\n");
     const normalized = beforeText.replace(/\r\n/g, "\n");
     const lines = normalized.split("\n");
+    const columnSource = preRange
+      .toString()
+      .replace(/\u00a0/g, " ")
+      .replace(/\r\n/g, "\n");
+    const columnLines = columnSource.split("\n");
     setCursorPosition({
       line: Math.max(lines.length, 1),
-      column: (lines[lines.length - 1]?.length ?? 0) + 1,
+      column: (columnLines[columnLines.length - 1]?.length ?? 0) + 1,
     });
   }, []);
 
@@ -2291,9 +2296,6 @@ function App() {
             </div>
           ) : null}
               <div className="right-group">
-                <button type="button" className="icon-button account" aria-label="Account">
-                  ●
-                </button>
                 <button
                   type="button"
                   className="icon-button"
