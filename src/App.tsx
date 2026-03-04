@@ -1204,7 +1204,7 @@ function App() {
 
   const closeTabWithAnimation = useCallback((id: string) => {
     if (tabs.length === 1 && tabs[0]?.id === id) {
-      void closeWindow();
+      void windowHandle.close();
       return;
     }
     if (tabCloseTimerRef.current[id]) return;
@@ -1214,7 +1214,7 @@ function App() {
       setClosingTabIds((prev) => prev.filter((tabId) => tabId !== id));
       performRemoveTab(id);
     }, TAB_CLOSE_ANIMATION_MS);
-  }, [closeWindow, performRemoveTab, tabs]);
+  }, [performRemoveTab, tabs, windowHandle]);
 
   const requestRemoveTab = useCallback((id: string) => {
     if (closingTabIds.includes(id)) return;
