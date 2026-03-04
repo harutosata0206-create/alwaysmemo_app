@@ -122,13 +122,7 @@ function App() {
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [expandedSettingSections, setExpandedSettingSections] = useState<Record<string, boolean>>({
-    appearance: true,
-    text: true,
-    features: true,
-    startup: true,
-    about: true,
-  });
+  const [settingsNav, setSettingsNav] = useState<"appearance" | "formatting" | "features" | "startup" | "about">("appearance");
   const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
   const [closingTabIds, setClosingTabIds] = useState<string[]>([]);
   const tabCloseTimerRef = useRef<Record<string, number>>({});
@@ -149,8 +143,10 @@ function App() {
     deletePromptTabId ? tabs.find((tab) => tab.id === deletePromptTabId) ?? null : null;
   const windowHandle = getCurrentWindow();
 
-  const toggleSettingSection = useCallback((key: string) => {
-    setExpandedSettingSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  const jumpToSettingsSection = useCallback((key: "appearance" | "formatting" | "features" | "startup" | "about") => {
+    setSettingsNav(key);
+    const target = document.getElementById(`settings-${key}`);
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
   useEffect(() => {
@@ -2107,105 +2103,105 @@ function App() {
 
       {settingsOpen ? (
         <section className="settings-screen">
-          <div className="settings-screen-inner">
-            <h1 className="settings-title">設定</h1>
+          <div className="settings-layout">
+            <aside className="settings-sidebar">
+              <div className="settings-brand">
+                <div className="settings-brand-icon">🗒</div>
+                <div className="settings-brand-name">AlwaysMemo</div>
+              </div>
+              <div className="settings-nav">
+                <button type="button" className={`settings-nav-item ${settingsNav === "appearance" ? "active" : ""}`} onClick={() => jumpToSettingsSection("appearance")}>Appearance</button>
+                <button type="button" className={`settings-nav-item ${settingsNav === "formatting" ? "active" : ""}`} onClick={() => jumpToSettingsSection("formatting")}>Formatting</button>
+                <button type="button" className={`settings-nav-item ${settingsNav === "features" ? "active" : ""}`} onClick={() => jumpToSettingsSection("features")}>Features</button>
+                <button type="button" className={`settings-nav-item ${settingsNav === "startup" ? "active" : ""}`} onClick={() => jumpToSettingsSection("startup")}>Startup</button>
+                <button type="button" className={`settings-nav-item ${settingsNav === "about" ? "active" : ""}`} onClick={() => jumpToSettingsSection("about")}>About</button>
+              </div>
+              <button type="button" className="settings-back-editor" onClick={() => setSettingsOpen(false)}>← Back to Editor</button>
+            </aside>
 
-            <div className="settings-section">
-              <button type="button" className="settings-accordion" onClick={() => toggleSettingSection("appearance")}>
-                <span>外観</span>
-                <span>{expandedSettingSections.appearance ? "⌃" : "⌄"}</span>
-              </button>
-              {expandedSettingSections.appearance ? (
-                <div className="settings-panel">
-                  <label className="settings-radio"><input type="radio" name="theme" defaultChecked /> ライト</label>
-                  <label className="settings-radio"><input type="radio" name="theme" /> ダーク</label>
-                  <label className="settings-radio"><input type="radio" name="theme" /> システム設定を使用する</label>
+            <div className="settings-content">
+              <section id="settings-appearance" className="settings-block">
+                <h2>Appearance</h2>
+                <p className="settings-desc">Customize the look and feel of your memo space.</p>
+                <div className="theme-options">
+                  <button type="button" className="theme-card active">
+                    <span className="theme-icon">☀</span>
+                    <span>Light</span>
+                  </button>
+                  <button type="button" className="theme-card">
+                    <span className="theme-icon">☾</span>
+                    <span>Dark</span>
+                  </button>
+                  <button type="button" className="theme-card">
+                    <span className="theme-icon">◧</span>
+                    <span>System</span>
+                  </button>
                 </div>
-              ) : null}
-            </div>
+              </section>
 
-            <div className="settings-section">
-              <button type="button" className="settings-accordion" onClick={() => toggleSettingSection("text")}>
-                <span>テキストの書式設定</span>
-                <span>{expandedSettingSections.text ? "⌃" : "⌄"}</span>
-              </button>
-              {expandedSettingSections.text ? (
-                <div className="settings-panel">
-                  <div className="settings-row-item">
-                    <span>フォント</span>
-                    <select defaultValue="default">
-                      <option value="default">既定</option>
-                      <option value="serif">Serif</option>
-                      <option value="mono">Monospace</option>
-                    </select>
+              <section id="settings-formatting" className="settings-block">
+                <h2>Formatting</h2>
+                <p className="settings-desc">Manage how your text is displayed and structured.</p>
+                <div className="settings-card">
+                  <div className="settings-field-row">
+                    <div><strong>Font Family</strong><small>Choose your preferred typeface</small></div>
+                    <select defaultValue="default"><option value="default">Inter (Default)</option><option value="serif">Serif</option><option value="mono">Monospace</option></select>
                   </div>
-                  <div className="settings-row-item">
-                    <span>文字列の折り返し</span>
-                    <label className="settings-switch"><input type="checkbox" checked={wrapAtRightEdge} readOnly /><span>オン</span></label>
+                  <div className="settings-field-row">
+                    <div><strong>Font Size</strong><small>Scale text for readability</small></div>
+                    <select defaultValue="medium"><option value="small">Small (12px)</option><option value="medium">Medium (14px)</option><option value="large">Large (16px)</option></select>
                   </div>
-                  <div className="settings-row-item">
-                    <span>書式設定</span>
-                    <label className="settings-switch"><input type="checkbox" defaultChecked /><span>オン</span></label>
+                  <div className="settings-field-row">
+                    <div><strong>Line Height</strong><small>Vertical spacing between lines</small></div>
+                    <select defaultValue="standard"><option value="compact">Compact</option><option value="standard">Standard</option><option value="relaxed">Relaxed</option></select>
                   </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="settings-section">
-              <button type="button" className="settings-accordion" onClick={() => toggleSettingSection("features")}>
-                <span>機能</span>
-                <span>{expandedSettingSections.features ? "⌃" : "⌄"}</span>
-              </button>
-              {expandedSettingSections.features ? (
-                <div className="settings-panel">
-                  <div className="settings-row-item">
-                    <span>Always on Top</span>
-                    <label className="settings-switch"><input type="checkbox" checked={alwaysOnTop} readOnly /><span>{alwaysOnTop ? "オン" : "オフ"}</span></label>
-                  </div>
-                  <div className="settings-row-item">
-                    <span>Global Shortcuts</span>
-                    <label className="settings-switch"><input type="checkbox" checked={useGlobalShortcuts} readOnly /><span>{useGlobalShortcuts ? "オン" : "オフ"}</span></label>
+                  <div className="settings-field-row switch">
+                    <div><strong>Text Wrap</strong><small>Automatically wrap long lines of text</small></div>
+                    <label className="modern-switch"><input type="checkbox" checked={wrapAtRightEdge} readOnly /><span /></label>
                   </div>
                 </div>
-              ) : null}
-            </div>
+              </section>
 
-            <div className="settings-section">
-              <button type="button" className="settings-accordion" onClick={() => toggleSettingSection("startup")}>
-                <span>起動時の設定</span>
-                <span>{expandedSettingSections.startup ? "⌃" : "⌄"}</span>
-              </button>
-              {expandedSettingSections.startup ? (
-                <div className="settings-panel">
-                  <div className="settings-row-item">
-                    <span>セッション</span>
-                    <select defaultValue="restore">
-                      <option value="restore">前回の状態を復元</option>
-                      <option value="new">常に新規セッション</option>
-                    </select>
+              <section id="settings-features" className="settings-block">
+                <h2>Features</h2>
+                <p className="settings-desc">Enhance your productivity with specialized tools.</p>
+                <div className="feature-row">
+                  <div><strong>Always on Top</strong><small>Keep the window visible over other apps</small></div>
+                  <label className="modern-switch"><input type="checkbox" checked={alwaysOnTop} readOnly /><span /></label>
+                </div>
+                <div className="feature-row">
+                  <div><strong>Global Shortcuts</strong><small>Trigger actions from anywhere in the OS</small></div>
+                  <label className="modern-switch"><input type="checkbox" checked={useGlobalShortcuts} readOnly /><span /></label>
+                </div>
+              </section>
+
+              <section id="settings-startup" className="settings-block">
+                <h2>Startup</h2>
+                <p className="settings-desc">Define how AlwaysMemo behaves when launched.</p>
+                <div className="startup-grid">
+                  <div className="startup-card">
+                    <strong>Session Handling</strong>
+                    <label><input type="radio" name="session" defaultChecked /> Restore previous session</label>
+                    <label><input type="radio" name="session" /> Always start new session</label>
                   </div>
-                  <div className="settings-row-item">
-                    <span>ファイルを開く方法</span>
-                    <select defaultValue="window">
-                      <option value="window">新しいウィンドウで開く</option>
-                      <option value="tab">既存ウィンドウに追加</option>
-                    </select>
+                  <div className="startup-card">
+                    <strong>File Opening</strong>
+                    <label><input type="radio" name="open" defaultChecked /> Open in new window</label>
+                    <label><input type="radio" name="open" /> Add to existing window</label>
                   </div>
                 </div>
-              ) : null}
-            </div>
+              </section>
 
-            <div className="settings-section">
-              <button type="button" className="settings-accordion" onClick={() => toggleSettingSection("about")}>
-                <span>AlwaysMemo について</span>
-                <span>{expandedSettingSections.about ? "⌃" : "⌄"}</span>
-              </button>
-              {expandedSettingSections.about ? (
-                <div className="settings-panel">
-                  <p>AlwaysMemo v0.1</p>
-                  <p>作業を中断しないための常駐メモツール</p>
+              <section id="settings-about" className="settings-about-card">
+                <div className="about-logo">🗒</div>
+                <h3>AlwaysMemo</h3>
+                <p>Simplifying your digital memory, one note at a time.</p>
+                <div className="about-meta">
+                  <span>Version 0.1</span>
+                  <span>Build dev</span>
+                  <span>MIT License</span>
                 </div>
-              ) : null}
+              </section>
             </div>
           </div>
         </section>
