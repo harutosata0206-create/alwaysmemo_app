@@ -652,11 +652,17 @@ function App() {
   const withSettingsScrollLock = useCallback((runner: () => void | Promise<void>) => {
     const container = settingsContentRef.current;
     const lockedTop = container?.scrollTop ?? 0;
+    const restore = () => {
+      const current = settingsContentRef.current;
+      if (!current) return;
+      const maxTop = Math.max(0, current.scrollHeight - current.clientHeight);
+      current.scrollTop = Math.max(0, Math.min(lockedTop, maxTop));
+    };
     void Promise.resolve(runner()).finally(() => {
       window.requestAnimationFrame(() => {
-        const current = settingsContentRef.current;
-        if (!current) return;
-        current.scrollTop = lockedTop;
+        restore();
+        // Run once more after layout settles (prevents residual blank area).
+        window.requestAnimationFrame(restore);
       });
     });
   }, []);
@@ -666,6 +672,20 @@ function App() {
       await setAlwaysOnTop(checked);
     });
   }, [setAlwaysOnTop, withSettingsScrollLock]);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const clamp = () => {
+      const current = settingsContentRef.current;
+      if (!current) return;
+      const maxTop = Math.max(0, current.scrollHeight - current.clientHeight);
+      if (current.scrollTop > maxTop) {
+        current.scrollTop = maxTop;
+      }
+    };
+    window.addEventListener("resize", clamp);
+    return () => window.removeEventListener("resize", clamp);
+  }, [settingsOpen]);
 
   const toggleAlwaysOnTop = useCallback(async () => {
     const now = performance.now();
