@@ -2105,6 +2105,39 @@ function App() {
 
       {settingsOpen ? (
         <section className="settings-screen">
+          <div className="settings-window-controls">
+            <button
+              type="button"
+              className="window-button"
+              onClick={minimizeWindow}
+              aria-label="Minimize"
+            >
+              <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
+                <line x1="2" y1="7" x2="8" y2="7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="window-button"
+              onClick={toggleMaximizeWindow}
+              aria-label="Maximize"
+            >
+              <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
+                <rect x="2" y="2" width="6" height="6" fill="none" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="window-button close"
+              onClick={closeWindow}
+              aria-label="Close"
+            >
+              <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
+                <line x1="2.2" y1="2.2" x2="7.8" y2="7.8" />
+                <line x1="7.8" y1="2.2" x2="2.2" y2="7.8" />
+              </svg>
+            </button>
+          </div>
           <div className="settings-layout">
             <aside className="settings-sidebar">
               <div className="settings-brand">

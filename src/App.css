@@ -968,6 +968,51 @@ body::-webkit-scrollbar-thumb,
   overflow-y: auto;
   padding: 0;
   background: #f3f4f8;
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: #c8d2e3 transparent;
+}
+
+.settings-screen::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings-screen::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-screen::-webkit-scrollbar-thumb {
+  background-color: #c8d2e3;
+  border-radius: 999px;
+}
+
+.settings-window-controls {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.settings-window-controls .window-button {
+  width: 40px;
+  height: 28px;
+  border-radius: 0;
+  background: #e2e2e2;
+  color: #3a3a3a;
+}
+
+.settings-window-controls .window-button.close {
+  border-top-right-radius: 8px;
+}
+
+.settings-window-controls .window-button.close:hover {
+  background: #e11d48;
+  color: #ffffff;
 }
 
 .settings-layout {
@@ -1050,7 +1095,7 @@ body::-webkit-scrollbar-thumb,
 .settings-content {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 16px 44px 40px;
+  padding: 56px 44px 40px;
   font-size: 0;
   color: transparent;
 }
