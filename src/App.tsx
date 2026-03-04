@@ -128,6 +128,7 @@ function App() {
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
   const [editorFontSizePx, setEditorFontSizePx] = useState(14);
+  const [editorFontSizeInput, setEditorFontSizeInput] = useState("14");
   const [sessionBehavior, setSessionBehavior] = useState<SessionBehavior>("restore");
   const [fileOpenBehavior, setFileOpenBehavior] = useState<FileOpenBehavior>("existing");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -167,6 +168,24 @@ function App() {
     const top = Math.max(0, Math.min(rawTop, maxTop));
     container.scrollTo({ top, behavior: "smooth" });
   }, []);
+
+  const commitEditorFontSize = useCallback(
+    (raw: string) => {
+      const parsed = Number.parseInt(raw, 10);
+      if (Number.isNaN(parsed)) {
+        setEditorFontSizeInput(String(editorFontSizePx));
+        return;
+      }
+      const clamped = Math.max(8, Math.min(72, parsed));
+      setEditorFontSizePx(clamped);
+      setEditorFontSizeInput(String(clamped));
+    },
+    [editorFontSizePx],
+  );
+
+  useEffect(() => {
+    setEditorFontSizeInput(String(editorFontSizePx));
+  }, [editorFontSizePx]);
 
   useEffect(() => {
     activeTabIdRef.current = activeTabId;
@@ -2327,15 +2346,23 @@ function App() {
                     <label className="settings-number-wrap">
                       <input
                         className="settings-number-input"
-                        type="number"
-                        min={8}
-                        max={72}
-                        step={1}
-                        value={editorFontSizePx}
+                        type="text"
+                        inputMode="numeric"
+                        value={editorFontSizeInput}
                         onChange={(event) => {
-                          const next = Number.parseInt(event.target.value, 10);
-                          if (Number.isNaN(next)) return;
-                          setEditorFontSizePx(Math.max(8, Math.min(72, next)));
+                          const digitsOnly = event.target.value.replace(/\D/g, "");
+                          setEditorFontSizeInput(digitsOnly);
+                        }}
+                        onBlur={() => commitEditorFontSize(editorFontSizeInput)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            commitEditorFontSize(editorFontSizeInput);
+                            event.currentTarget.blur();
+                          }
+                          if (event.key === "Escape") {
+                            setEditorFontSizeInput(String(editorFontSizePx));
+                            event.currentTarget.blur();
+                          }
                         }}
                       />
                       <span>px</span>
@@ -2360,6 +2387,14 @@ function App() {
                       />
                       <span />
                     </label>
+                  </div>
+                  <div
+                    className="settings-preview"
+                    data-wrap={wrapAtRightEdge ? "on" : "off"}
+                    style={{ fontSize: `${editorFontSizePx}px` }}
+                  >
+                    <p>プレビュー: AlwaysMemo の表示サンプルです。</p>
+                    <p>この文章は折り返し設定の確認用に、少し長めのテキストを表示しています。</p>
                   </div>
                 </div>
               </section>

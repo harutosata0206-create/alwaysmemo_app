@@ -1285,6 +1285,34 @@ body::-webkit-scrollbar-thumb,
   font-size: 13px;
 }
 
+.settings-preview {
+  margin-top: 8px;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: #f4f7fc;
+  padding: 10px 12px;
+  color: #1f2937;
+  line-height: 1.45;
+}
+
+.settings-preview p {
+  margin: 0 0 6px;
+}
+
+.settings-preview p:last-child {
+  margin-bottom: 0;
+}
+
+.settings-preview[data-wrap="on"] {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.settings-preview[data-wrap="off"] {
+  white-space: pre;
+  overflow-x: auto;
+}
+
 .modern-switch {
   display: inline-flex;
   align-items: center;
