@@ -250,10 +250,7 @@ function App() {
       .replace(/\u00a0/g, " ")
       .replace(/\r\n/g, "\n");
     const normalized = beforeText.replace(/\r\n/g, "\n");
-    const cursorText = normalized.endsWith("\n")
-      ? normalized.slice(0, -1)
-      : normalized;
-    const lines = cursorText.split("\n");
+    const lines = normalized.split("\n");
     setCursorPosition({
       line: Math.max(lines.length, 1),
       column: (lines[lines.length - 1]?.length ?? 0) + 1,
