@@ -2148,7 +2148,7 @@ function App() {
                   aria-label="エディタへ戻る"
                 >
                   <svg className="settings-back-icon" viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M10.5 3.5L6 8l4.5 4.5" />
+                    <path d="M12.5 8H4.5M7 5.5L4.5 8L7 10.5" />
                   </svg>
                 </button>
                 <div className="settings-brand-name">AlwaysMemo</div>
