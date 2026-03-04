@@ -1529,6 +1529,10 @@ body::-webkit-scrollbar-thumb,
   color: #dbe7ff;
 }
 
+.app.theme-dark .icon-button {
+  color: #f8fafc;
+}
+
 .app.theme-dark .add-tab,
 .app.theme-dark .tab-scroll-button {
   color: #dbe7ff;
@@ -1537,6 +1541,32 @@ body::-webkit-scrollbar-thumb,
 .app.theme-dark .add-tab:hover,
 .app.theme-dark .tab-scroll-button:hover {
   background: #0c1a3c;
+}
+
+.app.theme-dark .window-controls {
+  background: #030b20;
+}
+
+.app.theme-dark .window-button {
+  background: #030b20;
+  color: #f8fafc;
+}
+
+.app.theme-dark .window-button:hover {
+  background: #08112b;
+}
+
+.app.theme-dark .window-button:active {
+  background: #0c1a3c;
+}
+
+.app.theme-dark .window-button.close:hover {
+  background: #e11d48;
+  color: #ffffff;
+}
+
+.app.theme-dark .window-button.close:active {
+  background: #be123c;
 }
 
 .app.theme-dark .settings-window-controls .window-button {
@@ -1761,6 +1791,10 @@ body::-webkit-scrollbar-thumb,
 
 .app.theme-dark .menu-item:hover {
   background: #10234b;
+}
+
+.app.theme-dark .menu-check.on {
+  color: #dce7ff;
 }
 
 .app.theme-dark .menu-shortcut {
