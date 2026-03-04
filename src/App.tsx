@@ -2346,12 +2346,13 @@ function App() {
                     <label className="settings-number-wrap">
                       <input
                         className="settings-number-input"
-                        type="text"
-                        inputMode="numeric"
+                        type="number"
+                        min={8}
+                        max={72}
+                        step={1}
                         value={editorFontSizeInput}
                         onChange={(event) => {
-                          const digitsOnly = event.target.value.replace(/\D/g, "");
-                          setEditorFontSizeInput(digitsOnly);
+                          setEditorFontSizeInput(event.target.value);
                         }}
                         onBlur={() => commitEditorFontSize(editorFontSizeInput)}
                         onKeyDown={(event) => {
