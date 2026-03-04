@@ -2105,6 +2105,7 @@ function App() {
 
       {settingsOpen ? (
         <section className="settings-screen">
+          <div className="settings-drag-region" data-tauri-drag-region />
           <div className="settings-window-controls">
             <button
               type="button"
