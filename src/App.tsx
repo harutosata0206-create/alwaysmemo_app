@@ -21,6 +21,8 @@ type Tab = {
 const DEFAULT_TITLE_REGEX = /^タイトルなし$/;
 
 type SnapPosition = "left" | "right" | null;
+type SessionBehavior = "restore" | "new";
+type FileOpenBehavior = "existing" | "new_window";
 
 type PersistedState = {
   tabs: Tab[];
@@ -28,6 +30,8 @@ type PersistedState = {
   alwaysOnTop: boolean;
   snap: SnapPosition;
   useGlobalShortcuts: boolean;
+  sessionBehavior?: SessionBehavior;
+  fileOpenBehavior?: FileOpenBehavior;
 };
 
 type RecentClosedFile = {
@@ -122,11 +126,14 @@ function App() {
   const expandedWindowRef = useRef(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
+  const [sessionBehavior, setSessionBehavior] = useState<SessionBehavior>("restore");
+  const [fileOpenBehavior, setFileOpenBehavior] = useState<FileOpenBehavior>("existing");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsNav, setSettingsNav] = useState<"appearance" | "formatting" | "features" | "startup" | "about">("appearance");
   const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
   const [closingTabIds, setClosingTabIds] = useState<string[]>([]);
   const tabCloseTimerRef = useRef<Record<string, number>>({});
+  const settingsReadyRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -254,10 +261,12 @@ function App() {
         alwaysOnTop,
         snap,
         useGlobalShortcuts,
+        sessionBehavior,
+        fileOpenBehavior,
       };
       window.localStorage.setItem(storageKey, JSON.stringify(state));
     },
-    [activeTabId, alwaysOnTop, snap, storageKey, useGlobalShortcuts],
+    [activeTabId, alwaysOnTop, fileOpenBehavior, sessionBehavior, snap, storageKey, useGlobalShortcuts],
   );
 
   const closeMenus = useCallback(() => {
@@ -436,6 +445,37 @@ function App() {
         "open_text_file_dialog",
       );
       if (!opened) return;
+      if (fileOpenBehavior === "new_window") {
+        const label = `alwaysmemo-${crypto.randomUUID()}`;
+        const size = await windowHandle.outerSize();
+        const alwaysOnTopParam = alwaysOnTop ? "1" : "0";
+        const openPathParam = encodeURIComponent(opened.path);
+        const newWindow = new WebviewWindow(label, {
+          url: `/?instance=${label}&alwaysOnTop=${alwaysOnTopParam}&openPath=${openPathParam}`,
+          width: size.width,
+          height: size.height,
+          decorations: false,
+          resizable: true,
+          title: "alwaysmemo",
+        });
+        newWindow.once("tauri://created", async () => {
+          try {
+            await newWindow.show();
+            await newWindow.setFocus();
+            if (alwaysOnTop) {
+              await newWindow.setAlwaysOnTop(true);
+            }
+          } catch (error) {
+            console.error("Failed to focus new window", error);
+          }
+        });
+        newWindow.once("tauri://error", (error) => {
+          console.error("Failed to create new window", error);
+          setStatus("Failed to open new window");
+        });
+        closeMenus();
+        return;
+      }
       const id = crypto.randomUUID();
       const title = getFileNameFromPath(opened.path) || `メモ ${tabs.length + 1}`;
       const content = textToHtml(opened.contents);
@@ -458,7 +498,7 @@ function App() {
       console.error(error);
       setStatus("Failed to open file");
     }
-  }, [closeMenus, getPathMap, persistState, setPathMap, tabs, textToHtml]);
+  }, [alwaysOnTop, closeMenus, fileOpenBehavior, getPathMap, persistState, setPathMap, tabs, textToHtml, windowHandle]);
 
   const saveTabAs = useCallback(async (tab: Tab) => {
     try {
@@ -651,24 +691,24 @@ function App() {
 
   const keepSettingsViewport = useCallback(
     (anchor: HTMLElement | null, runner: () => void | Promise<void>) => {
-    const container = settingsContentRef.current;
-    if (!container) {
-      void runner();
-      return;
-    }
-    const beforeTop = anchor?.getBoundingClientRect().top ?? null;
-    void Promise.resolve(runner()).finally(() => {
-      window.requestAnimationFrame(() => {
-        const current = settingsContentRef.current;
-        if (!current) return;
-        if (anchor && beforeTop !== null) {
-          const afterTop = anchor.getBoundingClientRect().top;
-          current.scrollTop += afterTop - beforeTop;
-        }
-        const maxTop = Math.max(0, current.scrollHeight - current.clientHeight);
-        current.scrollTop = Math.max(0, Math.min(current.scrollTop, maxTop));
+      const container = settingsContentRef.current;
+      if (!container) {
+        void runner();
+        return;
+      }
+      const beforeTop = anchor?.getBoundingClientRect().top ?? null;
+      void Promise.resolve(runner()).finally(() => {
+        window.requestAnimationFrame(() => {
+          const current = settingsContentRef.current;
+          if (!current) return;
+          if (anchor && beforeTop !== null) {
+            const afterTop = anchor.getBoundingClientRect().top;
+            current.scrollTop += afterTop - beforeTop;
+          }
+          const maxTop = Math.max(0, current.scrollHeight - current.clientHeight);
+          current.scrollTop = Math.max(0, Math.min(current.scrollTop, maxTop));
+        });
       });
-    });
     },
     [],
   );
@@ -790,14 +830,20 @@ function App() {
         const current = await invoke<boolean>("get_always_on_top");
         const params = new URLSearchParams(window.location.search);
         const alwaysOnTopParam = params.get("alwaysOnTop");
+        const openPathParam = params.get("openPath");
         const forceAlwaysOnTopDefined = alwaysOnTopParam !== null;
         const forceAlwaysOnTop =
           alwaysOnTopParam === "1" || alwaysOnTopParam === "true";
         const stored = window.localStorage.getItem(storageKey);
         if (stored) {
           const parsed = JSON.parse(stored) as PersistedState;
+          const nextSessionBehavior = parsed.sessionBehavior ?? "restore";
+          const nextFileOpenBehavior = parsed.fileOpenBehavior ?? "existing";
+          setSessionBehavior(nextSessionBehavior);
+          setFileOpenBehavior(nextFileOpenBehavior);
           const pathMap = getPathMap();
-          const restoredTabs = (parsed.tabs.length
+          const shouldRestoreTabs = nextSessionBehavior === "restore";
+          const restoredTabs = ((shouldRestoreTabs && parsed.tabs.length)
             ? parsed.tabs
             : [{ id: "initial", title: "タイトルなし", content: "" }]
           ).map((tab) => ({
@@ -829,6 +875,8 @@ function App() {
             await snapRight();
           }
         } else {
+          setSessionBehavior("restore");
+          setFileOpenBehavior("existing");
           const nextAlwaysOnTop = forceAlwaysOnTopDefined
             ? forceAlwaysOnTop
             : current;
@@ -840,13 +888,49 @@ function App() {
             initial: { title: "タイトルなし", content: "" },
           };
         }
+        if (openPathParam) {
+          try {
+            const decodedPath = decodeURIComponent(openPathParam);
+            const opened = await invoke<{ path: string; contents: string } | null>(
+              "open_text_file_by_path",
+              { path: decodedPath },
+            );
+            if (opened) {
+              const id = crypto.randomUUID();
+              const title = getFileNameFromPath(opened.path) || "タイトルなし";
+              const content = textToHtml(opened.contents);
+              const pathMap = getPathMap();
+              setPathMap({ ...pathMap, [id]: opened.path, [title]: opened.path });
+              savedTabsRef.current = {
+                ...savedTabsRef.current,
+                [id]: { title, content },
+              };
+              setSavedVersion((prev) => prev + 1);
+              setTabs((prev) => {
+                const next = [...prev, { id, title, content, filePath: opened.path }];
+                persistState(next, id);
+                return next;
+              });
+              setActiveTabId(id);
+            }
+          } catch (error) {
+            console.error("Failed to open startup path", error);
+          }
+        }
       } catch (error) {
         console.error(error);
         setStatus("Failed to read always on top state");
+      } finally {
+        settingsReadyRef.current = true;
       }
     };
     void initState();
   }, []);
+
+  useEffect(() => {
+    if (!settingsReadyRef.current) return;
+    persistState(tabs, activeTabId);
+  }, [activeTabId, fileOpenBehavior, persistState, sessionBehavior, tabs]);
 
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -2292,13 +2376,45 @@ function App() {
                 <div className="startup-grid">
                   <div className="startup-card">
                     <strong>セッション</strong>
-                    <label><input type="radio" name="session" defaultChecked /> 前回の状態を復元</label>
-                    <label><input type="radio" name="session" /> 常に新規で開始</label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="session"
+                        checked={sessionBehavior === "restore"}
+                        onChange={() => setSessionBehavior("restore")}
+                      />
+                      前回の状態を復元
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="session"
+                        checked={sessionBehavior === "new"}
+                        onChange={() => setSessionBehavior("new")}
+                      />
+                      常に新規で開始
+                    </label>
                   </div>
                   <div className="startup-card">
                     <strong>ファイルの開き方</strong>
-                    <label><input type="radio" name="open" defaultChecked /> 新しいウィンドウで開く</label>
-                    <label><input type="radio" name="open" /> 既存ウィンドウに追加</label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="open"
+                        checked={fileOpenBehavior === "existing"}
+                        onChange={() => setFileOpenBehavior("existing")}
+                      />
+                      既存ウィンドウに追加
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="open"
+                        checked={fileOpenBehavior === "new_window"}
+                        onChange={() => setFileOpenBehavior("new_window")}
+                      />
+                      新しいウィンドウで開く
+                    </label>
                   </div>
                 </div>
               </section>
