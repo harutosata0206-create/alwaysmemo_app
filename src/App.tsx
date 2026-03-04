@@ -2199,16 +2199,12 @@ function App() {
                 <p className="settings-desc">テキストの表示や構造を調整します。</p>
                 <div className="settings-card">
                   <div className="settings-field-row">
-                    <div><strong>フォント</strong><small>表示する書体を選択します</small></div>
-                    <select defaultValue="default"><option value="default">標準</option><option value="serif">明朝体</option><option value="mono">等幅</option></select>
-                  </div>
-                  <div className="settings-field-row">
                     <div><strong>文字サイズ</strong><small>読みやすさに合わせて調整します</small></div>
                     <select defaultValue="medium"><option value="small">小 (12px)</option><option value="medium">中 (14px)</option><option value="large">大 (16px)</option></select>
                   </div>
                   <div className="settings-field-row">
                     <div><strong>行間</strong><small>行どうしの間隔を調整します</small></div>
-                    <select defaultValue="standard"><option value="compact">狭い</option><option value="standard">標準</option><option value="relaxed">広い</option></select>
+                    <select defaultValue="standard"><option value="standard">標準</option><option value="relaxed">広い</option></select>
                   </div>
                   <div className="settings-field-row switch">
                     <div><strong>折り返し</strong><small>長い行を自動で折り返します</small></div>
