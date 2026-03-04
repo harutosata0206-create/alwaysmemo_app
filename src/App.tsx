@@ -2399,8 +2399,9 @@ function App() {
                     data-wrap={wrapAtRightEdge ? "on" : "off"}
                     style={{ fontSize: `${previewFontSizePx}px` }}
                   >
-                    <p>プレビュー: AlwaysMemo の表示サンプルです。</p>
-                    <p>この文章は折り返し設定の確認用に、少し長めのテキストを表示しています。</p>
+                    <p className="settings-preview-title">プレビュー:</p>
+                    <p className="settings-preview-line">alwaysmemoの表示サンプルです。</p>
+                    <p className="settings-preview-line">この文章は折り返し設定の確認用に、少し長めのテキストを表示しています。</p>
                   </div>
                 </div>
               </section>

@@ -1295,11 +1295,15 @@ body::-webkit-scrollbar-thumb,
   line-height: 1.15;
 }
 
-.settings-preview p {
+.settings-preview-title {
   margin: 0 0 6px;
 }
 
-.settings-preview p:last-child {
+.settings-preview-line {
+  margin: 0 0 2px;
+}
+
+.settings-preview-line:last-child {
   margin-bottom: 0;
 }
 
