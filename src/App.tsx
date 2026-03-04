@@ -149,11 +149,13 @@ function App() {
     const container = settingsContentRef.current;
     const target = document.getElementById(`settings-${key}`);
     if (!container || !target) return;
-    const top =
+    const rawTop =
       target.getBoundingClientRect().top -
       container.getBoundingClientRect().top +
       container.scrollTop -
       8;
+    const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    const top = Math.max(0, Math.min(rawTop, maxTop));
     container.scrollTo({ top, behavior: "smooth" });
   }, []);
 

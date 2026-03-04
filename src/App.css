@@ -1049,6 +1049,7 @@ body::-webkit-scrollbar-thumb,
 
 .settings-layout {
   height: 100%;
+  min-height: 0;
   display: flex;
   align-items: stretch;
 }
@@ -1056,6 +1057,7 @@ body::-webkit-scrollbar-thumb,
 .settings-sidebar {
   flex: 0 0 240px;
   width: 240px;
+  min-height: 0;
   background: #ffffff;
   border-right: 1px solid #dfe4ec;
   padding: 28px 18px 18px;
@@ -1139,10 +1141,11 @@ body::-webkit-scrollbar-thumb,
 .settings-content {
   flex: 1 1 auto;
   min-width: 0;
-  height: 100%;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 56px 44px 40px;
+  box-sizing: border-box;
   font-size: 0;
   color: transparent;
 }
