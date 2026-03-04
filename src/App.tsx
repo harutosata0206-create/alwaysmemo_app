@@ -1750,7 +1750,7 @@ function App() {
               type="button"
               className="window-button"
               onClick={minimizeWindow}
-              aria-label="Minimize"
+              aria-label="最小化"
             >
               <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
                 <line x1="2" y1="7" x2="8" y2="7" />
@@ -1760,7 +1760,7 @@ function App() {
               type="button"
               className="window-button"
               onClick={toggleMaximizeWindow}
-              aria-label="Maximize"
+              aria-label="最大化"
             >
               <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
                 <rect x="2" y="2" width="6" height="6" fill="none" />
@@ -1770,7 +1770,7 @@ function App() {
               type="button"
               className="window-button close"
               onClick={closeWindow}
-              aria-label="Close"
+              aria-label="閉じる"
             >
               <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
                 <line x1="2.2" y1="2.2" x2="7.8" y2="7.8" />
@@ -2145,91 +2145,93 @@ function App() {
                   type="button"
                   className="settings-brand-back"
                   onClick={() => setSettingsOpen(false)}
-                  aria-label="Back to editor"
+                  aria-label="エディタへ戻る"
                 >
-                  ‹
+                  <svg className="settings-back-icon" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M10.5 3.5L6 8l4.5 4.5" />
+                  </svg>
                 </button>
                 <div className="settings-brand-name">AlwaysMemo</div>
               </div>
               <div className="settings-nav">
-                <button type="button" className={`settings-nav-item ${settingsNav === "appearance" ? "active" : ""}`} onClick={() => jumpToSettingsSection("appearance")}>Appearance</button>
-                <button type="button" className={`settings-nav-item ${settingsNav === "formatting" ? "active" : ""}`} onClick={() => jumpToSettingsSection("formatting")}>Formatting</button>
-                <button type="button" className={`settings-nav-item ${settingsNav === "features" ? "active" : ""}`} onClick={() => jumpToSettingsSection("features")}>Features</button>
-                <button type="button" className={`settings-nav-item ${settingsNav === "startup" ? "active" : ""}`} onClick={() => jumpToSettingsSection("startup")}>Startup</button>
-                <button type="button" className={`settings-nav-item ${settingsNav === "about" ? "active" : ""}`} onClick={() => jumpToSettingsSection("about")}>About</button>
+                <button type="button" className={`settings-nav-item ${settingsNav === "appearance" ? "active" : ""}`} onClick={() => jumpToSettingsSection("appearance")}>外観</button>
+                <button type="button" className={`settings-nav-item ${settingsNav === "formatting" ? "active" : ""}`} onClick={() => jumpToSettingsSection("formatting")}>書式設定</button>
+                <button type="button" className={`settings-nav-item ${settingsNav === "features" ? "active" : ""}`} onClick={() => jumpToSettingsSection("features")}>機能</button>
+                <button type="button" className={`settings-nav-item ${settingsNav === "startup" ? "active" : ""}`} onClick={() => jumpToSettingsSection("startup")}>起動時</button>
+                <button type="button" className={`settings-nav-item ${settingsNav === "about" ? "active" : ""}`} onClick={() => jumpToSettingsSection("about")}>情報</button>
               </div>
             </aside>
 
             <div className="settings-content">
               <div className="settings-sections">
               <section id="settings-appearance" className="settings-block">
-                <h2>Appearance</h2>
-                <p className="settings-desc">Customize the look and feel of your memo space.</p>
+                <h2>外観</h2>
+                <p className="settings-desc">メモ画面の見た目を調整します。</p>
                 <div className="theme-options">
                   <button type="button" className="theme-card active">
                     <span className="theme-icon">☀</span>
-                    <span>Light</span>
+                    <span>ライト</span>
                   </button>
                   <button type="button" className="theme-card">
                     <span className="theme-icon">☾</span>
-                    <span>Dark</span>
+                    <span>ダーク</span>
                   </button>
                   <button type="button" className="theme-card">
                     <span className="theme-icon">◧</span>
-                    <span>System</span>
+                    <span>システム</span>
                   </button>
                 </div>
               </section>
 
               <section id="settings-formatting" className="settings-block">
-                <h2>Formatting</h2>
-                <p className="settings-desc">Manage how your text is displayed and structured.</p>
+                <h2>書式設定</h2>
+                <p className="settings-desc">テキストの表示や構造を調整します。</p>
                 <div className="settings-card">
                   <div className="settings-field-row">
-                    <div><strong>Font Family</strong><small>Choose your preferred typeface</small></div>
-                    <select defaultValue="default"><option value="default">Inter (Default)</option><option value="serif">Serif</option><option value="mono">Monospace</option></select>
+                    <div><strong>フォント</strong><small>表示する書体を選択します</small></div>
+                    <select defaultValue="default"><option value="default">標準</option><option value="serif">明朝体</option><option value="mono">等幅</option></select>
                   </div>
                   <div className="settings-field-row">
-                    <div><strong>Font Size</strong><small>Scale text for readability</small></div>
-                    <select defaultValue="medium"><option value="small">Small (12px)</option><option value="medium">Medium (14px)</option><option value="large">Large (16px)</option></select>
+                    <div><strong>文字サイズ</strong><small>読みやすさに合わせて調整します</small></div>
+                    <select defaultValue="medium"><option value="small">小 (12px)</option><option value="medium">中 (14px)</option><option value="large">大 (16px)</option></select>
                   </div>
                   <div className="settings-field-row">
-                    <div><strong>Line Height</strong><small>Vertical spacing between lines</small></div>
-                    <select defaultValue="standard"><option value="compact">Compact</option><option value="standard">Standard</option><option value="relaxed">Relaxed</option></select>
+                    <div><strong>行間</strong><small>行どうしの間隔を調整します</small></div>
+                    <select defaultValue="standard"><option value="compact">狭い</option><option value="standard">標準</option><option value="relaxed">広い</option></select>
                   </div>
                   <div className="settings-field-row switch">
-                    <div><strong>Text Wrap</strong><small>Automatically wrap long lines of text</small></div>
+                    <div><strong>折り返し</strong><small>長い行を自動で折り返します</small></div>
                     <label className="modern-switch"><input type="checkbox" checked={wrapAtRightEdge} readOnly /><span /></label>
                   </div>
                 </div>
               </section>
 
               <section id="settings-features" className="settings-block">
-                <h2>Features</h2>
-                <p className="settings-desc">Enhance your productivity with specialized tools.</p>
+                <h2>機能</h2>
+                <p className="settings-desc">作業効率を高める機能を設定します。</p>
                 <div className="feature-row">
-                  <div><strong>Always on Top</strong><small>Keep the window visible over other apps</small></div>
+                  <div><strong>常に手前に表示</strong><small>他のアプリより前面に表示します</small></div>
                   <label className="modern-switch"><input type="checkbox" checked={alwaysOnTop} readOnly /><span /></label>
                 </div>
                 <div className="feature-row">
-                  <div><strong>Global Shortcuts</strong><small>Trigger actions from anywhere in the OS</small></div>
+                  <div><strong>グローバルショートカット</strong><small>OS 全体から操作を呼び出せます</small></div>
                   <label className="modern-switch"><input type="checkbox" checked={useGlobalShortcuts} readOnly /><span /></label>
                 </div>
               </section>
 
               <section id="settings-startup" className="settings-block">
-                <h2>Startup</h2>
-                <p className="settings-desc">Define how AlwaysMemo behaves when launched.</p>
+                <h2>起動時</h2>
+                <p className="settings-desc">起動時の動作を設定します。</p>
                 <div className="startup-grid">
                   <div className="startup-card">
-                    <strong>Session Handling</strong>
-                    <label><input type="radio" name="session" defaultChecked /> Restore previous session</label>
-                    <label><input type="radio" name="session" /> Always start new session</label>
+                    <strong>セッション</strong>
+                    <label><input type="radio" name="session" defaultChecked /> 前回の状態を復元</label>
+                    <label><input type="radio" name="session" /> 常に新規で開始</label>
                   </div>
                   <div className="startup-card">
-                    <strong>File Opening</strong>
-                    <label><input type="radio" name="open" defaultChecked /> Open in new window</label>
-                    <label><input type="radio" name="open" /> Add to existing window</label>
+                    <strong>ファイルの開き方</strong>
+                    <label><input type="radio" name="open" defaultChecked /> 新しいウィンドウで開く</label>
+                    <label><input type="radio" name="open" /> 既存ウィンドウに追加</label>
                   </div>
                 </div>
               </section>
@@ -2237,11 +2239,11 @@ function App() {
               <section id="settings-about" className="settings-about-card">
                 <div className="about-logo">🗒</div>
                 <h3>AlwaysMemo</h3>
-                <p>Simplifying your digital memory, one note at a time.</p>
+                <p>作業を中断せず、必要なメモをすぐ残せるツールです。</p>
                 <div className="about-meta">
-                  <span>Version 0.1</span>
-                  <span>Build dev</span>
-                  <span>MIT License</span>
+                  <span>バージョン 0.1</span>
+                  <span>ビルド dev</span>
+                  <span>MIT ライセンス</span>
                 </div>
               </section>
               </div>

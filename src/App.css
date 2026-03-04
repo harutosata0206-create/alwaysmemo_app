@@ -1002,12 +1002,32 @@ body::-webkit-scrollbar-thumb,
   width: 40px;
   height: 28px;
   border-radius: 0;
-  background: #e2e2e2;
-  color: #3a3a3a;
+  background: #f3f4f8;
+  color: #334155;
+}
+
+.settings-window-controls .window-button + .window-button {
+  border-left: 1px solid #d6deea;
+}
+
+.settings-window-controls .window-button:hover {
+  background: #e8eefb;
+  transform: none;
+  box-shadow: none;
+}
+
+.settings-window-controls .window-button:active {
+  background: #dce6fa;
+}
+
+.settings-window-controls .window-button:first-child {
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
 }
 
 .settings-window-controls .window-button.close {
   border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
 }
 
 .settings-window-controls .window-button.close:hover {
@@ -1044,9 +1064,9 @@ body::-webkit-scrollbar-thumb,
   border: 0;
   background: #ffffff;
   color: #334155;
-  font-size: 26px;
-  font-weight: 400;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
 }
 
@@ -1055,6 +1075,16 @@ body::-webkit-scrollbar-thumb,
   box-shadow: none;
   background: #eaf1ff;
   color: #2354da;
+}
+
+.settings-back-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .settings-brand-name {
