@@ -993,13 +993,13 @@ body::-webkit-scrollbar-thumb,
 }
 
 .settings-brand-back {
-  width: 34px;
+  width: 56px;
   height: 34px;
   border-radius: 10px;
   border: 0;
   background: #ffffff;
   color: #334155;
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 400;
   line-height: 1;
   padding: 0;
@@ -1013,8 +1013,8 @@ body::-webkit-scrollbar-thumb,
 }
 
 .settings-brand-name {
-  font-size: 34px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 600;
   color: #121826;
 }
 
@@ -1032,7 +1032,7 @@ body::-webkit-scrollbar-thumb,
   text-align: left;
   background: transparent;
   color: #1f2937;
-  font-size: 22px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -1058,7 +1058,7 @@ body::-webkit-scrollbar-thumb,
 .settings-sections {
   display: flex;
   flex-direction: column;
-  gap: 34px;
+  gap: 24px;
   font-size: 16px;
   color: #111827;
 }
@@ -1066,14 +1066,14 @@ body::-webkit-scrollbar-thumb,
 .settings-block h2 {
   margin: 0;
   color: #121826;
-  font-size: 42px;
+  font-size: 20px;
   line-height: 1.15;
 }
 
 .settings-desc {
   margin: 10px 0 18px;
   color: #5f6f86;
-  font-size: 24px;
+  font-size: 14px;
 }
 
 .theme-options {
@@ -1088,14 +1088,14 @@ body::-webkit-scrollbar-thumb,
   border-radius: 14px;
   background: #f5f6fa;
   color: #1f2937;
-  min-height: 108px;
+  min-height: 78px;
   padding: 14px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  font-size: 23px;
+  gap: 8px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -1111,7 +1111,7 @@ body::-webkit-scrollbar-thumb,
 }
 
 .theme-icon {
-  font-size: 26px;
+  font-size: 18px;
   color: #7688a4;
 }
 
@@ -1127,7 +1127,7 @@ body::-webkit-scrollbar-thumb,
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  min-height: 68px;
+  min-height: 56px;
   border-bottom: 1px solid #e4e9f0;
 }
 
@@ -1143,23 +1143,24 @@ body::-webkit-scrollbar-thumb,
 
 .settings-field-row strong {
   color: #111827;
-  font-size: 22px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .settings-field-row small {
   color: #7a8aa2;
-  font-size: 18px;
+  font-size: 12px;
 }
 
 .settings-field-row select {
   min-width: 210px;
-  height: 42px;
+  height: 34px;
   border: 1px solid #d5dde8;
   border-radius: 10px;
   background: #f2f5fa;
   color: #1f2937;
   padding: 0 12px;
-  font-size: 18px;
+  font-size: 13px;
 }
 
 .modern-switch {
@@ -1215,14 +1216,15 @@ body::-webkit-scrollbar-thumb,
 
 .feature-row strong {
   color: #111827;
-  font-size: 22px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .feature-row small {
   display: block;
   color: #7a8aa2;
   margin-top: 4px;
-  font-size: 18px;
+  font-size: 12px;
 }
 
 .startup-grid {
@@ -1243,12 +1245,13 @@ body::-webkit-scrollbar-thumb,
 
 .startup-card strong {
   color: #111827;
-  font-size: 21px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .startup-card label {
   color: #334155;
-  font-size: 19px;
+  font-size: 13px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1256,32 +1259,32 @@ body::-webkit-scrollbar-thumb,
 
 .settings-about-card {
   border-radius: 22px;
-  padding: 38px 28px;
+  padding: 26px 24px;
   background: linear-gradient(160deg, #1f4fd6 0%, #1b46c4 100%);
   color: #ffffff;
   text-align: center;
 }
 
 .about-logo {
-  width: 74px;
-  height: 74px;
+  width: 56px;
+  height: 56px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 38px;
-  margin-bottom: 16px;
+  font-size: 26px;
+  margin-bottom: 12px;
 }
 
 .settings-about-card h3 {
   margin: 0;
-  font-size: 54px;
+  font-size: 30px;
 }
 
 .settings-about-card p {
   margin: 10px 0 22px;
-  font-size: 22px;
+  font-size: 14px;
   color: rgba(255, 255, 255, 0.92);
 }
 
@@ -1290,7 +1293,7 @@ body::-webkit-scrollbar-thumb,
   justify-content: center;
   gap: 18px;
   flex-wrap: wrap;
-  font-size: 18px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.86);
 }
 
