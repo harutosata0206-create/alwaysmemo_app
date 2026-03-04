@@ -1268,6 +1268,23 @@ body::-webkit-scrollbar-thumb,
   font-size: 13px;
 }
 
+.settings-number-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-number-input {
+  width: 90px;
+  height: 34px;
+  border: 1px solid #d5dde8;
+  border-radius: 10px;
+  background: #f2f5fa;
+  color: #1f2937;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
 .modern-switch {
   display: inline-flex;
   align-items: center;

@@ -32,6 +32,7 @@ type PersistedState = {
   useGlobalShortcuts: boolean;
   sessionBehavior?: SessionBehavior;
   fileOpenBehavior?: FileOpenBehavior;
+  editorFontSizePx?: number;
 };
 
 type RecentClosedFile = {
@@ -126,6 +127,7 @@ function App() {
   const expandedWindowRef = useRef(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
+  const [editorFontSizePx, setEditorFontSizePx] = useState(14);
   const [sessionBehavior, setSessionBehavior] = useState<SessionBehavior>("restore");
   const [fileOpenBehavior, setFileOpenBehavior] = useState<FileOpenBehavior>("existing");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -263,10 +265,11 @@ function App() {
         useGlobalShortcuts,
         sessionBehavior,
         fileOpenBehavior,
+        editorFontSizePx,
       };
       window.localStorage.setItem(storageKey, JSON.stringify(state));
     },
-    [activeTabId, alwaysOnTop, fileOpenBehavior, sessionBehavior, snap, storageKey, useGlobalShortcuts],
+    [activeTabId, alwaysOnTop, editorFontSizePx, fileOpenBehavior, sessionBehavior, snap, storageKey, useGlobalShortcuts],
   );
 
   const closeMenus = useCallback(() => {
@@ -839,8 +842,10 @@ function App() {
           const parsed = JSON.parse(stored) as PersistedState;
           const nextSessionBehavior = parsed.sessionBehavior ?? "restore";
           const nextFileOpenBehavior = parsed.fileOpenBehavior ?? "existing";
+          const nextEditorFontSizePx = parsed.editorFontSizePx ?? 14;
           setSessionBehavior(nextSessionBehavior);
           setFileOpenBehavior(nextFileOpenBehavior);
+          setEditorFontSizePx(nextEditorFontSizePx);
           const pathMap = getPathMap();
           const shouldRestoreTabs = nextSessionBehavior === "restore";
           const restoredTabs = ((shouldRestoreTabs && parsed.tabs.length)
@@ -877,6 +882,7 @@ function App() {
         } else {
           setSessionBehavior("restore");
           setFileOpenBehavior("existing");
+          setEditorFontSizePx(14);
           const nextAlwaysOnTop = forceAlwaysOnTopDefined
             ? forceAlwaysOnTop
             : current;
@@ -2318,7 +2324,22 @@ function App() {
                 <div className="settings-card">
                   <div className="settings-field-row">
                     <div><strong>文字サイズ</strong><small>読みやすさに合わせて調整します</small></div>
-                    <select defaultValue="medium"><option value="small">小 (12px)</option><option value="medium">中 (14px)</option><option value="large">大 (16px)</option></select>
+                    <label className="settings-number-wrap">
+                      <input
+                        className="settings-number-input"
+                        type="number"
+                        min={8}
+                        max={72}
+                        step={1}
+                        value={editorFontSizePx}
+                        onChange={(event) => {
+                          const next = Number.parseInt(event.target.value, 10);
+                          if (Number.isNaN(next)) return;
+                          setEditorFontSizePx(Math.max(8, Math.min(72, next)));
+                        }}
+                      />
+                      <span>px</span>
+                    </label>
                   </div>
                   <div className="settings-field-row">
                     <div><strong>行間</strong><small>行どうしの間隔を調整します</small></div>
@@ -2453,6 +2474,7 @@ function App() {
               ref={editorRef}
               className="editor-body"
               data-wrap={wrapAtRightEdge ? "on" : "off"}
+              style={{ fontSize: `${editorFontSizePx}px` }}
               contentEditable
               suppressContentEditableWarning
               data-placeholder="ここにメモを書く"
