@@ -1475,7 +1475,7 @@ body::-webkit-scrollbar-thumb,
 }
 
 .app.theme-dark {
-  background: #0a1223;
+  background: #040d24;
   border-color: #15233f;
   box-shadow: 0 14px 34px rgba(2, 6, 23, 0.45);
 }
@@ -1485,29 +1485,38 @@ body::-webkit-scrollbar-thumb,
 }
 
 .app.theme-dark .titlebar {
-  border-bottom-color: #1a2b4c;
-  background: #071026;
+  border-bottom-color: #1b2e56;
+  background: #030b20;
 }
 
 .app.theme-dark .titlebar-row.top {
-  background: #071026;
+  background: #030b20;
+}
+
+.app.theme-dark .titlebar-row.toolbar {
+  background: #030b20;
+}
+
+.app.theme-dark .memo,
+.app.theme-dark .editor {
+  background: #08173c;
 }
 
 .app.theme-dark .tab {
-  background: #050c1e;
+  background: #030b20;
   color: #f8fafc;
-  border-color: #0f1d3d;
+  border-color: #142650;
 }
 
 .app.theme-dark .tab.active {
-  background: #0a1223;
+  background: #08173c;
   color: #f8fafc;
-  border-color: #1a2b4c;
+  border-color: #29457f;
   border-bottom-color: transparent;
 }
 
 .app.theme-dark .tab:not(.active):hover {
-  background: #0a1430;
+  background: #08112b;
 }
 
 .app.theme-dark .tab .tab-title,
@@ -1518,6 +1527,16 @@ body::-webkit-scrollbar-thumb,
 .app.theme-dark .tab-close,
 .app.theme-dark .tab-close.dirty {
   color: #dbe7ff;
+}
+
+.app.theme-dark .add-tab,
+.app.theme-dark .tab-scroll-button {
+  color: #dbe7ff;
+}
+
+.app.theme-dark .add-tab:hover,
+.app.theme-dark .tab-scroll-button:hover {
+  background: #0c1a3c;
 }
 
 .app.theme-dark .settings-window-controls .window-button {
@@ -1701,6 +1720,55 @@ body::-webkit-scrollbar-thumb,
 
 .app.theme-dark .editor-body {
   color: #f8fafc;
+}
+
+.app.theme-dark .editor-body:empty::before {
+  color: #8ea4c8;
+}
+
+.app.theme-dark .bottom-bar {
+  border-top-color: #1b2e56;
+  background: #030b20;
+  color: #dce7ff;
+}
+
+.app.theme-dark .bottom-item + .bottom-item {
+  border-left-color: #1b2e56;
+}
+
+.app.theme-dark .menu-button {
+  color: #dce7ff;
+}
+
+.app.theme-dark .menu-button:hover,
+.app.theme-dark .menu-button.active {
+  background: #0c1a3c;
+}
+
+.app.theme-dark .menu-panel,
+.app.theme-dark .menu-subpanel,
+.app.theme-dark .format-menu,
+.app.theme-dark .heading-menu,
+.app.theme-dark .list-menu {
+  background: #091736;
+  border-color: #1e3563;
+  box-shadow: 0 16px 28px rgba(2, 6, 23, 0.5);
+}
+
+.app.theme-dark .menu-item {
+  color: #dce7ff;
+}
+
+.app.theme-dark .menu-item:hover {
+  background: #10234b;
+}
+
+.app.theme-dark .menu-shortcut {
+  color: #9fb3d8;
+}
+
+.app.theme-dark .menu-divider {
+  background: #1e3563;
 }
 
 .editor-body > *:first-child {
