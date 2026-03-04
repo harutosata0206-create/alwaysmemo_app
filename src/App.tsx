@@ -1999,12 +1999,15 @@ function App() {
                     <span>開く</span>
                     <span className="menu-shortcut">Ctrl+O</span>
                   </button>
-                  <div className="menu-submenu-wrap">
+                  <div
+                    className="menu-submenu-wrap"
+                    onMouseLeave={() => setOpenFileSubmenu(null)}
+                  >
                     <button
                       type="button"
                       className="menu-item has-submenu"
                       onMouseEnter={() => setOpenFileSubmenu("recent")}
-                      onClick={() => setOpenFileSubmenu((prev) => (prev === "recent" ? null : "recent"))}
+                      onClick={() => setOpenFileSubmenu("recent")}
                     >
                       <span>新着順</span>
                       <span className="menu-shortcut">›</span>
