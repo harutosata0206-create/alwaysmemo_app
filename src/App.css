@@ -845,42 +845,42 @@ body::-webkit-scrollbar-thumb,
 
 .editor-body table {
   border-collapse: collapse;
-  margin: 6px 0;
+  margin: var(--editor-block-gap, 2px) 0;
 }
 
 .editor-body h1 {
   font-size: 32px;
-  margin: 2px 0;
+  margin: var(--editor-block-gap, 2px) 0;
 }
 
 .editor-body h2 {
   font-size: 24px;
-  margin: 2px 0;
+  margin: var(--editor-block-gap, 2px) 0;
 }
 
 .editor-body h3 {
   font-size: 20px;
-  margin: 2px 0;
+  margin: var(--editor-block-gap, 2px) 0;
 }
 
 .editor-body h4 {
   font-size: 17px;
-  margin: 2px 0;
+  margin: var(--editor-block-gap, 2px) 0;
 }
 
 .editor-body h5 {
   font-size: 16px;
-  margin: 2px 0;
+  margin: var(--editor-block-gap, 2px) 0;
 }
 
 .editor-body h6 {
   font-size: 15px;
-  margin: 2px 0;
+  margin: var(--editor-block-gap, 2px) 0;
 }
 
 .editor-body p {
   font-size: 14px;
-  margin: 2px 0;
+  margin: var(--editor-block-gap, 2px) 0;
 }
 
 .search-hit {

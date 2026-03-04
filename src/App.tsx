@@ -218,7 +218,11 @@ function App() {
     return Math.max(8, Math.min(72, parsed));
   }, [editorFontSizeInput, editorFontSizePx]);
   const editorLineHeight = useMemo(
-    () => (lineSpacing === "relaxed" ? 1.35 : 1.15),
+    () => (lineSpacing === "relaxed" ? 1.45 : 1.15),
+    [lineSpacing],
+  );
+  const editorBlockGapPx = useMemo(
+    () => (lineSpacing === "relaxed" ? 6 : 2),
     [lineSpacing],
   );
 
@@ -2536,7 +2540,12 @@ function App() {
               ref={editorRef}
               className="editor-body"
               data-wrap={wrapAtRightEdge ? "on" : "off"}
-              style={{ fontSize: `${editorFontSizePx}px`, lineHeight: editorLineHeight }}
+              data-line-spacing={lineSpacing}
+              style={{
+                fontSize: `${editorFontSizePx}px`,
+                lineHeight: editorLineHeight,
+                ["--editor-block-gap" as string]: `${editorBlockGapPx}px`,
+              }}
               contentEditable
               suppressContentEditableWarning
               data-placeholder="ここにメモを書く"
