@@ -2066,7 +2066,7 @@ function App() {
                     className="menu-item toggle"
                     onClick={() => setAlwaysOnTop(!alwaysOnTop)}
                   >
-                    <span>Always on top</span>
+                    <span>常に手前に表示</span>
                     <span className={`menu-toggle ${alwaysOnTop ? "on" : ""}`} aria-hidden="true" />
                   </button>
                   <button
@@ -2074,7 +2074,7 @@ function App() {
                     className="menu-item toggle"
                     onClick={() => setUseGlobalShortcuts((prev) => !prev)}
                   >
-                    <span>Global shortcuts</span>
+                    <span>グローバルショートカット</span>
                     <span className={`menu-toggle ${useGlobalShortcuts ? "on" : ""}`} aria-hidden="true" />
                   </button>
                   <div className="menu-divider" />

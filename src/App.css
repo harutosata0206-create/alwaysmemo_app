@@ -646,20 +646,20 @@ body::-webkit-scrollbar-thumb,
 }
 
 .menu-toggle {
-  width: 26px;
-  height: 14px;
+  width: 40px;
+  height: 24px;
   border-radius: 999px;
-  background: #e2e8f0;
+  background: #d8e0ea;
   position: relative;
 }
 
 .menu-toggle::after {
   content: "";
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 10px;
-  height: 10px;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
@@ -667,11 +667,11 @@ body::-webkit-scrollbar-thumb,
 }
 
 .menu-toggle.on {
-  background: #0f172a;
+  background: #1f4fd6;
 }
 
 .menu-toggle.on::after {
-  transform: translateX(12px);
+  transform: translateX(16px);
 }
 
 
