@@ -217,8 +217,12 @@ function App() {
     if (Number.isNaN(parsed)) return editorFontSizePx;
     return Math.max(8, Math.min(72, parsed));
   }, [editorFontSizeInput, editorFontSizePx]);
-  const editorLineHeight = useMemo(
+  const previewLineHeight = useMemo(
     () => (lineSpacing === "relaxed" ? 1.45 : 1.15),
+    [lineSpacing],
+  );
+  const editorLineHeight = useMemo(
+    () => (lineSpacing === "relaxed" ? 1.55 : 1.15),
     [lineSpacing],
   );
   const editorBlockGapPx = useMemo(
@@ -1539,7 +1543,7 @@ function App() {
     if (editor.innerHTML !== activeHtml) {
       editor.innerHTML = activeHtml;
     }
-  }, [activeHtml, activeTabId, applySearchHighlights, searchQuery, showSearchBox]);
+  }, [activeHtml, activeTabId, applySearchHighlights, searchQuery, settingsOpen, showSearchBox]);
 
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
@@ -2421,7 +2425,7 @@ function App() {
                     className="settings-preview"
                     data-wrap={wrapAtRightEdge ? "on" : "off"}
                     data-line-spacing={lineSpacing}
-                    style={{ fontSize: `${previewFontSizePx}px`, lineHeight: editorLineHeight }}
+                    style={{ fontSize: `${previewFontSizePx}px`, lineHeight: previewLineHeight }}
                   >
                     <p className="settings-preview-title">プレビュー:</p>
                     <p className="settings-preview-line">alwaysmemoの表示サンプルです。</p>
