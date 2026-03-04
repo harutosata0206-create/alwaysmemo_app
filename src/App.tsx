@@ -2116,10 +2116,12 @@ function App() {
                 <button type="button" className={`settings-nav-item ${settingsNav === "startup" ? "active" : ""}`} onClick={() => jumpToSettingsSection("startup")}>Startup</button>
                 <button type="button" className={`settings-nav-item ${settingsNav === "about" ? "active" : ""}`} onClick={() => jumpToSettingsSection("about")}>About</button>
               </div>
-              <button type="button" className="settings-back-editor" onClick={() => setSettingsOpen(false)}>← Back to Editor</button>
             </aside>
 
             <div className="settings-content">
+              <button type="button" className="settings-page-back" onClick={() => setSettingsOpen(false)} aria-label="Back to editor">
+                ←
+              </button>
               <section id="settings-appearance" className="settings-block">
                 <h2>Appearance</h2>
                 <p className="settings-desc">Customize the look and feel of your memo space.</p>
@@ -2322,7 +2324,7 @@ function App() {
         </div>
       ) : null}
 
-      {showStatusBar ? (
+      {showStatusBar && !settingsOpen ? (
         <div className="bottom-bar">
           <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
           <span className="bottom-item">{activePlainText.length} 文字</span>
