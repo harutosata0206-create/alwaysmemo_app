@@ -159,6 +159,30 @@ function App() {
     container.scrollTo({ top, behavior: "smooth" });
   }, []);
 
+  const preserveSettingsScroll = useCallback((preferredTop?: number) => {
+    const container = settingsContentRef.current;
+    if (!container) return;
+    const apply = () => {
+      const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
+      const nextTop = preferredTop ?? container.scrollTop;
+      container.scrollTop = Math.max(0, Math.min(nextTop, maxTop));
+    };
+    window.requestAnimationFrame(apply);
+  }, []);
+
+  const handleAlwaysOnTopChange = useCallback((checked: boolean) => {
+    const currentTop = settingsContentRef.current?.scrollTop ?? 0;
+    void (async () => {
+      await setAlwaysOnTop(checked);
+      preserveSettingsScroll(currentTop);
+    })();
+  }, [preserveSettingsScroll, setAlwaysOnTop]);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    preserveSettingsScroll();
+  }, [alwaysOnTop, preserveSettingsScroll, settingsOpen, useGlobalShortcuts, wrapAtRightEdge]);
+
   useEffect(() => {
     activeTabIdRef.current = activeTabId;
     if (!activeTabId) return;
@@ -2229,9 +2253,7 @@ function App() {
                     <input
                       type="checkbox"
                       checked={alwaysOnTop}
-                      onChange={(event) => {
-                        void setAlwaysOnTop(event.target.checked);
-                      }}
+                      onChange={(event) => handleAlwaysOnTopChange(event.target.checked)}
                     />
                     <span />
                   </label>
