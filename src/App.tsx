@@ -222,7 +222,7 @@ function App() {
     [lineSpacing],
   );
   const editorLineHeight = useMemo(
-    () => (lineSpacing === "relaxed" ? 1.85 : 1.15),
+    () => (lineSpacing === "relaxed" ? 1.75 : 1.15),
     [lineSpacing],
   );
   const editorBlockGapPx = useMemo(
