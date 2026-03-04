@@ -1149,6 +1149,7 @@ body::-webkit-scrollbar-thumb,
   max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
+  overflow-anchor: none;
   padding: 56px 44px 40px;
   box-sizing: border-box;
   font-size: 0;

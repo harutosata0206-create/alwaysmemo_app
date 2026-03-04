@@ -649,9 +649,23 @@ function App() {
     [],
   );
 
+  const withSettingsScrollLock = useCallback((runner: () => void | Promise<void>) => {
+    const container = settingsContentRef.current;
+    const lockedTop = container?.scrollTop ?? 0;
+    void Promise.resolve(runner()).finally(() => {
+      window.requestAnimationFrame(() => {
+        const current = settingsContentRef.current;
+        if (!current) return;
+        current.scrollTop = lockedTop;
+      });
+    });
+  }, []);
+
   const handleAlwaysOnTopChange = useCallback((checked: boolean) => {
-    void setAlwaysOnTop(checked);
-  }, [setAlwaysOnTop]);
+    withSettingsScrollLock(async () => {
+      await setAlwaysOnTop(checked);
+    });
+  }, [setAlwaysOnTop, withSettingsScrollLock]);
 
   const toggleAlwaysOnTop = useCallback(async () => {
     const now = performance.now();
@@ -2216,7 +2230,11 @@ function App() {
                       <input
                         type="checkbox"
                         checked={wrapAtRightEdge}
-                        onChange={(event) => setWrapAtRightEdge(event.target.checked)}
+                        onChange={(event) => {
+                          withSettingsScrollLock(() => {
+                            setWrapAtRightEdge(event.target.checked);
+                          });
+                        }}
                       />
                       <span />
                     </label>
@@ -2244,7 +2262,11 @@ function App() {
                     <input
                       type="checkbox"
                       checked={useGlobalShortcuts}
-                      onChange={(event) => setUseGlobalShortcuts(event.target.checked)}
+                      onChange={(event) => {
+                        withSettingsScrollLock(() => {
+                          setUseGlobalShortcuts(event.target.checked);
+                        });
+                      }}
                     />
                     <span />
                   </label>
