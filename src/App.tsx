@@ -2114,7 +2114,7 @@ function App() {
                   onClick={() => setSettingsOpen(false)}
                   aria-label="Back to editor"
                 >
-                  ←
+                  ‹
                 </button>
                 <div className="settings-brand-name">AlwaysMemo</div>
               </div>
@@ -2128,6 +2128,7 @@ function App() {
             </aside>
 
             <div className="settings-content">
+              <div className="settings-sections">
               <section id="settings-appearance" className="settings-block">
                 <h2>Appearance</h2>
                 <p className="settings-desc">Customize the look and feel of your memo space.</p>
@@ -2210,6 +2211,7 @@ function App() {
                   <span>MIT License</span>
                 </div>
               </section>
+              </div>
             </div>
           </div>
         </section>

@@ -997,9 +997,10 @@ body::-webkit-scrollbar-thumb,
   height: 34px;
   border-radius: 10px;
   border: 0;
-  background: #dfe8ff;
-  color: #2354da;
-  font-size: 22px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 30px;
+  font-weight: 400;
   line-height: 1;
   padding: 0;
 }
@@ -1007,7 +1008,8 @@ body::-webkit-scrollbar-thumb,
 .settings-brand-back:hover {
   transform: none;
   box-shadow: none;
-  background: #cfdcff;
+  background: #eaf1ff;
+  color: #2354da;
 }
 
 .settings-brand-name {
@@ -1049,9 +1051,16 @@ body::-webkit-scrollbar-thumb,
   flex: 1 1 auto;
   min-width: 0;
   padding: 16px 44px 40px;
+  font-size: 0;
+  color: transparent;
+}
+
+.settings-sections {
   display: flex;
   flex-direction: column;
   gap: 34px;
+  font-size: 16px;
+  color: #111827;
 }
 
 .settings-block h2 {
