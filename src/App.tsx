@@ -1676,6 +1676,7 @@ function App() {
 
   return (
     <div className="app">
+      {!settingsOpen ? (
       <div className="titlebar">
         <div
           className="titlebar-row top"
@@ -2100,13 +2101,21 @@ function App() {
           )}
         </div>
       </div>
+      ) : null}
 
       {settingsOpen ? (
         <section className="settings-screen">
           <div className="settings-layout">
             <aside className="settings-sidebar">
               <div className="settings-brand">
-                <div className="settings-brand-icon">🗒</div>
+                <button
+                  type="button"
+                  className="settings-brand-back"
+                  onClick={() => setSettingsOpen(false)}
+                  aria-label="Back to editor"
+                >
+                  ←
+                </button>
                 <div className="settings-brand-name">AlwaysMemo</div>
               </div>
               <div className="settings-nav">
@@ -2119,9 +2128,6 @@ function App() {
             </aside>
 
             <div className="settings-content">
-              <button type="button" className="settings-page-back" onClick={() => setSettingsOpen(false)} aria-label="Back to editor">
-                ←
-              </button>
               <section id="settings-appearance" className="settings-block">
                 <h2>Appearance</h2>
                 <p className="settings-desc">Customize the look and feel of your memo space.</p>
