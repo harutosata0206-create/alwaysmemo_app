@@ -1054,6 +1054,7 @@ body::-webkit-scrollbar-thumb,
 }
 
 .settings-sidebar {
+  flex: 0 0 240px;
   width: 240px;
   background: #ffffff;
   border-right: 1px solid #dfe4ec;
@@ -1061,6 +1062,7 @@ body::-webkit-scrollbar-thumb,
   display: flex;
   flex-direction: column;
   gap: 18px;
+  overflow: hidden;
 }
 
 .settings-brand {

@@ -117,6 +117,7 @@ function App() {
   const viewMenuRef = useRef<HTMLDivElement | null>(null);
   const viewMenuWrapperRef = useRef<HTMLDivElement | null>(null);
   const [viewMenuLeft, setViewMenuLeft] = useState<number | null>(null);
+  const settingsContentRef = useRef<HTMLDivElement | null>(null);
   const originalWindowSizeRef = useRef<LogicalSize | null>(null);
   const expandedWindowRef = useRef(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
@@ -145,8 +146,15 @@ function App() {
 
   const jumpToSettingsSection = useCallback((key: "appearance" | "formatting" | "features" | "startup" | "about") => {
     setSettingsNav(key);
+    const container = settingsContentRef.current;
     const target = document.getElementById(`settings-${key}`);
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!container || !target) return;
+    const top =
+      target.getBoundingClientRect().top -
+      container.getBoundingClientRect().top +
+      container.scrollTop -
+      8;
+    container.scrollTo({ top, behavior: "smooth" });
   }, []);
 
   useEffect(() => {
@@ -2163,7 +2171,7 @@ function App() {
               </div>
             </aside>
 
-            <div className="settings-content">
+            <div className="settings-content" ref={settingsContentRef}>
               <div className="settings-sections">
               <section id="settings-appearance" className="settings-block">
                 <h2>外観</h2>
