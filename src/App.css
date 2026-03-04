@@ -1139,6 +1139,7 @@ body::-webkit-scrollbar-thumb,
   min-width: 0;
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 56px 44px 40px;
   font-size: 0;
   color: transparent;
@@ -1150,6 +1151,8 @@ body::-webkit-scrollbar-thumb,
   gap: 24px;
   font-size: 16px;
   color: #111827;
+  width: 100%;
+  max-width: 100%;
 }
 
 .settings-block h2 {
@@ -1168,11 +1171,13 @@ body::-webkit-scrollbar-thumb,
 .theme-options {
   display: flex;
   gap: 16px;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .theme-card {
   flex: 1 1 0;
-  min-width: 160px;
+  min-width: 140px;
   border: 1px solid #d5dde8;
   border-radius: 14px;
   background: #f5f6fa;
@@ -1318,8 +1323,9 @@ body::-webkit-scrollbar-thumb,
 
 .startup-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
+  width: 100%;
 }
 
 .startup-card {
@@ -1352,6 +1358,8 @@ body::-webkit-scrollbar-thumb,
   background: linear-gradient(160deg, #1f4fd6 0%, #1b46c4 100%);
   color: #ffffff;
   text-align: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .about-logo {
