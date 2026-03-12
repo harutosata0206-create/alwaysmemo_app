@@ -361,7 +361,9 @@ body::-webkit-scrollbar-thumb,
 .tab-close {
   font-weight: 600;
   cursor: pointer;
-  padding: 0 4px;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
   color: #6b6b6b;
   border-radius: 6px;
   display: inline-flex;
