@@ -541,6 +541,7 @@ body::-webkit-scrollbar-thumb,
   box-shadow: none;
   transform: none;
   white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
 .menu-button.file-menu-button {
@@ -548,14 +549,16 @@ body::-webkit-scrollbar-thumb,
 }
 
 .menu-button:hover {
-  background: #e2e8f0;
+  background: #d9e3f3;
+  color: #0b1324;
   border-radius: 6px;
   transform: none;
   box-shadow: none;
 }
 
 .menu-button.active {
-  background: #e2e8f0;
+  background: #d2deef;
+  color: #0b1324;
   border-radius: 6px;
 }
 
@@ -1796,7 +1799,8 @@ body::-webkit-scrollbar-thumb,
 
 .app.theme-dark .menu-button:hover,
 .app.theme-dark .menu-button.active {
-  background: #0c1a3c;
+  background: #2d5fca;
+  color: #f8fbff;
 }
 
 .app.theme-dark .menu-panel,
