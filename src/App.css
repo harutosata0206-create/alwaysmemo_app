@@ -1612,11 +1612,11 @@ body::-webkit-scrollbar-thumb,
 }
 
 .app.theme-dark .settings-window-controls .window-button:hover {
-  background: #12203c;
+  background: #0f1b33;
 }
 
 .app.theme-dark .settings-window-controls .window-button:active {
-  background: #1a2c50;
+  background: #14233f;
 }
 
 .app.theme-dark .settings-sidebar {
@@ -1634,8 +1634,8 @@ body::-webkit-scrollbar-thumb,
 }
 
 .app.theme-dark .settings-brand-back:hover {
-  background: #12264a;
-  color: #4f8cff;
+  background: #0e1d38;
+  color: #d7e4ff;
 }
 
 .app.theme-dark .settings-mobile-header {
@@ -1648,7 +1648,7 @@ body::-webkit-scrollbar-thumb,
 }
 
 .app.theme-dark .settings-nav-item:hover {
-  background: #112348;
+  background: #0f1f3a;
 }
 
 .app.theme-dark .settings-nav-item.active {
@@ -1683,7 +1683,8 @@ body::-webkit-scrollbar-thumb,
 }
 
 .app.theme-dark .theme-card:hover {
-  border-color: #3e67ad;
+  border-color: #294775;
+  background: #102143;
 }
 
 .app.theme-dark .theme-card.active {
