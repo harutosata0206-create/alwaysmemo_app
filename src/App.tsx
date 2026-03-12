@@ -93,7 +93,7 @@ function nodeToPlainText(node: Node): string {
 function App() {
   const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(true);
   const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
+  const [, setStatus] = useState<string | null>(null);
   const [tabs, setTabs] = useState<Tab[]>([
     { id: "initial", title: "タイトルなし", content: "" },
   ]);
@@ -368,16 +368,6 @@ function App() {
       parent.normalize();
     });
     return container.innerHTML;
-  }, []);
-
-  const hasRichFormatting = useCallback((html: string) => {
-    const container = document.createElement("div");
-    container.innerHTML = html;
-    return Boolean(
-      container.querySelector(
-        "strong, b, em, i, u, a, table, thead, tbody, tr, td, th, ul, ol, li, h1, h2, h3, h4, h5, h6",
-      ),
-    );
   }, []);
 
   const pickSavePath = useCallback(async (suggested: string) => {
@@ -1449,7 +1439,15 @@ function App() {
       } else {
         if (targetIndex <= walked) {
           foundNode = current.parentNode;
-          foundOffset = Array.from(current.parentNode?.childNodes ?? []).indexOf(current);
+          const siblings = current.parentNode?.childNodes;
+          if (siblings) {
+            for (let i = 0; i < siblings.length; i += 1) {
+              if (siblings[i] === current) {
+                foundOffset = i;
+                break;
+              }
+            }
+          }
           break;
         }
         walked += 1;
