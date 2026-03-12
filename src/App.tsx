@@ -21,6 +21,8 @@ import "./App.css";
 
 const MIN_WINDOW_WIDTH = 300;
 const MIN_WINDOW_HEIGHT = 200;
+const SETTINGS_MIN_WINDOW_WIDTH = 571;
+const SETTINGS_MIN_WINDOW_HEIGHT = 310;
 const STORAGE_KEY = "alwaysmemo-state";
 const TAB_CLOSE_ANIMATION_MS = 140;
 
@@ -141,6 +143,7 @@ function App() {
   const [viewMenuLeft, setViewMenuLeft] = useState<number | null>(null);
   const settingsContentRef = useRef<HTMLDivElement | null>(null);
   const originalWindowSizeRef = useRef<LogicalSize | null>(null);
+  const settingsWindowSizeRef = useRef<LogicalSize | null>(null);
   const expandedWindowRef = useRef(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
@@ -1019,6 +1022,50 @@ function App() {
       root.classList.remove("global-dark");
     };
   }, [effectiveTheme]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncSettingsWindowSize = async () => {
+      try {
+        if (settingsOpen) {
+          if (!settingsWindowSizeRef.current) {
+            settingsWindowSizeRef.current = new LogicalSize(window.innerWidth, window.innerHeight);
+          }
+
+          await windowHandle.setMinSize(
+            new LogicalSize(SETTINGS_MIN_WINDOW_WIDTH, SETTINGS_MIN_WINDOW_HEIGHT),
+          );
+
+          const nextWidth = Math.max(window.innerWidth, SETTINGS_MIN_WINDOW_WIDTH);
+          const nextHeight = Math.max(window.innerHeight, SETTINGS_MIN_WINDOW_HEIGHT);
+          if (!cancelled && (nextWidth !== window.innerWidth || nextHeight !== window.innerHeight)) {
+            await windowHandle.setSize(new LogicalSize(nextWidth, nextHeight));
+          }
+          return;
+        }
+
+        await windowHandle.setMinSize(
+          new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT),
+        );
+
+        const previousSize = settingsWindowSizeRef.current;
+        settingsWindowSizeRef.current = null;
+        if (!previousSize || cancelled) return;
+
+        if (previousSize.width !== window.innerWidth || previousSize.height !== window.innerHeight) {
+          await windowHandle.setSize(previousSize);
+        }
+      } catch (error) {
+        console.error("Failed to sync settings window size", error);
+      }
+    };
+
+    void syncSettingsWindowSize();
+    return () => {
+      cancelled = true;
+    };
+  }, [settingsOpen, windowHandle]);
 
   useEffect(() => {
     if (!settingsReadyRef.current) return;
