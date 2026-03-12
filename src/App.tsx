@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent as ReactDragEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import DOMPurify from "dompurify";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
@@ -30,8 +39,10 @@ const MIN_WINDOW_WIDTH = 300;
 const MIN_WINDOW_HEIGHT = 200;
 const SETTINGS_MIN_WINDOW_WIDTH = 571;
 const SETTINGS_MIN_WINDOW_HEIGHT = 310;
+const STATE_PERSIST_DEBOUNCE_MS = 300;
 const STORAGE_KEY = "alwaysmemo-state";
 const TAB_CLOSE_ANIMATION_MS = 140;
+const FILE_PATH_PATTERN = /\.(txt|md|markdown)$/i;
 
 type Tab = {
   id: string;
@@ -89,6 +100,105 @@ const BLOCK_TEXT_TAGS = new Set([
   "TABLE",
 ]);
 
+const ALLOWED_EDITOR_TAGS = [
+  "blockquote",
+  "br",
+  "code",
+  "div",
+  "em",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "i",
+  "li",
+  "ol",
+  "p",
+  "pre",
+  "strong",
+  "b",
+  "u",
+  "ul",
+];
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function sanitizeEditorHtml(html: string): string {
+  const sanitized = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ALLOWED_EDITOR_TAGS,
+    ALLOWED_ATTR: [],
+    ALLOW_DATA_ATTR: false,
+    FORBID_ATTR: ["class", "style"],
+    KEEP_CONTENT: true,
+    RETURN_TRUSTED_TYPE: false,
+  });
+  const container = document.createElement("div");
+  container.innerHTML = typeof sanitized === "string" ? sanitized : String(sanitized);
+  container.querySelectorAll("*").forEach((element) => {
+    Array.from(element.attributes).forEach((attribute) => {
+      const name = attribute.name.toLowerCase();
+      if (name.startsWith("on") || name === "class" || name === "style") {
+        element.removeAttribute(attribute.name);
+      }
+    });
+  });
+  return container.innerHTML;
+}
+
+function replaceTextInHtml(
+  html: string,
+  query: string,
+  replacement: string,
+  mode: "one" | "all",
+): string {
+  const trimmed = query.trim();
+  if (!trimmed) return sanitizeEditorHtml(html);
+
+  const container = document.createElement("div");
+  container.innerHTML = sanitizeEditorHtml(html);
+  const regex = new RegExp(escapeRegex(trimmed), mode === "all" ? "gi" : "i");
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const nodes: Text[] = [];
+  let node = walker.nextNode();
+  while (node) {
+    nodes.push(node as Text);
+    node = walker.nextNode();
+  }
+
+  for (const textNode of nodes) {
+    const text = textNode.nodeValue ?? "";
+    if (!regex.test(text)) {
+      regex.lastIndex = 0;
+      continue;
+    }
+    regex.lastIndex = 0;
+    const fragment = document.createDocumentFragment();
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text))) {
+      const start = match.index;
+      const end = start + match[0].length;
+      if (start > lastIndex) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex, start)));
+      }
+      fragment.appendChild(document.createTextNode(replacement));
+      lastIndex = end;
+      if (mode === "one") break;
+    }
+    if (lastIndex < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+    textNode.parentNode?.replaceChild(fragment, textNode);
+    if (mode === "one") break;
+  }
+
+  return sanitizeEditorHtml(container.innerHTML);
+}
+
 function nodeToPlainText(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) {
     return node.textContent ?? "";
@@ -131,11 +241,13 @@ function App() {
   const topTitlebarRef = useRef<HTMLDivElement | null>(null);
   const activeTabIdRef = useRef<string>("initial");
   const tabHistoryRef = useRef<string[]>([]);
+  const persistStateTimerRef = useRef<number | null>(null);
   const pendingRevealTabIdRef = useRef<string | null>(null);
   const tabsWheelTargetRef = useRef<number | null>(null);
   const tabsWheelRafRef = useRef<number | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
+  const allowImmediateCloseRef = useRef(false);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const cursorUpdateRafRef = useRef<number | null>(null);
@@ -171,6 +283,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsNav, setSettingsNav] = useState<"appearance" | "formatting" | "features" | "startup" | "about">("appearance");
   const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
+  const [windowClosePromptOpen, setWindowClosePromptOpen] = useState(false);
   const [closingTabIds, setClosingTabIds] = useState<string[]>([]);
   const tabCloseTimerRef = useRef<Record<string, number>>({});
   const settingsReadyRef = useRef(false);
@@ -234,11 +347,12 @@ function App() {
     tabHistoryRef.current = [...tabHistoryRef.current.filter((id) => id !== activeTabId), activeTabId].slice(-100);
   }, [activeTabId]);
   const activeHtml = activeTab?.content ?? "";
+  const sanitizedActiveHtml = useMemo(() => sanitizeEditorHtml(activeHtml), [activeHtml]);
   const activePlainText = useMemo(() => {
     const div = document.createElement("div");
-    div.innerHTML = activeHtml;
+    div.innerHTML = sanitizedActiveHtml;
     return nodeToPlainText(div).replace(/\u00a0/g, " ");
-  }, [activeHtml]);
+  }, [sanitizedActiveHtml]);
   const storageKey = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     const instance = params.get("instance");
@@ -267,6 +381,14 @@ function App() {
     () => (lineSpacing === "relaxed" ? 6 : 2),
     [lineSpacing],
   );
+
+  const applyEditorHtml = useCallback((editor: HTMLDivElement, html: string) => {
+    // Last-line defense before HTML reaches the live DOM.
+    const safeHtml = sanitizeEditorHtml(html);
+    if (editor.innerHTML !== safeHtml) {
+      editor.innerHTML = safeHtml;
+    }
+  }, []);
 
   const updateCursorIndex = useCallback(() => {
     const editor = editorRef.current;
@@ -371,21 +493,22 @@ function App() {
 
   const normalizeHtml = useCallback(
     (content: string) => {
-      if (/<[^>]+>/.test(content)) return content;
-      return textToHtml(content);
+      const safeContent = /<[^>]+>/.test(content) ? content : textToHtml(content);
+      // Any HTML restored from storage or file-open flows is sanitized before use.
+      return sanitizeEditorHtml(safeContent);
     },
     [textToHtml],
   );
 
   const htmlToText = useCallback((html: string) => {
     const div = document.createElement("div");
-    div.innerHTML = html;
+    div.innerHTML = sanitizeEditorHtml(html);
     return nodeToPlainText(div).replace(/\u00a0/g, " ");
   }, []);
 
   const stripSearchHighlights = useCallback((html: string) => {
     const container = document.createElement("div");
-    container.innerHTML = html;
+    container.innerHTML = sanitizeEditorHtml(html);
     container.querySelectorAll("mark.search-hit").forEach((mark) => {
       const parent = mark.parentNode;
       if (!parent) return;
@@ -395,7 +518,7 @@ function App() {
       parent.removeChild(mark);
       parent.normalize();
     });
-    return container.innerHTML;
+    return sanitizeEditorHtml(container.innerHTML);
   }, []);
 
   const pickSavePath = useCallback(async (suggested: string) => {
@@ -403,7 +526,7 @@ function App() {
     const defaultPath = withExt;
     let resolvedPath: string | null = null;
     let dialogFailed = false;
-    const filters = [{ name: "Text", extensions: ["txt"] }];
+    const filters = [{ name: "Text", extensions: ["txt", "md", "markdown"] }];
     try {
       const picked = await save({
         defaultPath,
@@ -424,7 +547,8 @@ function App() {
         default_name: defaultPath,
       });
     }
-    return resolvedPath;
+    if (!resolvedPath) return null;
+    return FILE_PATH_PATTERN.test(resolvedPath) ? resolvedPath : `${resolvedPath}.txt`;
   }, []);
 
   const pathsKey = useMemo(() => `${storageKey}-paths`, [storageKey]);
@@ -450,7 +574,7 @@ function App() {
   };
   const isRecentEligiblePath = useCallback((path?: string | null) => {
     if (!path) return false;
-    return /\.txt$/i.test(path);
+    return FILE_PATH_PATTERN.test(path);
   }, []);
 
   const pushRecentClosedFile = useCallback((tab: Tab) => {
@@ -499,7 +623,7 @@ function App() {
       const title = getFileNameFromPath(opened.path);
       const content = textToHtml(opened.contents);
       const pathMap = getPathMap();
-      setPathMap({ ...pathMap, [id]: opened.path, [title]: opened.path });
+      setPathMap({ ...pathMap, [id]: opened.path });
       savedTabsRef.current = {
         ...savedTabsRef.current,
         [id]: { title, content },
@@ -560,7 +684,7 @@ function App() {
       const title = getFileNameFromPath(opened.path) || `メモ ${tabs.length + 1}`;
       const content = textToHtml(opened.contents);
       const pathMap = getPathMap();
-      setPathMap({ ...pathMap, [id]: opened.path, [title]: opened.path });
+      setPathMap({ ...pathMap, [id]: opened.path });
       savedTabsRef.current = {
         ...savedTabsRef.current,
         [id]: { title, content },
@@ -596,7 +720,7 @@ function App() {
       });
       const nextTitle = getFileNameFromPath(resolvedPath);
       const pathMap = getPathMap();
-      setPathMap({ ...pathMap, [tab.id]: resolvedPath, [nextTitle]: resolvedPath });
+      setPathMap({ ...pathMap, [tab.id]: resolvedPath });
       setTabs((prev) => {
         const nextTabs = prev.map((item) =>
           item.id === tab.id
@@ -638,7 +762,7 @@ function App() {
     let resolvedPath = tab.filePath ?? null;
     if (!resolvedPath) {
       const pathMap = getPathMap();
-      resolvedPath = pathMap[tab.id] ?? pathMap[tab.title] ?? null;
+      resolvedPath = pathMap[tab.id] ?? null;
     }
     if (!resolvedPath) {
       return await saveTabAs(tab);
@@ -650,11 +774,10 @@ function App() {
         contents: htmlToText(tab.content),
       });
       const pathMap = getPathMap();
-      if (!pathMap[tab.id] || !pathMap[tab.title]) {
+      if (!pathMap[tab.id]) {
         setPathMap({
           ...pathMap,
           [tab.id]: resolvedPath,
-          [tab.title]: resolvedPath,
         });
       }
       savedTabsRef.current = {
@@ -935,7 +1058,7 @@ function App() {
           ).map((tab) => ({
             ...tab,
             content: normalizeHtml(tab.content),
-            filePath: tab.filePath ?? pathMap[tab.id] ?? pathMap[tab.title] ?? null,
+            filePath: tab.filePath ?? pathMap[tab.id] ?? null,
           }));
           savedTabsRef.current = Object.fromEntries(
             restoredTabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
@@ -989,7 +1112,7 @@ function App() {
               const title = getFileNameFromPath(opened.path) || "タイトルなし";
               const content = textToHtml(opened.contents);
               const pathMap = getPathMap();
-              setPathMap({ ...pathMap, [id]: opened.path, [title]: opened.path });
+              setPathMap({ ...pathMap, [id]: opened.path });
               savedTabsRef.current = {
                 ...savedTabsRef.current,
                 [id]: { title, content },
@@ -1123,7 +1246,18 @@ function App() {
 
   useEffect(() => {
     if (!settingsReadyRef.current) return;
-    persistState(tabs, activeTabId);
+    if (persistStateTimerRef.current !== null) {
+      window.clearTimeout(persistStateTimerRef.current);
+    }
+    persistStateTimerRef.current = window.setTimeout(() => {
+      persistState(tabs, activeTabId);
+      persistStateTimerRef.current = null;
+    }, STATE_PERSIST_DEBOUNCE_MS);
+    return () => {
+      if (persistStateTimerRef.current !== null) {
+        window.clearTimeout(persistStateTimerRef.current);
+      }
+    };
   }, [activeTabId, fileOpenBehavior, lineSpacing, persistState, sessionBehavior, tabs, themeMode]);
 
   useEffect(() => {
@@ -1359,6 +1493,17 @@ function App() {
     window.requestAnimationFrame(() => reveal(retriesLeft));
   }, []);
 
+  const isTabDirty = useCallback((tab: Tab) => {
+    const saved = savedTabsRef.current[tab.id];
+    if (!saved) return true;
+    return saved.title !== tab.title || saved.content !== tab.content;
+  }, []);
+
+  const dirtyTabCount = useMemo(
+    () => tabs.filter((tab) => isTabDirty(tab)).length,
+    [isTabDirty, tabs],
+  );
+
   const addTab = () => {
     const id = crypto.randomUUID();
     const newTab: Tab = { id, title: "タイトルなし", content: "" };
@@ -1398,7 +1543,10 @@ function App() {
 
   const closeTabWithAnimation = useCallback((id: string) => {
     if (tabs.length === 1 && tabs[0]?.id === id) {
-      void windowHandle.close();
+      allowImmediateCloseRef.current = true;
+      void windowHandle.close().finally(() => {
+        allowImmediateCloseRef.current = false;
+      });
       return;
     }
     if (tabCloseTimerRef.current[id]) return;
@@ -1419,7 +1567,7 @@ function App() {
       return;
     }
     closeTabWithAnimation(id);
-  }, [closeTabWithAnimation, closingTabIds, tabs]);
+  }, [closeTabWithAnimation, closingTabIds, isTabDirty, tabs]);
 
   useEffect(() => {
     return () => {
@@ -1452,7 +1600,8 @@ function App() {
 
   const updateContent = useCallback((content: string) => {
     if (!activeTab) return;
-    const clean = stripSearchHighlights(content);
+    // contentEditable 由来のHTMLは state 保存前に必ず sanitize する。
+    const clean = sanitizeEditorHtml(stripSearchHighlights(content));
     setTabs((prev) =>
       prev.map((t) => (t.id === activeTab.id ? { ...t, content: clean } : t)),
     );
@@ -1479,12 +1628,40 @@ function App() {
         document.execCommand("insertText", false, text);
       } catch (error) {
         console.error("clipboard read failed", error);
-        document.execCommand("paste");
+        setStatus("Clipboard access unavailable");
       }
     } else {
-      document.execCommand("paste");
+      setStatus("Clipboard access unavailable");
     }
     window.requestAnimationFrame(() => {
+      updateContent(editor.innerHTML);
+      updateCursorIndex();
+    });
+  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
+
+  const handleEditorPaste = useCallback((event: ReactClipboardEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    restoreEditorSelection();
+    const text = event.clipboardData.getData("text/plain");
+    document.execCommand("insertText", false, text);
+    window.requestAnimationFrame(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      updateContent(editor.innerHTML);
+      updateCursorIndex();
+    });
+  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
+
+  const handleEditorDrop = useCallback((event: ReactDragEvent<HTMLDivElement>) => {
+    // Dropped rich HTML/files bypass paste sanitization, so accept plain text only.
+    event.preventDefault();
+    restoreEditorSelection();
+    const text = event.dataTransfer.getData("text/plain");
+    if (!text) return;
+    document.execCommand("insertText", false, text);
+    window.requestAnimationFrame(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
       updateContent(editor.innerHTML);
       updateCursorIndex();
     });
@@ -1614,16 +1791,13 @@ function App() {
       const trimmed = query.trim();
       if (!trimmed) {
         setSearchMatchCount(0);
-        if (editor.innerHTML !== activeHtml) {
-          editor.innerHTML = activeHtml;
-        }
+        applyEditorHtml(editor, sanitizedActiveHtml);
         return;
       }
-      const baseHtml = stripSearchHighlights(activeHtml);
+      const baseHtml = stripSearchHighlights(sanitizedActiveHtml);
       const container = document.createElement("div");
       container.innerHTML = baseHtml;
-      const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(escaped, "gi");
+      const regex = new RegExp(escapeRegex(trimmed), "gi");
       let count = 0;
       const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
       const nodes: Text[] = [];
@@ -1660,29 +1834,27 @@ function App() {
         }
         textNode.parentNode?.replaceChild(fragment, textNode);
       });
-      editor.innerHTML = container.innerHTML;
+      // Search highlights are generated from sanitized DOM and inserted as nodes,
+      // avoiding a second raw HTML string sink here.
+      editor.replaceChildren(...Array.from(container.childNodes).map((node) => node.cloneNode(true)));
       setSearchMatchCount(count);
       const firstHit = editor.querySelector("mark.search-hit");
       if (firstHit) {
         (firstHit as HTMLElement).scrollIntoView({ block: "center" });
       }
     },
-    [activeHtml, stripSearchHighlights],
+    [applyEditorHtml, sanitizedActiveHtml, stripSearchHighlights],
   );
 
   const replaceMatches = useCallback(
     (mode: "one" | "all") => {
       const trimmed = searchQuery.trim();
       if (!trimmed || !activeTab) return;
-      const baseHtml = stripSearchHighlights(activeHtml);
-      const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(escaped, mode === "all" ? "gi" : "i");
-      const replacement = replaceQuery;
-      const nextHtml = baseHtml.replace(regex, replacement);
+      const nextHtml = replaceTextInHtml(sanitizedActiveHtml, trimmed, replaceQuery, mode);
       updateContent(nextHtml);
       window.requestAnimationFrame(() => applySearchHighlights(trimmed));
     },
-    [activeHtml, activeTab, applySearchHighlights, replaceQuery, searchQuery, stripSearchHighlights, updateContent],
+    [activeTab, applySearchHighlights, replaceQuery, sanitizedActiveHtml, searchQuery, updateContent],
   );
 
   useEffect(() => {
@@ -1693,10 +1865,8 @@ function App() {
       return;
     }
     setSearchMatchCount(0);
-    if (editor.innerHTML !== activeHtml) {
-      editor.innerHTML = activeHtml;
-    }
-  }, [activeHtml, activeTabId, applySearchHighlights, searchQuery, settingsOpen, showSearchBox]);
+    applyEditorHtml(editor, sanitizedActiveHtml);
+  }, [activeTabId, applyEditorHtml, applySearchHighlights, sanitizedActiveHtml, searchQuery, settingsOpen, showSearchBox]);
 
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
@@ -1737,9 +1907,51 @@ function App() {
     }
   };
 
-  const closeWindow = async () => {
-    await windowHandle.close();
-  };
+  const closeWindow = useCallback(async () => {
+    if (allowImmediateCloseRef.current) {
+      await windowHandle.close();
+      return;
+    }
+    const dirtyTabs = tabs.filter((tab) => isTabDirty(tab));
+    if (dirtyTabs.length > 0) {
+      closeMenus();
+      setWindowClosePromptOpen(true);
+      return;
+    }
+    allowImmediateCloseRef.current = true;
+    try {
+      await windowHandle.close();
+    } finally {
+      allowImmediateCloseRef.current = false;
+    }
+  }, [closeMenus, isTabDirty, tabs, windowHandle]);
+
+  const discardAndCloseWindow = useCallback(async () => {
+    setWindowClosePromptOpen(false);
+    allowImmediateCloseRef.current = true;
+    try {
+      await windowHandle.close();
+    } finally {
+      allowImmediateCloseRef.current = false;
+    }
+  }, [windowHandle]);
+
+  const saveAndCloseWindow = useCallback(async () => {
+    const dirtyTabs = tabs.filter((tab) => isTabDirty(tab));
+    setWindowClosePromptOpen(false);
+    for (const tab of dirtyTabs) {
+      const saved = await saveTab(tab);
+      if (!saved) {
+        return;
+      }
+    }
+    allowImmediateCloseRef.current = true;
+    try {
+      await windowHandle.close();
+    } finally {
+      allowImmediateCloseRef.current = false;
+    }
+  }, [isTabDirty, saveTab, tabs, windowHandle]);
 
   const shortcutActions = useMemo(
     () => [
@@ -1757,6 +1969,22 @@ function App() {
       toggleAlwaysOnTop,
     ],
   );
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void windowHandle.onCloseRequested(async (event) => {
+      if (allowImmediateCloseRef.current) return;
+      event.preventDefault();
+      await closeWindow();
+    }).then((cleanup) => {
+      unlisten = cleanup;
+    }).catch((error) => {
+      console.error("Failed to listen for close requests", error);
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, [closeWindow, windowHandle]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -1996,12 +2224,6 @@ function App() {
       return `${firstLine.slice(0, maxLength)}...`;
     }
     return firstLine || tab.title;
-  };
-
-  const isTabDirty = (tab: Tab) => {
-    const saved = savedTabsRef.current[tab.id];
-    if (!saved) return true;
-    return saved.title !== tab.title || saved.content !== tab.content;
   };
 
   return (
@@ -2729,6 +2951,9 @@ function App() {
                 updateContent(event.currentTarget.innerHTML);
                 scheduleCursorIndexUpdate();
               }}
+              onPaste={handleEditorPaste}
+              onDrop={handleEditorDrop}
+              onDragOver={(event) => event.preventDefault()}
               onKeyUp={scheduleCursorIndexUpdate}
               onMouseUp={scheduleCursorIndexUpdate}
               onClick={scheduleCursorIndexUpdate}
@@ -2737,6 +2962,51 @@ function App() {
         </section>
       )}
 
+      {windowClosePromptOpen ? (
+        <div className="format-choice-overlay" role="presentation">
+          <div
+            className="delete-choice-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="window-close-title"
+            aria-describedby="window-close-desc"
+          >
+            <h2 id="window-close-title">alwaysmemo</h2>
+            <p id="window-close-desc">
+              {dirtyTabCount > 1
+                ? `${dirtyTabCount} 件の未保存メモがあります。保存してから終了しますか？`
+                : "未保存のメモがあります。保存してから終了しますか？"}
+            </p>
+            <div className="delete-choice-actions">
+              <button
+                type="button"
+                className="delete-choice primary"
+                onClick={() => {
+                  void saveAndCloseWindow();
+                }}
+              >
+                保存
+              </button>
+              <button
+                type="button"
+                className="delete-choice"
+                onClick={() => {
+                  void discardAndCloseWindow();
+                }}
+              >
+                保存しない
+              </button>
+              <button
+                type="button"
+                className="delete-choice ghost"
+                onClick={() => setWindowClosePromptOpen(false)}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {deletePromptTab ? (
         <div className="format-choice-overlay" role="presentation">
           <div

@@ -1,4 +1,75 @@
 use serde::Serialize;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
+const MAX_TEXT_FILE_BYTES: u64 = 1_048_576;
+
+fn has_allowed_text_extension(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| matches!(ext.to_ascii_lowercase().as_str(), "txt" | "md" | "markdown"))
+        .unwrap_or(false)
+}
+
+fn validate_read_path(path: &Path) -> Result<PathBuf, String> {
+    let canonical = path
+        .canonicalize()
+        .map_err(|_| "invalid file path".to_string())?;
+    let metadata = fs::metadata(&canonical)
+        .map_err(|_| "unable to inspect file".to_string())?;
+    if !metadata.is_file() {
+        return Err("file path must point to a regular file".to_string());
+    }
+    if !has_allowed_text_extension(&canonical) {
+        return Err("unsupported file type".to_string());
+    }
+    if metadata.len() > MAX_TEXT_FILE_BYTES {
+        return Err("file is too large".to_string());
+    }
+    Ok(canonical)
+}
+
+fn validate_write_path(path: &Path) -> Result<PathBuf, String> {
+    if path.as_os_str().is_empty() {
+        return Err("invalid file path".to_string());
+    }
+    if !has_allowed_text_extension(path) {
+        return Err("unsupported file type".to_string());
+    }
+
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| "invalid file path".to_string())?;
+    let parent = path.parent().ok_or_else(|| "invalid file path".to_string())?;
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|_| "invalid file path".to_string())?;
+    let parent_metadata = fs::metadata(&canonical_parent)
+        .map_err(|_| "invalid file path".to_string())?;
+    if !parent_metadata.is_dir() {
+        return Err("invalid file path".to_string());
+    }
+
+    let candidate = canonical_parent.join(file_name);
+    if candidate.exists() {
+        let canonical = validate_read_path(&candidate)?;
+        return Ok(canonical);
+    }
+
+    Ok(candidate)
+}
+
+fn read_validated_text_file(path: &Path) -> Result<OpenedFile, String> {
+    let canonical = validate_read_path(path)?;
+    let contents =
+        fs::read_to_string(&canonical).map_err(|_| "failed to read text file".to_string())?;
+    Ok(OpenedFile {
+        path: canonical.to_string_lossy().into_owned(),
+        contents,
+    })
+}
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -88,17 +159,12 @@ struct OpenedFile {
 #[tauri::command]
 fn open_text_file_dialog() -> Result<Option<OpenedFile>, String> {
     let file = rfd::FileDialog::new()
-        .add_filter("Text", &["txt"])
+        .add_filter("Text", &["txt", "md", "markdown"])
         .pick_file();
     let Some(path) = file else {
         return Ok(None);
     };
-    let contents =
-        std::fs::read_to_string(&path).map_err(|e| format!("read failed: {e}"))?;
-    Ok(Some(OpenedFile {
-        path: path.to_string_lossy().into_owned(),
-        contents,
-    }))
+    read_validated_text_file(&path).map(Some)
 }
 
 #[tauri::command]
@@ -107,12 +173,7 @@ fn open_text_file_by_path(path: String) -> Result<Option<OpenedFile>, String> {
     if !file_path.exists() {
         return Ok(None);
     }
-    let contents =
-        std::fs::read_to_string(&file_path).map_err(|e| format!("read failed: {e}"))?;
-    Ok(Some(OpenedFile {
-        path: file_path.to_string_lossy().into_owned(),
-        contents,
-    }))
+    read_validated_text_file(&file_path).map(Some)
 }
 
 #[tauri::command]
@@ -132,6 +193,7 @@ fn save_text_file_dialog(
         let _ = window_clone.set_focus();
         let _ = window_clone.show();
         let mut dialog = rfd::FileDialog::new();
+        dialog = dialog.add_filter("Text", &["txt", "md", "markdown"]);
         if let Some(name) = default_name {
             dialog = dialog.set_file_name(&name);
         }
@@ -149,7 +211,11 @@ fn save_text_file_dialog(
 
 #[tauri::command]
 fn write_text_file(path: String, contents: String) -> Result<(), String> {
-    std::fs::write(&path, contents).map_err(|e| format!("write failed ({path}): {e}"))
+    if contents.as_bytes().len() as u64 > MAX_TEXT_FILE_BYTES {
+        return Err("file is too large".to_string());
+    }
+    let validated_path = validate_write_path(Path::new(&path))?;
+    fs::write(validated_path, contents).map_err(|_| "failed to write text file".to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
