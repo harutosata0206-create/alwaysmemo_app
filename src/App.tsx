@@ -1959,7 +1959,7 @@ function App() {
                       }}
                       aria-label={isTabDirty(tab) ? "Unsaved" : "Close"}
                     >
-                      {isTabDirty(tab) ? "●" : <X size={12} strokeWidth={2.2} aria-hidden="true" />}
+                      {isTabDirty(tab) ? "●" : <X size={14} strokeWidth={2.2} aria-hidden="true" />}
                     </span>
                   </button>
                 ))}

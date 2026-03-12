@@ -1814,7 +1814,8 @@ body::-webkit-scrollbar-thumb,
 }
 
 .app.theme-dark .menu-item:hover {
-  background: #10234b;
+  background: #2456cc;
+  color: #f8fbff;
 }
 
 .app.theme-dark .menu-check.on {
@@ -1823,6 +1824,15 @@ body::-webkit-scrollbar-thumb,
 
 .app.theme-dark .menu-shortcut {
   color: #9fb3d8;
+}
+
+.app.theme-dark .menu-item:hover .menu-shortcut {
+  color: #dbe8ff;
+}
+
+.app.theme-dark .format-item:hover {
+  background: #2456cc;
+  color: #f8fbff;
 }
 
 .app.theme-dark .menu-divider {
