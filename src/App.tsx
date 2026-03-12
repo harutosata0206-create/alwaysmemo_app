@@ -3,7 +3,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import {
+  currentMonitor,
+  getCurrentWindow,
+  LogicalSize,
+  monitorFromPoint,
+  PhysicalPosition,
+  PhysicalSize,
+} from "@tauri-apps/api/window";
 import {
   ArrowLeft,
   Minus,
@@ -52,6 +59,11 @@ type PersistedState = {
   editorFontSizePx?: number;
   lineSpacing?: LineSpacing;
   themeMode?: ThemeMode;
+};
+
+type SavedWindowBounds = {
+  size: PhysicalSize;
+  position: PhysicalPosition;
 };
 
 type RecentClosedFile = {
@@ -143,7 +155,7 @@ function App() {
   const [viewMenuLeft, setViewMenuLeft] = useState<number | null>(null);
   const settingsContentRef = useRef<HTMLDivElement | null>(null);
   const originalWindowSizeRef = useRef<LogicalSize | null>(null);
-  const settingsWindowSizeRef = useRef<LogicalSize | null>(null);
+  const settingsWindowBoundsRef = useRef<SavedWindowBounds | null>(null);
   const expandedWindowRef = useRef(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
@@ -1029,18 +1041,47 @@ function App() {
     const syncSettingsWindowSize = async () => {
       try {
         if (settingsOpen) {
-          if (!settingsWindowSizeRef.current) {
-            settingsWindowSizeRef.current = new LogicalSize(window.innerWidth, window.innerHeight);
+          const currentSize = await windowHandle.outerSize();
+          const currentPosition = await windowHandle.outerPosition();
+
+          if (!settingsWindowBoundsRef.current) {
+            settingsWindowBoundsRef.current = {
+              size: new PhysicalSize(currentSize),
+              position: new PhysicalPosition(currentPosition),
+            };
           }
 
           await windowHandle.setMinSize(
             new LogicalSize(SETTINGS_MIN_WINDOW_WIDTH, SETTINGS_MIN_WINDOW_HEIGHT),
           );
 
-          const nextWidth = Math.max(window.innerWidth, SETTINGS_MIN_WINDOW_WIDTH);
-          const nextHeight = Math.max(window.innerHeight, SETTINGS_MIN_WINDOW_HEIGHT);
-          if (!cancelled && (nextWidth !== window.innerWidth || nextHeight !== window.innerHeight)) {
-            await windowHandle.setSize(new LogicalSize(nextWidth, nextHeight));
+          const probeX = currentPosition.x + Math.max(currentSize.width - 1, 0);
+          const probeY = currentPosition.y + Math.floor(currentSize.height / 2);
+          const monitor =
+            (await monitorFromPoint(probeX, probeY)) ??
+            (await currentMonitor());
+          const scaleFactor = monitor?.scaleFactor ?? window.devicePixelRatio ?? 1;
+          const settingsMinPhysical = new LogicalSize(
+            SETTINGS_MIN_WINDOW_WIDTH,
+            SETTINGS_MIN_WINDOW_HEIGHT,
+          ).toPhysical(scaleFactor);
+
+          const nextWidth = Math.max(currentSize.width, settingsMinPhysical.width);
+          const nextHeight = Math.max(currentSize.height, settingsMinPhysical.height);
+          const needsResize = nextWidth !== currentSize.width || nextHeight !== currentSize.height;
+          if (!cancelled && needsResize) {
+            const workArea = monitor?.workArea;
+            if (workArea && nextWidth > currentSize.width) {
+              const currentRight = currentPosition.x + currentSize.width;
+              const workAreaRight = workArea.position.x + workArea.size.width;
+              const edgeThreshold = Math.max(8, Math.round(scaleFactor * 8));
+              if (Math.abs(workAreaRight - currentRight) <= edgeThreshold) {
+                const nextX = Math.max(workArea.position.x, currentRight - nextWidth);
+                await windowHandle.setPosition(new PhysicalPosition(nextX, currentPosition.y));
+              }
+            }
+
+            await windowHandle.setSize(new PhysicalSize(nextWidth, nextHeight));
           }
           return;
         }
@@ -1049,12 +1090,25 @@ function App() {
           new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT),
         );
 
-        const previousSize = settingsWindowSizeRef.current;
-        settingsWindowSizeRef.current = null;
-        if (!previousSize || cancelled) return;
+        const previousBounds = settingsWindowBoundsRef.current;
+        settingsWindowBoundsRef.current = null;
+        if (!previousBounds || cancelled) return;
 
-        if (previousSize.width !== window.innerWidth || previousSize.height !== window.innerHeight) {
-          await windowHandle.setSize(previousSize);
+        const currentSize = await windowHandle.outerSize();
+        const currentPosition = await windowHandle.outerPosition();
+
+        if (
+          previousBounds.size.width !== currentSize.width ||
+          previousBounds.size.height !== currentSize.height
+        ) {
+          await windowHandle.setSize(previousBounds.size);
+        }
+
+        if (
+          previousBounds.position.x !== currentPosition.x ||
+          previousBounds.position.y !== currentPosition.y
+        ) {
+          await windowHandle.setPosition(previousBounds.position);
         }
       } catch (error) {
         console.error("Failed to sync settings window size", error);
