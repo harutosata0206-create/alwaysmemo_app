@@ -1749,7 +1749,7 @@ body::-webkit-scrollbar-thumb,
 
 .app.theme-dark .delete-choice-dialog {
   border-color: #1f3155;
-  background: #0c1730;
+  background: #13213d;
   color: #f3f4f6;
   box-shadow: 0 18px 42px rgba(2, 8, 23, 0.58);
 }
@@ -1764,17 +1764,18 @@ body::-webkit-scrollbar-thumb,
 
 .app.theme-dark .delete-choice-actions {
   border-top-color: #1f3155;
+  background: #182744;
 }
 
 .app.theme-dark .delete-choice {
   border-color: #28406d;
-  background: #132342;
+  background: #1d2d4d;
   color: #e7efff;
 }
 
 .app.theme-dark .delete-choice:hover {
   border-color: #34558f;
-  background: #193055;
+  background: #24385e;
 }
 
 .app.theme-dark .delete-choice.primary {
@@ -1789,11 +1790,11 @@ body::-webkit-scrollbar-thumb,
 }
 
 .app.theme-dark .delete-choice.ghost {
-  background: #132342;
+  background: #1d2d4d;
 }
 
 .app.theme-dark .delete-choice.ghost:hover {
-  background: #193055;
+  background: #24385e;
 }
 
 .status span.on {
