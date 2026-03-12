@@ -373,11 +373,23 @@ body::-webkit-scrollbar-thumb,
 
 .tab-close:hover {
   background: #d9dee6;
-  color: #1f2937;
 }
 
 .tab-close.dirty {
   color: #1f2937;
+}
+
+.tab-close-icon {
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.dirty-indicator {
+  font-size: 11px;
 }
 
 .add-tab {
@@ -1575,7 +1587,6 @@ body::-webkit-scrollbar-thumb,
 
 .app.theme-dark .tab-close:hover {
   background: #12254b;
-  color: #f8fbff;
 }
 
 .app.theme-dark .icon-button {

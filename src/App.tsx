@@ -285,6 +285,7 @@ function App() {
   const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
   const [windowClosePromptOpen, setWindowClosePromptOpen] = useState(false);
   const [closingTabIds, setClosingTabIds] = useState<string[]>([]);
+  const [hoveredTabCloseId, setHoveredTabCloseId] = useState<string | null>(null);
   const tabCloseTimerRef = useRef<Record<string, number>>({});
   const settingsReadyRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -2275,6 +2276,8 @@ function App() {
                     <span className="tab-title">{getTabLabel(tab)}</span>
                     <span
                       className={`tab-close ${isTabDirty(tab) ? "dirty" : ""}`}
+                      onPointerEnter={() => setHoveredTabCloseId(tab.id)}
+                      onPointerLeave={() => setHoveredTabCloseId((current) => (current === tab.id ? null : current))}
                       onPointerDown={(event) => event.stopPropagation()}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -2283,7 +2286,13 @@ function App() {
                       }}
                       aria-label={isTabDirty(tab) ? "Unsaved" : "Close"}
                     >
-                      {isTabDirty(tab) ? "●" : <X size={11} strokeWidth={2.2} aria-hidden="true" />}
+                      {isTabDirty(tab) && hoveredTabCloseId !== tab.id ? (
+                        <span className="tab-close-icon dirty-indicator" aria-hidden="true">●</span>
+                      ) : (
+                        <span className="tab-close-icon" aria-hidden="true">
+                          <X size={11} strokeWidth={2.2} aria-hidden="true" />
+                        </span>
+                      )}
                     </span>
                   </button>
                 ))}
