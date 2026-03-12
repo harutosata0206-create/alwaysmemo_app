@@ -80,6 +80,11 @@ type SavedWindowBounds = {
   position: PhysicalPosition;
 };
 
+type ManualMaximizeBounds = {
+  innerSize: PhysicalSize;
+  position: PhysicalPosition;
+};
+
 type RecentClosedFile = {
   path: string;
   title: string;
@@ -93,7 +98,10 @@ type WindowStateSnapshot = {
   effectiveMaximized: boolean;
   fullscreen: boolean;
   size: PhysicalSize;
+  innerSize: PhysicalSize;
   position: PhysicalPosition;
+  innerPosition: PhysicalPosition;
+  frameSize: PhysicalSize;
   workArea:
     | {
         position: PhysicalPosition;
@@ -308,7 +316,7 @@ function App() {
   const [windowDebugEntries, setWindowDebugEntries] = useState<string[]>([]);
   const [windowDebugStatus, setWindowDebugStatus] = useState("");
   const tabCloseTimerRef = useRef<Record<string, number>>({});
-  const manualMaximizeRestoreBoundsRef = useRef<SavedWindowBounds | null>(null);
+  const manualMaximizeRestoreBoundsRef = useRef<ManualMaximizeBounds | null>(null);
   const settingsReadyRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
@@ -363,11 +371,13 @@ function App() {
   );
 
   const readWindowStateSnapshot = useCallback(async (): Promise<WindowStateSnapshot> => {
-    const [tauriMaximized, fullscreen, size, position, monitor] = await Promise.all([
+    const [tauriMaximized, fullscreen, size, innerSize, position, innerPosition, monitor] = await Promise.all([
       windowHandle.isMaximized(),
       windowHandle.isFullscreen(),
       windowHandle.outerSize(),
+      windowHandle.innerSize(),
       windowHandle.outerPosition(),
+      windowHandle.innerPosition(),
       currentMonitor(),
     ]);
     const workArea = monitor?.workArea
@@ -391,7 +401,13 @@ function App() {
       effectiveMaximized: tauriMaximized || inferredMaximized,
       fullscreen,
       size: new PhysicalSize(size),
+      innerSize: new PhysicalSize(innerSize),
       position: new PhysicalPosition(position),
+      innerPosition: new PhysicalPosition(innerPosition),
+      frameSize: new PhysicalSize({
+        width: Math.max(0, size.width - innerSize.width),
+        height: Math.max(0, size.height - innerSize.height),
+      }),
       workArea,
     };
   }, [windowHandle]);
@@ -423,8 +439,11 @@ function App() {
         tauri: snapshot.tauriMaximized,
         inferred: snapshot.inferredMaximized,
         fullscreen: snapshot.fullscreen,
-        size: `${snapshot.size.width}x${snapshot.size.height}`,
+        outer: `${snapshot.size.width}x${snapshot.size.height}`,
+        inner: `${snapshot.innerSize.width}x${snapshot.innerSize.height}`,
+        frame: `${snapshot.frameSize.width}x${snapshot.frameSize.height}`,
         pos: `${snapshot.position.x},${snapshot.position.y}`,
+        innerPos: `${snapshot.innerPosition.x},${snapshot.innerPosition.y}`,
         workArea: snapshot.workArea
           ? `${snapshot.workArea.position.x},${snapshot.workArea.position.y} ${snapshot.workArea.size.width}x${snapshot.workArea.size.height}`
           : "n/a",
@@ -2046,10 +2065,10 @@ function App() {
         const restoreBounds = manualMaximizeRestoreBoundsRef.current;
         manualMaximizeRestoreBoundsRef.current = null;
         if (restoreBounds) {
-          await windowHandle.setSize(restoreBounds.size);
+          await windowHandle.setSize(restoreBounds.innerSize);
           await windowHandle.setPosition(restoreBounds.position);
           pushWindowDebug("manual-restore", {
-            size: `${restoreBounds.size.width}x${restoreBounds.size.height}`,
+            inner: `${restoreBounds.innerSize.width}x${restoreBounds.innerSize.height}`,
             pos: `${restoreBounds.position.x},${restoreBounds.position.y}`,
           });
           void window.setTimeout(() => {
@@ -2065,13 +2084,19 @@ function App() {
         return;
       }
       manualMaximizeRestoreBoundsRef.current = {
-        size: new PhysicalSize(before.size),
+        innerSize: new PhysicalSize(before.innerSize),
         position: new PhysicalPosition(before.position),
       };
+      const targetInnerSize = new PhysicalSize({
+        width: Math.max(MIN_WINDOW_WIDTH, workArea.size.width - before.frameSize.width),
+        height: Math.max(MIN_WINDOW_HEIGHT, workArea.size.height - before.frameSize.height),
+      });
       await windowHandle.setPosition(workArea.position);
-      await windowHandle.setSize(workArea.size);
+      await windowHandle.setSize(targetInnerSize);
       pushWindowDebug("manual-maximize-applied", {
-        size: `${workArea.size.width}x${workArea.size.height}`,
+        targetOuter: `${workArea.size.width}x${workArea.size.height}`,
+        targetInner: `${targetInnerSize.width}x${targetInnerSize.height}`,
+        frame: `${before.frameSize.width}x${before.frameSize.height}`,
         pos: `${workArea.position.x},${workArea.position.y}`,
       });
       void window.setTimeout(() => {
