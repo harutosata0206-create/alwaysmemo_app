@@ -2350,3 +2350,47 @@ button:active {
   border-color: #7dd3fc;
   background: #7dd3fc;
 }
+
+.window-debug-panel {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 500;
+  width: min(360px, calc(100vw - 24px));
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5edff;
+  box-shadow: 0 16px 40px rgba(2, 8, 23, 0.45);
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  backdrop-filter: blur(10px);
+}
+
+.window-debug-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8fb4ff;
+}
+
+.window-debug-status {
+  margin-top: 6px;
+  color: #d7e4ff;
+  word-break: break-word;
+}
+
+.window-debug-list {
+  margin-top: 8px;
+  display: grid;
+  gap: 4px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.window-debug-entry {
+  color: #b9c8e6;
+  word-break: break-word;
+}

@@ -43,6 +43,7 @@ const SETTINGS_MIN_WINDOW_WIDTH = 571;
 const SETTINGS_MIN_WINDOW_HEIGHT = 410;
 const STATE_PERSIST_DEBOUNCE_MS = 300;
 const STORAGE_KEY = "alwaysmemo-state";
+const WINDOW_DEBUG_STORAGE_KEY = "alwaysmemo-window-debug";
 const TAB_CLOSE_ANIMATION_MS = 140;
 const FILE_PATH_PATTERN = /\.(txt|md|markdown)$/i;
 
@@ -85,6 +86,21 @@ type RecentClosedFile = {
   closedAt: number;
 };
 const MAX_RECENT_CLOSED_FILES = 7;
+
+type WindowStateSnapshot = {
+  tauriMaximized: boolean;
+  inferredMaximized: boolean;
+  effectiveMaximized: boolean;
+  fullscreen: boolean;
+  size: PhysicalSize;
+  position: PhysicalPosition;
+  workArea:
+    | {
+        position: PhysicalPosition;
+        size: PhysicalSize;
+      }
+    | null;
+};
 
 const BLOCK_TEXT_TAGS = new Set([
   "DIV",
@@ -289,6 +305,8 @@ function App() {
   const [closingTabIds, setClosingTabIds] = useState<string[]>([]);
   const [hoveredTabCloseId, setHoveredTabCloseId] = useState<string | null>(null);
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
+  const [windowDebugEntries, setWindowDebugEntries] = useState<string[]>([]);
+  const [windowDebugStatus, setWindowDebugStatus] = useState("");
   const tabCloseTimerRef = useRef<Record<string, number>>({});
   const settingsReadyRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -312,21 +330,90 @@ function App() {
     () => (themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : themeMode),
     [systemPrefersDark, themeMode],
   );
-
-  const syncWindowMaximizedState = useCallback(async () => {
+  const windowDebugOverlayEnabled = useMemo(() => {
     try {
-      setIsWindowMaximized(await windowHandle.isMaximized());
+      const params = new URLSearchParams(window.location.search);
+      return (
+        params.get("windowDebug") === "1" ||
+        window.localStorage.getItem(WINDOW_DEBUG_STORAGE_KEY) === "1"
+      );
+    } catch {
+      return false;
+    }
+  }, []);
+  const windowDebugConsoleEnabled = import.meta.env.DEV || windowDebugOverlayEnabled;
+
+  const pushWindowDebug = useCallback(
+    (event: string, detail: Record<string, unknown>) => {
+      if (!windowDebugConsoleEnabled) return;
+      console.info("[window-debug]", event, detail);
+      if (!windowDebugOverlayEnabled) return;
+      const timestamp = new Date().toLocaleTimeString("ja-JP", { hour12: false });
+      const serialized = Object.entries(detail)
+        .map(([key, value]) => `${key}=${String(value)}`)
+        .join(" ");
+      setWindowDebugEntries((prev) => [`${timestamp} ${event} ${serialized}`.trim(), ...prev].slice(0, 10));
+    },
+    [windowDebugConsoleEnabled, windowDebugOverlayEnabled],
+  );
+
+  const readWindowStateSnapshot = useCallback(async (): Promise<WindowStateSnapshot> => {
+    const [tauriMaximized, fullscreen, size, position, monitor] = await Promise.all([
+      windowHandle.isMaximized(),
+      windowHandle.isFullscreen(),
+      windowHandle.outerSize(),
+      windowHandle.outerPosition(),
+      currentMonitor(),
+    ]);
+    const workArea = monitor?.workArea
+      ? {
+          position: new PhysicalPosition(monitor.workArea.position),
+          size: new PhysicalSize(monitor.workArea.size),
+        }
+      : null;
+    const scaleFactor = monitor?.scaleFactor ?? window.devicePixelRatio ?? 1;
+    const threshold = Math.max(4, Math.round(scaleFactor * 4));
+    const inferredMaximized =
+      workArea !== null &&
+      Math.abs(position.x - workArea.position.x) <= threshold &&
+      Math.abs(position.y - workArea.position.y) <= threshold &&
+      Math.abs(size.width - workArea.size.width) <= threshold &&
+      Math.abs(size.height - workArea.size.height) <= threshold;
+
+    return {
+      tauriMaximized,
+      inferredMaximized,
+      effectiveMaximized: tauriMaximized || inferredMaximized,
+      fullscreen,
+      size: new PhysicalSize(size),
+      position: new PhysicalPosition(position),
+      workArea,
+    };
+  }, [windowHandle]);
+
+  const syncWindowMaximizedState = useCallback(async (source = "sync") => {
+    try {
+      const snapshot = await readWindowStateSnapshot();
+      setIsWindowMaximized(snapshot.effectiveMaximized);
+      const status = `max=${snapshot.effectiveMaximized} tauri=${snapshot.tauriMaximized} inferred=${snapshot.inferredMaximized} fullscreen=${snapshot.fullscreen} size=${snapshot.size.width}x${snapshot.size.height} pos=${snapshot.position.x},${snapshot.position.y}`;
+      setWindowDebugStatus(status);
+      pushWindowDebug(source, {
+        max: snapshot.effectiveMaximized,
+        tauri: snapshot.tauriMaximized,
+        inferred: snapshot.inferredMaximized,
+        fullscreen: snapshot.fullscreen,
+        size: `${snapshot.size.width}x${snapshot.size.height}`,
+        pos: `${snapshot.position.x},${snapshot.position.y}`,
+        workArea: snapshot.workArea
+          ? `${snapshot.workArea.position.x},${snapshot.workArea.position.y} ${snapshot.workArea.size.width}x${snapshot.workArea.size.height}`
+          : "n/a",
+      });
+      return snapshot;
     } catch (error) {
       console.error("Failed to sync maximized state", error);
+      return null;
     }
-  }, [windowHandle]);
-
-  const handleWindowDragStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    void windowHandle.startDragging().catch((error) => {
-      console.error("Failed to start dragging window", error);
-    });
-  }, [windowHandle]);
+  }, [pushWindowDebug, readWindowStateSnapshot]);
 
   const jumpToSettingsSection = useCallback((key: "appearance" | "formatting" | "features" | "startup" | "about") => {
     setSettingsNav(key);
@@ -1918,15 +2005,43 @@ function App() {
     await windowHandle.minimize();
   };
 
-  const toggleMaximizeWindow = async () => {
-    const nextMaximized = await windowHandle.isMaximized();
-    if (nextMaximized) {
-      await windowHandle.unmaximize();
-    } else {
-      await windowHandle.maximize();
+  const toggleMaximizeWindow = useCallback(async () => {
+    const before = await syncWindowMaximizedState("toggle-before");
+    try {
+      await windowHandle.toggleMaximize();
+      pushWindowDebug("toggle-dispatched", {
+        from: before?.effectiveMaximized ? "maximized" : "normal",
+      });
+    } catch (error) {
+      console.error("Failed to toggle maximize", error);
+      pushWindowDebug("toggle-failed", { error: String(error) });
+      return;
     }
-    await syncWindowMaximizedState();
-  };
+
+    void window.setTimeout(() => {
+      void syncWindowMaximizedState("toggle-after-60ms");
+    }, 60);
+    void window.setTimeout(() => {
+      void syncWindowMaximizedState("toggle-after-180ms");
+    }, 180);
+  }, [pushWindowDebug, syncWindowMaximizedState, windowHandle]);
+
+  const handleWindowDragStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    if (event.detail === 2) {
+      void toggleMaximizeWindow();
+      return;
+    }
+    if (isWindowMaximized) {
+      pushWindowDebug("drag-region-ignored", { reason: "maximized" });
+      return;
+    }
+    pushWindowDebug("drag-region-start", { detail: event.detail });
+    void windowHandle.startDragging().catch((error) => {
+      console.error("Failed to start dragging window", error);
+      pushWindowDebug("drag-region-failed", { error: String(error) });
+    });
+  }, [isWindowMaximized, pushWindowDebug, toggleMaximizeWindow, windowHandle]);
 
   const closeWindow = useCallback(async () => {
     if (allowImmediateCloseRef.current) {
@@ -1994,16 +2109,16 @@ function App() {
   useEffect(() => {
     let unlistenResize: (() => void) | undefined;
     let unlistenMove: (() => void) | undefined;
-    void syncWindowMaximizedState();
+    void syncWindowMaximizedState("mount");
     void windowHandle.onResized(() => {
-      void syncWindowMaximizedState();
+      void syncWindowMaximizedState("resized");
     }).then((cleanup) => {
       unlistenResize = cleanup;
     }).catch((error) => {
       console.error("Failed to listen for resize", error);
     });
     void windowHandle.onMoved(() => {
-      void syncWindowMaximizedState();
+      void syncWindowMaximizedState("moved");
     }).then((cleanup) => {
       unlistenMove = cleanup;
     }).catch((error) => {
@@ -3177,6 +3292,20 @@ function App() {
             <span className="bottom-value">{useGlobalShortcuts ? "ON" : "OFF"}</span>
           </span>
         </div>
+      ) : null}
+
+      {windowDebugOverlayEnabled ? (
+        <aside className="window-debug-panel" aria-live="polite">
+          <div className="window-debug-title">window debug</div>
+          <div className="window-debug-status">{windowDebugStatus || "collecting..."}</div>
+          <div className="window-debug-list">
+            {windowDebugEntries.map((entry, index) => (
+              <div key={`${index}-${entry}`} className="window-debug-entry">
+                {entry}
+              </div>
+            ))}
+          </div>
+        </aside>
       ) : null}
 
     </div>
