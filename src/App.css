@@ -89,10 +89,6 @@ body::-webkit-scrollbar-thumb,
   z-index: 20;
 }
 
-.app.window-maximized .titlebar {
-  padding-top: 6px;
-}
-
 .titlebar-row {
   display: flex;
   align-items: center;
@@ -1027,10 +1023,6 @@ body::-webkit-scrollbar-thumb,
   flex-direction: column;
 }
 
-.app.window-maximized .settings-screen {
-  padding-top: 6px;
-}
-
 .settings-content {
   scrollbar-width: thin;
   scrollbar-color: #c8d2e3 transparent;
@@ -1056,11 +1048,6 @@ body::-webkit-scrollbar-thumb,
   right: 0;
   height: 34px;
   z-index: 20;
-}
-
-.app.window-maximized .settings-drag-region,
-.app.window-maximized .settings-window-controls {
-  top: 6px;
 }
 
 .settings-window-controls {
@@ -1541,6 +1528,12 @@ body::-webkit-scrollbar-thumb,
   background: #040d24;
   border-color: #15233f;
   box-shadow: 0 14px 34px rgba(2, 6, 23, 0.45);
+}
+
+.app.window-maximized {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .app.theme-dark .settings-screen {
