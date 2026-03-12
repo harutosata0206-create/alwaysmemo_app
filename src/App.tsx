@@ -308,6 +308,7 @@ function App() {
   const [windowDebugEntries, setWindowDebugEntries] = useState<string[]>([]);
   const [windowDebugStatus, setWindowDebugStatus] = useState("");
   const tabCloseTimerRef = useRef<Record<string, number>>({});
+  const manualMaximizeRestoreBoundsRef = useRef<SavedWindowBounds | null>(null);
   const settingsReadyRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
@@ -330,6 +331,10 @@ function App() {
     () => (themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : themeMode),
     [systemPrefersDark, themeMode],
   );
+  const prefersManualMaximize = useMemo(
+    () => /Windows/i.test(window.navigator.userAgent),
+    [],
+  );
   const windowDebugOverlayEnabled = useMemo(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -346,12 +351,12 @@ function App() {
   const pushWindowDebug = useCallback(
     (event: string, detail: Record<string, unknown>) => {
       if (!windowDebugConsoleEnabled) return;
-      console.info("[window-debug]", event, detail);
-      if (!windowDebugOverlayEnabled) return;
       const timestamp = new Date().toLocaleTimeString("ja-JP", { hour12: false });
       const serialized = Object.entries(detail)
         .map(([key, value]) => `${key}=${String(value)}`)
         .join(" ");
+      console.info(`[window-debug] ${event} ${serialized}`.trim());
+      if (!windowDebugOverlayEnabled) return;
       setWindowDebugEntries((prev) => [`${timestamp} ${event} ${serialized}`.trim(), ...prev].slice(0, 10));
     },
     [windowDebugConsoleEnabled, windowDebugOverlayEnabled],
@@ -389,6 +394,22 @@ function App() {
       position: new PhysicalPosition(position),
       workArea,
     };
+  }, [windowHandle]);
+
+  const getCurrentWorkArea = useCallback(async () => {
+    const [size, position] = await Promise.all([
+      windowHandle.outerSize(),
+      windowHandle.outerPosition(),
+    ]);
+    const probeX = position.x + Math.floor(size.width / 2);
+    const probeY = position.y + Math.floor(size.height / 2);
+    const monitor = (await monitorFromPoint(probeX, probeY)) ?? (await currentMonitor());
+    return monitor?.workArea
+      ? {
+          position: new PhysicalPosition(monitor.workArea.position),
+          size: new PhysicalSize(monitor.workArea.size),
+        }
+      : null;
   }, [windowHandle]);
 
   const syncWindowMaximizedState = useCallback(async (source = "sync") => {
@@ -2007,6 +2028,58 @@ function App() {
 
   const toggleMaximizeWindow = useCallback(async () => {
     const before = await syncWindowMaximizedState("toggle-before");
+    if (prefersManualMaximize) {
+      if (before?.tauriMaximized) {
+        await windowHandle.unmaximize();
+        pushWindowDebug("native-unmaximize", {});
+        void window.setTimeout(() => {
+          void syncWindowMaximizedState("native-unmaximize-after");
+        }, 60);
+        return;
+      }
+
+      const shouldRestoreManual =
+        manualMaximizeRestoreBoundsRef.current !== null &&
+        before !== null &&
+        !before.tauriMaximized;
+      if (shouldRestoreManual) {
+        const restoreBounds = manualMaximizeRestoreBoundsRef.current;
+        manualMaximizeRestoreBoundsRef.current = null;
+        if (restoreBounds) {
+          await windowHandle.setSize(restoreBounds.size);
+          await windowHandle.setPosition(restoreBounds.position);
+          pushWindowDebug("manual-restore", {
+            size: `${restoreBounds.size.width}x${restoreBounds.size.height}`,
+            pos: `${restoreBounds.position.x},${restoreBounds.position.y}`,
+          });
+          void window.setTimeout(() => {
+            void syncWindowMaximizedState("manual-restore-after");
+          }, 60);
+        }
+        return;
+      }
+
+      const workArea = await getCurrentWorkArea();
+      if (!workArea || !before) {
+        pushWindowDebug("manual-maximize-missing-workarea", {});
+        return;
+      }
+      manualMaximizeRestoreBoundsRef.current = {
+        size: new PhysicalSize(before.size),
+        position: new PhysicalPosition(before.position),
+      };
+      await windowHandle.setPosition(workArea.position);
+      await windowHandle.setSize(workArea.size);
+      pushWindowDebug("manual-maximize-applied", {
+        size: `${workArea.size.width}x${workArea.size.height}`,
+        pos: `${workArea.position.x},${workArea.position.y}`,
+      });
+      void window.setTimeout(() => {
+        void syncWindowMaximizedState("manual-maximize-after");
+      }, 60);
+      return;
+    }
+
     try {
       await windowHandle.toggleMaximize();
       pushWindowDebug("toggle-dispatched", {
@@ -2024,7 +2097,7 @@ function App() {
     void window.setTimeout(() => {
       void syncWindowMaximizedState("toggle-after-180ms");
     }, 180);
-  }, [pushWindowDebug, syncWindowMaximizedState, windowHandle]);
+  }, [getCurrentWorkArea, prefersManualMaximize, pushWindowDebug, syncWindowMaximizedState, windowHandle]);
 
   const handleWindowDragStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
