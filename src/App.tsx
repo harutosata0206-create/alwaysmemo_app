@@ -22,6 +22,7 @@ import {
 } from "@tauri-apps/api/window";
 import {
   ArrowLeft,
+  Copy,
   Minus,
   Monitor,
   Moon,
@@ -286,6 +287,7 @@ function App() {
   const [windowClosePromptOpen, setWindowClosePromptOpen] = useState(false);
   const [closingTabIds, setClosingTabIds] = useState<string[]>([]);
   const [hoveredTabCloseId, setHoveredTabCloseId] = useState<string | null>(null);
+  const [isWindowMaximized, setIsWindowMaximized] = useState(false);
   const tabCloseTimerRef = useRef<Record<string, number>>({});
   const settingsReadyRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -309,6 +311,14 @@ function App() {
     () => (themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : themeMode),
     [systemPrefersDark, themeMode],
   );
+
+  const syncWindowMaximizedState = useCallback(async () => {
+    try {
+      setIsWindowMaximized(await windowHandle.isMaximized());
+    } catch (error) {
+      console.error("Failed to sync maximized state", error);
+    }
+  }, [windowHandle]);
 
   const jumpToSettingsSection = useCallback((key: "appearance" | "formatting" | "features" | "startup" | "about") => {
     setSettingsNav(key);
@@ -1901,12 +1911,13 @@ function App() {
   };
 
   const toggleMaximizeWindow = async () => {
-    const isMaximized = await windowHandle.isMaximized();
-    if (isMaximized) {
+    const nextMaximized = await windowHandle.isMaximized();
+    if (nextMaximized) {
       await windowHandle.unmaximize();
     } else {
       await windowHandle.maximize();
     }
+    await syncWindowMaximizedState();
   };
 
   const closeWindow = useCallback(async () => {
@@ -1971,6 +1982,30 @@ function App() {
       toggleAlwaysOnTop,
     ],
   );
+
+  useEffect(() => {
+    let unlistenResize: (() => void) | undefined;
+    let unlistenMove: (() => void) | undefined;
+    void syncWindowMaximizedState();
+    void windowHandle.onResized(() => {
+      void syncWindowMaximizedState();
+    }).then((cleanup) => {
+      unlistenResize = cleanup;
+    }).catch((error) => {
+      console.error("Failed to listen for resize", error);
+    });
+    void windowHandle.onMoved(() => {
+      void syncWindowMaximizedState();
+    }).then((cleanup) => {
+      unlistenMove = cleanup;
+    }).catch((error) => {
+      console.error("Failed to listen for move", error);
+    });
+    return () => {
+      unlistenResize?.();
+      unlistenMove?.();
+    };
+  }, [syncWindowMaximizedState, windowHandle]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -2229,7 +2264,7 @@ function App() {
   };
 
   return (
-    <div className={`app theme-${effectiveTheme}`}>
+    <div className={`app theme-${effectiveTheme} ${isWindowMaximized ? "window-maximized" : ""}`}>
       {!settingsOpen ? (
       <div className="titlebar">
         <div
@@ -2265,6 +2300,7 @@ function App() {
                     }}
                     onPointerDown={(event) => {
                       if (event.button !== 0) return;
+                      if (isWindowMaximized) return;
                       setDraggedTabId(tab.id);
                     }}
                     onPointerEnter={(event) => {
@@ -2320,9 +2356,13 @@ function App() {
               type="button"
               className="window-button"
               onClick={toggleMaximizeWindow}
-              aria-label="最大化"
+              aria-label={isWindowMaximized ? "元に戻す" : "最大化"}
             >
-              <Square className="window-icon" strokeWidth={1.2} aria-hidden="true" />
+              {isWindowMaximized ? (
+                <Copy className="window-icon" strokeWidth={1.2} aria-hidden="true" />
+              ) : (
+                <Square className="window-icon" strokeWidth={1.2} aria-hidden="true" />
+              )}
             </button>
             <button
               type="button"
@@ -2678,9 +2718,13 @@ function App() {
               type="button"
               className="window-button"
               onClick={toggleMaximizeWindow}
-              aria-label="Maximize"
+              aria-label={isWindowMaximized ? "Restore" : "Maximize"}
             >
-              <Square className="window-icon" strokeWidth={1.2} aria-hidden="true" />
+              {isWindowMaximized ? (
+                <Copy className="window-icon" strokeWidth={1.2} aria-hidden="true" />
+              ) : (
+                <Square className="window-icon" strokeWidth={1.2} aria-hidden="true" />
+              )}
             </button>
             <button
               type="button"

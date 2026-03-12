@@ -89,6 +89,10 @@ body::-webkit-scrollbar-thumb,
   z-index: 20;
 }
 
+.app.window-maximized .titlebar {
+  padding-top: 6px;
+}
+
 .titlebar-row {
   display: flex;
   align-items: center;
@@ -1023,6 +1027,10 @@ body::-webkit-scrollbar-thumb,
   flex-direction: column;
 }
 
+.app.window-maximized .settings-screen {
+  padding-top: 6px;
+}
+
 .settings-content {
   scrollbar-width: thin;
   scrollbar-color: #c8d2e3 transparent;
@@ -1048,6 +1056,11 @@ body::-webkit-scrollbar-thumb,
   right: 0;
   height: 34px;
   z-index: 20;
+}
+
+.app.window-maximized .settings-drag-region,
+.app.window-maximized .settings-window-controls {
+  top: 6px;
 }
 
 .settings-window-controls {
