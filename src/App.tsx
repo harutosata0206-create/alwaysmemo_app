@@ -38,7 +38,7 @@ import "./App.css";
 const MIN_WINDOW_WIDTH = 300;
 const MIN_WINDOW_HEIGHT = 200;
 const SETTINGS_MIN_WINDOW_WIDTH = 571;
-const SETTINGS_MIN_WINDOW_HEIGHT = 310;
+const SETTINGS_MIN_WINDOW_HEIGHT = 360;
 const STATE_PERSIST_DEBOUNCE_MS = 300;
 const STORAGE_KEY = "alwaysmemo-state";
 const TAB_CLOSE_ANIMATION_MS = 140;
@@ -2282,7 +2282,7 @@ function App() {
                       }}
                       aria-label={isTabDirty(tab) ? "Unsaved" : "Close"}
                     >
-                      {isTabDirty(tab) ? "●" : <X size={14} strokeWidth={2.2} aria-hidden="true" />}
+                      {isTabDirty(tab) ? "●" : <X size={11} strokeWidth={2.2} aria-hidden="true" />}
                     </span>
                   </button>
                 ))}
