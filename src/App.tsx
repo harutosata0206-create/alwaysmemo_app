@@ -38,7 +38,7 @@ import "./App.css";
 const MIN_WINDOW_WIDTH = 300;
 const MIN_WINDOW_HEIGHT = 200;
 const SETTINGS_MIN_WINDOW_WIDTH = 571;
-const SETTINGS_MIN_WINDOW_HEIGHT = 360;
+const SETTINGS_MIN_WINDOW_HEIGHT = 410;
 const STATE_PERSIST_DEBOUNCE_MS = 300;
 const STORAGE_KEY = "alwaysmemo-state";
 const TAB_CLOSE_ANIMATION_MS = 140;
@@ -2320,7 +2320,7 @@ function App() {
               onClick={closeWindow}
               aria-label="閉じる"
             >
-              <X className="window-icon" strokeWidth={1.2} aria-hidden="true" />
+              <X className="window-icon close-window-icon" strokeWidth={1.2} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -2678,7 +2678,7 @@ function App() {
               onClick={closeWindow}
               aria-label="Close"
             >
-              <X className="window-icon" strokeWidth={1.2} aria-hidden="true" />
+              <X className="window-icon close-window-icon" strokeWidth={1.2} aria-hidden="true" />
             </button>
           </div>
           <div className="settings-layout">

@@ -288,6 +288,11 @@ body::-webkit-scrollbar-thumb,
   stroke-linejoin: round;
 }
 
+.close-window-icon {
+  width: 16px;
+  height: 16px;
+}
+
 .window-button + .window-button {
   border-left: 0;
 }
