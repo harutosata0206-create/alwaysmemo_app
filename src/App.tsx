@@ -1,4 +1,5 @@
 import {
+  type PointerEvent as ReactPointerEvent,
   type ClipboardEvent as ReactClipboardEvent,
   type DragEvent as ReactDragEvent,
   useCallback,
@@ -318,6 +319,13 @@ function App() {
     } catch (error) {
       console.error("Failed to sync maximized state", error);
     }
+  }, [windowHandle]);
+
+  const handleWindowDragStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    void windowHandle.startDragging().catch((error) => {
+      console.error("Failed to start dragging window", error);
+    });
   }, [windowHandle]);
 
   const jumpToSettingsSection = useCallback((key: "appearance" | "formatting" | "features" | "startup" | "about") => {
@@ -2342,7 +2350,7 @@ function App() {
               <Plus size={16} strokeWidth={1.8} aria-hidden="true" />
             </button>
           </div>
-          <div className="drag-region" data-tauri-drag-region />
+          <div className="drag-region" onPointerDown={handleWindowDragStart} />
           <div className="window-controls">
             <button
               type="button"
@@ -2704,7 +2712,7 @@ function App() {
 
       {settingsOpen ? (
         <section className="settings-screen">
-          <div className="settings-drag-region" data-tauri-drag-region />
+          <div className="settings-drag-region" onPointerDown={handleWindowDragStart} />
           <div className="settings-window-controls">
             <button
               type="button"
