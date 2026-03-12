@@ -2359,6 +2359,19 @@ function App() {
             </button>
           </div>
           <div className="settings-layout">
+            <div className="settings-mobile-header">
+              <div className="settings-brand">
+                <button
+                  type="button"
+                  className="settings-brand-back"
+                  onClick={() => setSettingsOpen(false)}
+                  aria-label="エディタへ戻る"
+                >
+                  <ArrowLeft className="settings-back-icon" strokeWidth={1.8} aria-hidden="true" />
+                </button>
+                <div className="settings-brand-name">AlwaysMemo</div>
+              </div>
+            </div>
             <aside className="settings-sidebar">
               <div className="settings-brand">
                 <button

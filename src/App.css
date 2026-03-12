@@ -1081,6 +1081,11 @@ body::-webkit-scrollbar-thumb,
   overflow: hidden;
 }
 
+.settings-mobile-header {
+  display: none;
+  flex: 0 0 auto;
+}
+
 .settings-sidebar {
   flex: 0 0 240px;
   width: 240px;
@@ -1132,7 +1137,7 @@ body::-webkit-scrollbar-thumb,
 }
 
 .settings-brand-name {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: #121826;
 }
@@ -1628,6 +1633,11 @@ body::-webkit-scrollbar-thumb,
   color: #4f8cff;
 }
 
+.app.theme-dark .settings-mobile-header {
+  background: #081126;
+  border-bottom-color: #1a2b4c;
+}
+
 .app.theme-dark .settings-nav-item {
   color: #c9d7f1;
 }
@@ -1847,6 +1857,35 @@ html.global-dark,
 html.global-dark body,
 html.global-dark #root {
   background: #030b20;
+}
+
+@media (max-width: 780px) {
+  .settings-layout {
+    flex-direction: column;
+  }
+
+  .settings-mobile-header {
+    display: block;
+    padding: 38px 16px 14px;
+    border-bottom: 1px solid #dfe4ec;
+    background: #f3f4f8;
+  }
+
+  .settings-mobile-header .settings-brand {
+    gap: 8px;
+  }
+
+  .settings-sidebar {
+    display: none;
+  }
+
+  .settings-content {
+    padding: 20px 16px 28px;
+  }
+
+  .settings-brand-name {
+    font-size: 16px;
+  }
 }
 
 .editor-body > *:first-child {
