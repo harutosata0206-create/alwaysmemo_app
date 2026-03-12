@@ -358,6 +358,10 @@ body::-webkit-scrollbar-thumb,
   cursor: pointer;
   padding: 0 4px;
   color: #6b6b6b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 
 .tab-close.dirty {
