@@ -43,7 +43,6 @@ const SETTINGS_MIN_WINDOW_WIDTH = 571;
 const SETTINGS_MIN_WINDOW_HEIGHT = 410;
 const STATE_PERSIST_DEBOUNCE_MS = 300;
 const STORAGE_KEY = "alwaysmemo-state";
-const WINDOW_DEBUG_STORAGE_KEY = "alwaysmemo-window-debug";
 const TAB_CLOSE_ANIMATION_MS = 140;
 const FILE_PATH_PATTERN = /\.(txt|md|markdown)$/i;
 
@@ -325,11 +324,10 @@ function App() {
   const [closingTabIds, setClosingTabIds] = useState<string[]>([]);
   const [hoveredTabCloseId, setHoveredTabCloseId] = useState<string | null>(null);
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
-  const [windowDebugEntries, setWindowDebugEntries] = useState<string[]>([]);
-  const [windowDebugStatus, setWindowDebugStatus] = useState("");
   const tabCloseTimerRef = useRef<Record<string, number>>({});
   const manualMaximizeRestoreBoundsRef = useRef<ManualMaximizeBounds | null>(null);
   const pendingWindowDragRef = useRef<PendingWindowDrag | null>(null);
+  const windowStateSyncTimerRef = useRef<number | null>(null);
   const settingsReadyRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
@@ -356,31 +354,13 @@ function App() {
     () => /Windows/i.test(window.navigator.userAgent),
     [],
   );
-  const windowDebugOverlayEnabled = useMemo(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      return (
-        params.get("windowDebug") === "1" ||
-        window.localStorage.getItem(WINDOW_DEBUG_STORAGE_KEY) === "1"
-      );
-    } catch {
-      return false;
-    }
-  }, []);
-  const windowDebugConsoleEnabled = import.meta.env.DEV || windowDebugOverlayEnabled;
 
   const pushWindowDebug = useCallback(
     (event: string, detail: Record<string, unknown>) => {
-      if (!windowDebugConsoleEnabled) return;
-      const timestamp = new Date().toLocaleTimeString("ja-JP", { hour12: false });
-      const serialized = Object.entries(detail)
-        .map(([key, value]) => `${key}=${String(value)}`)
-        .join(" ");
-      console.info(`[window-debug] ${event} ${serialized}`.trim());
-      if (!windowDebugOverlayEnabled) return;
-      setWindowDebugEntries((prev) => [`${timestamp} ${event} ${serialized}`.trim(), ...prev].slice(0, 10));
+      void event;
+      void detail;
     },
-    [windowDebugConsoleEnabled, windowDebugOverlayEnabled],
+    [],
   );
 
   const readWindowStateSnapshot = useCallback(async (): Promise<WindowStateSnapshot> => {
@@ -459,8 +439,6 @@ function App() {
     try {
       const snapshot = await readWindowStateSnapshot();
       setIsWindowMaximized(snapshot.effectiveMaximized);
-      const status = `max=${snapshot.effectiveMaximized} tauri=${snapshot.tauriMaximized} inferred=${snapshot.inferredMaximized} fullscreen=${snapshot.fullscreen} size=${snapshot.size.width}x${snapshot.size.height} pos=${snapshot.position.x},${snapshot.position.y}`;
-      setWindowDebugStatus(status);
       pushWindowDebug(source, {
         max: snapshot.effectiveMaximized,
         tauri: snapshot.tauriMaximized,
@@ -482,6 +460,16 @@ function App() {
       return null;
     }
   }, [pushWindowDebug, readWindowStateSnapshot]);
+
+  const scheduleWindowMaximizedSync = useCallback((source = "sync", delay = 120) => {
+    if (windowStateSyncTimerRef.current !== null) {
+      window.clearTimeout(windowStateSyncTimerRef.current);
+    }
+    windowStateSyncTimerRef.current = window.setTimeout(() => {
+      windowStateSyncTimerRef.current = null;
+      void syncWindowMaximizedState(source);
+    }, delay);
+  }, [syncWindowMaximizedState]);
 
   const jumpToSettingsSection = useCallback((key: "appearance" | "formatting" | "features" | "startup" | "about") => {
     setSettingsNav(key);
@@ -2358,24 +2346,27 @@ function App() {
     let unlistenMove: (() => void) | undefined;
     void syncWindowMaximizedState("mount");
     void windowHandle.onResized(() => {
-      void syncWindowMaximizedState("resized");
+      scheduleWindowMaximizedSync("resized");
     }).then((cleanup) => {
       unlistenResize = cleanup;
     }).catch((error) => {
       console.error("Failed to listen for resize", error);
     });
     void windowHandle.onMoved(() => {
-      void syncWindowMaximizedState("moved");
+      scheduleWindowMaximizedSync("moved");
     }).then((cleanup) => {
       unlistenMove = cleanup;
     }).catch((error) => {
       console.error("Failed to listen for move", error);
     });
     return () => {
+      if (windowStateSyncTimerRef.current !== null) {
+        window.clearTimeout(windowStateSyncTimerRef.current);
+      }
       unlistenResize?.();
       unlistenMove?.();
     };
-  }, [syncWindowMaximizedState, windowHandle]);
+  }, [scheduleWindowMaximizedSync, syncWindowMaximizedState, windowHandle]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -3551,20 +3542,6 @@ function App() {
             <span className="bottom-value">{useGlobalShortcuts ? "ON" : "OFF"}</span>
           </span>
         </div>
-      ) : null}
-
-      {windowDebugOverlayEnabled ? (
-        <aside className="window-debug-panel" aria-live="polite">
-          <div className="window-debug-title">window debug</div>
-          <div className="window-debug-status">{windowDebugStatus || "collecting..."}</div>
-          <div className="window-debug-list">
-            {windowDebugEntries.map((entry, index) => (
-              <div key={`${index}-${entry}`} className="window-debug-entry">
-                {entry}
-              </div>
-            ))}
-          </div>
-        </aside>
       ) : null}
 
     </div>
