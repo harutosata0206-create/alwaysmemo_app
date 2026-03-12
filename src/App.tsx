@@ -302,6 +302,7 @@ function App() {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
     deletePromptTabId ? tabs.find((tab) => tab.id === deletePromptTabId) ?? null : null;
+  const modalMinSizeActive = settingsOpen || windowClosePromptOpen || deletePromptTab !== null;
   const windowHandle = getCurrentWindow();
   const effectiveTheme = useMemo(
     () => (themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : themeMode),
@@ -1161,9 +1162,9 @@ function App() {
   useEffect(() => {
     let cancelled = false;
 
-    const syncSettingsWindowSize = async () => {
+    const syncGuardedWindowSize = async () => {
       try {
-        if (settingsOpen) {
+        if (modalMinSizeActive) {
           const currentSize = await windowHandle.outerSize();
           const currentPosition = await windowHandle.outerPosition();
 
@@ -1234,15 +1235,15 @@ function App() {
           await windowHandle.setPosition(previousBounds.position);
         }
       } catch (error) {
-        console.error("Failed to sync settings window size", error);
+          console.error("Failed to sync guarded window size", error);
       }
     };
 
-    void syncSettingsWindowSize();
+    void syncGuardedWindowSize();
     return () => {
       cancelled = true;
     };
-  }, [settingsOpen, windowHandle]);
+  }, [modalMinSizeActive, windowHandle]);
 
   useEffect(() => {
     if (!settingsReadyRef.current) return;
