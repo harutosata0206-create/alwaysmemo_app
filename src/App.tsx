@@ -4,6 +4,19 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import {
+  ArrowLeft,
+  Minus,
+  Monitor,
+  Moon,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings,
+  Square,
+  Sun,
+  X,
+} from "lucide-react";
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 300;
@@ -1957,7 +1970,7 @@ function App() {
               onClick={addTab}
               title="新規タブ"
             >
-              +
+              <Plus size={16} strokeWidth={1.8} aria-hidden="true" />
             </button>
           </div>
           <div className="drag-region" data-tauri-drag-region />
@@ -1968,9 +1981,7 @@ function App() {
               onClick={minimizeWindow}
               aria-label="最小化"
             >
-              <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
-                <line x1="2" y1="7" x2="8" y2="7" />
-              </svg>
+              <Minus className="window-icon" strokeWidth={1.2} aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -1978,9 +1989,7 @@ function App() {
               onClick={toggleMaximizeWindow}
               aria-label="最大化"
             >
-              <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
-                <rect x="2" y="2" width="6" height="6" fill="none" />
-              </svg>
+              <Square className="window-icon" strokeWidth={1.2} aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -1988,10 +1997,7 @@ function App() {
               onClick={closeWindow}
               aria-label="閉じる"
             >
-              <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
-                <line x1="2.2" y1="2.2" x2="7.8" y2="7.8" />
-                <line x1="7.8" y1="2.2" x2="2.2" y2="7.8" />
-              </svg>
+              <X className="window-icon" strokeWidth={1.2} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -2004,7 +2010,7 @@ function App() {
                 onClick={() => setSettingsOpen(false)}
                 aria-label="Back to editor"
               >
-                ←
+                <ArrowLeft size={16} strokeWidth={1.9} aria-hidden="true" />
               </button>
               <span className="settings-toolbar-title">設定</span>
             </div>
@@ -2235,7 +2241,9 @@ function App() {
           {showSearchBox ? (
             <div className="search-group">
               <div className="search-bar">
-                <span className="search-icon">🔍</span>
+                <span className="search-icon">
+                  <Search size={12} strokeWidth={2} aria-hidden="true" />
+                </span>
                 <input
                   ref={searchInputRef}
                   type="search"
@@ -2261,11 +2269,13 @@ function App() {
                   onClick={() => setShowSearchBox(false)}
                   aria-label="Close search"
                 >
-                  ×
+                  <X size={14} strokeWidth={2} aria-hidden="true" />
                 </button>
               </div>
               <div className="search-bar">
-                <span className="search-icon">↻</span>
+                <span className="search-icon">
+                  <RefreshCw size={12} strokeWidth={2} aria-hidden="true" />
+                </span>
                 <input
                   ref={replaceInputRef}
                   type="text"
@@ -2310,7 +2320,7 @@ function App() {
                     setSettingsOpen(true);
                   }}
                 >
-                  ⚙
+                  <Settings size={14} strokeWidth={1.9} aria-hidden="true" />
                 </button>
               </div>
             </>
@@ -2329,9 +2339,7 @@ function App() {
               onClick={minimizeWindow}
               aria-label="Minimize"
             >
-              <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
-                <line x1="2" y1="7" x2="8" y2="7" />
-              </svg>
+              <Minus className="window-icon" strokeWidth={1.2} aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -2339,9 +2347,7 @@ function App() {
               onClick={toggleMaximizeWindow}
               aria-label="Maximize"
             >
-              <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
-                <rect x="2" y="2" width="6" height="6" fill="none" />
-              </svg>
+              <Square className="window-icon" strokeWidth={1.2} aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -2349,10 +2355,7 @@ function App() {
               onClick={closeWindow}
               aria-label="Close"
             >
-              <svg className="window-icon" viewBox="0 0 10 10" aria-hidden="true">
-                <line x1="2.2" y1="2.2" x2="7.8" y2="7.8" />
-                <line x1="7.8" y1="2.2" x2="2.2" y2="7.8" />
-              </svg>
+              <X className="window-icon" strokeWidth={1.2} aria-hidden="true" />
             </button>
           </div>
           <div className="settings-layout">
@@ -2364,9 +2367,7 @@ function App() {
                   onClick={() => setSettingsOpen(false)}
                   aria-label="エディタへ戻る"
                 >
-                  <svg className="settings-back-icon" viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M12.5 8H4.5M7 5.5L4.5 8L7 10.5" />
-                  </svg>
+                  <ArrowLeft className="settings-back-icon" strokeWidth={1.8} aria-hidden="true" />
                 </button>
                 <div className="settings-brand-name">AlwaysMemo</div>
               </div>
@@ -2390,7 +2391,9 @@ function App() {
                     className={`theme-card ${themeMode === "light" ? "active" : ""}`}
                     onClick={() => setThemeMode("light")}
                   >
-                    <span className="theme-icon">☀</span>
+                    <span className="theme-icon">
+                      <Sun size={18} strokeWidth={1.8} aria-hidden="true" />
+                    </span>
                     <span>ライト</span>
                   </button>
                   <button
@@ -2398,7 +2401,9 @@ function App() {
                     className={`theme-card ${themeMode === "dark" ? "active" : ""}`}
                     onClick={() => setThemeMode("dark")}
                   >
-                    <span className="theme-icon">☾</span>
+                    <span className="theme-icon">
+                      <Moon size={18} strokeWidth={1.8} aria-hidden="true" />
+                    </span>
                     <span>ダーク</span>
                   </button>
                   <button
@@ -2406,7 +2411,9 @@ function App() {
                     className={`theme-card ${themeMode === "system" ? "active" : ""}`}
                     onClick={() => setThemeMode("system")}
                   >
-                    <span className="theme-icon">◧</span>
+                    <span className="theme-icon">
+                      <Monitor size={18} strokeWidth={1.8} aria-hidden="true" />
+                    </span>
                     <span>システム</span>
                   </button>
                 </div>

@@ -448,6 +448,10 @@ body::-webkit-scrollbar-thumb,
 .search-icon {
   color: #cbd5f5;
   font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 
 .search-input {
@@ -493,6 +497,10 @@ body::-webkit-scrollbar-thumb,
   color: #e2e8f0;
   font-size: 14px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .format-group {
@@ -1227,6 +1235,10 @@ body::-webkit-scrollbar-thumb,
 .theme-icon {
   font-size: 18px;
   color: #7688a4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 
 .settings-card {
