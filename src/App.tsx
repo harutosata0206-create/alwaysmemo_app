@@ -2971,7 +2971,7 @@ function App() {
             aria-labelledby="window-close-title"
             aria-describedby="window-close-desc"
           >
-            <h2 id="window-close-title">alwaysmemo</h2>
+            <h2 id="window-close-title">確認</h2>
             <p id="window-close-desc">
               {dirtyTabCount > 1
                 ? `${dirtyTabCount} 件の未保存メモがあります。保存してから終了しますか？`
@@ -3016,7 +3016,7 @@ function App() {
             aria-labelledby="delete-choice-title"
             aria-describedby="delete-choice-desc"
           >
-            <h2 id="delete-choice-title">メモ帳</h2>
+            <h2 id="delete-choice-title">確認</h2>
             <p id="delete-choice-desc">
               {`${deletePromptTab.filePath ?? deletePromptTab.title} への変更内容を保存しますか？`}
             </p>
