@@ -363,10 +363,17 @@ body::-webkit-scrollbar-thumb,
   cursor: pointer;
   padding: 0 4px;
   color: #6b6b6b;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   line-height: 0;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.tab-close:hover {
+  background: #d9dee6;
+  color: #1f2937;
 }
 
 .tab-close.dirty {
@@ -1566,12 +1573,17 @@ body::-webkit-scrollbar-thumb,
   color: #dbe7ff;
 }
 
+.app.theme-dark .tab-close:hover {
+  background: #12254b;
+  color: #f8fbff;
+}
+
 .app.theme-dark .icon-button {
   color: #f8fafc;
 }
 
 .app.theme-dark .icon-button:hover {
-  background: #0c1a3c;
+  background: #132650;
 }
 
 .app.theme-dark .add-tab,
