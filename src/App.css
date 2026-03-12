@@ -1747,6 +1747,55 @@ body::-webkit-scrollbar-thumb,
   background: linear-gradient(160deg, #11307a 0%, #0f2a67 100%);
 }
 
+.app.theme-dark .delete-choice-dialog {
+  border-color: #2b2f35;
+  background: #2f2f2f;
+  color: #f3f4f6;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+
+.app.theme-dark .delete-choice-dialog h2 {
+  color: #f3f4f6;
+}
+
+.app.theme-dark .delete-choice-dialog p {
+  color: #d1d5db;
+}
+
+.app.theme-dark .delete-choice-actions {
+  border-top-color: #3b4049;
+}
+
+.app.theme-dark .delete-choice {
+  border-color: #3b4049;
+  background: #3a3f45;
+  color: #f3f4f6;
+}
+
+.app.theme-dark .delete-choice:hover {
+  border-color: #4b5563;
+  background: #444b52;
+}
+
+.app.theme-dark .delete-choice.primary {
+  border-color: #60c6ff;
+  background: #60c6ff;
+  color: #0b0f14;
+}
+
+.app.theme-dark .delete-choice.primary:hover {
+  border-color: #7dd3fc;
+  background: #7dd3fc;
+}
+
+.app.theme-dark .delete-choice.ghost {
+  background: transparent;
+}
+
+.app.theme-dark .delete-choice.ghost:hover {
+  background: rgba(148, 163, 184, 0.2);
+}
+
 .status span.on {
   color: #0f8a34;
 }
@@ -2117,25 +2166,26 @@ button:active {
 
 .delete-choice-dialog {
   width: min(560px, 92vw);
-  border-radius: 12px;
-  border: 1px solid #2b2f35;
-  background: #2f2f2f;
-  color: #f3f4f6;
-  padding: 18px 20px 16px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  border: 1px solid #d4d4d4;
+  background: #ffffff;
+  color: #1f2937;
+  padding: 22px 22px 18px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.22);
 }
 
 .delete-choice-dialog h2 {
   margin: 0 0 10px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
+  color: #202124;
 }
 
 .delete-choice-dialog p {
   margin: 0;
   font-size: 12.5px;
-  line-height: 1.6;
-  color: #d1d5db;
+  line-height: 1.65;
+  color: #3f3f46;
   word-break: break-all;
 }
 
@@ -2143,43 +2193,45 @@ button:active {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 16px;
+  margin: 22px -22px -18px;
+  padding: 14px 22px 0;
+  border-top: 1px solid #e5e7eb;
 }
 
 .delete-choice {
   border-radius: 8px;
-  border: 1px solid #3b4049;
-  background: #3a3f45;
-  color: #f3f4f6;
-  padding: 7px 16px;
+  border: 1px solid #d4d4d8;
+  background: #f8f8f8;
+  color: #27272a;
+  padding: 8px 18px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  min-width: 96px;
+  min-width: 144px;
 }
 
 .delete-choice:hover {
-  border-color: #4b5563;
-  background: #444b52;
+  border-color: #c4c4c8;
+  background: #f1f1f1;
 }
 
 .delete-choice.primary {
-  border-color: #60c6ff;
-  background: #60c6ff;
-  color: #0b0f14;
+  border-color: #0b65c2;
+  background: #0b65c2;
+  color: #ffffff;
 }
 
 .delete-choice.primary:hover {
-  border-color: #7dd3fc;
-  background: #7dd3fc;
+  border-color: #0a5ab0;
+  background: #0a5ab0;
 }
 
 .delete-choice.ghost {
-  background: transparent;
+  background: #f8f8f8;
 }
 
 .delete-choice.ghost:hover {
-  background: rgba(148, 163, 184, 0.2);
+  background: #f1f1f1;
 }
 
 .goto-line-dialog {
