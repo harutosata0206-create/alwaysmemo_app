@@ -612,69 +612,6 @@ function App() {
     const normalized = path.replace(/\\/g, "/");
     return normalized.split("/").pop() || path;
   };
-  const updateSavedTabsSnapshot = useCallback(
-    (entries: Array<{ id: string; title: string; content: string }>) => {
-      if (entries.length === 0) return;
-      savedTabsRef.current = {
-        ...savedTabsRef.current,
-        ...Object.fromEntries(entries.map((entry) => [entry.id, { title: entry.title, content: entry.content }])),
-      };
-      setSavedVersion((prev) => prev + 1);
-    },
-    [],
-  );
-
-  const applyPathMapping = useCallback((tabId: string, path: string) => {
-    const pathMap = getPathMap();
-    if (pathMap[tabId] === path) return;
-    setPathMap({ ...pathMap, [tabId]: path });
-  }, [getPathMap, setPathMap]);
-
-  const appendOpenedFileTab = useCallback(
-    (opened: { path: string; contents: string }, options?: { title?: string }) => {
-      const id = crypto.randomUUID();
-      const title = options?.title ?? getFileNameFromPath(opened.path);
-      const content = textToHtml(opened.contents);
-      applyPathMapping(id, opened.path);
-      updateSavedTabsSnapshot([{ id, title, content }]);
-      setTabs((prev) => {
-        const next = [...prev, { id, title, content, filePath: opened.path }];
-        persistState(next, id);
-        return next;
-      });
-      setActiveTabId(id);
-      return { id, title, content };
-    },
-    [applyPathMapping, getFileNameFromPath, persistState, updateSavedTabsSnapshot],
-  );
-
-  const writeTabToPath = useCallback(
-    async (tab: Tab, path: string) => {
-      await invoke("write_text_file", {
-        path,
-        contents: htmlToText(tab.content),
-      });
-    },
-    [],
-  );
-
-  const markTabSaved = useCallback(
-    (tab: Tab, path: string, nextTitle = tab.title) => {
-      applyPathMapping(tab.id, path);
-      setTabs((prev) => {
-        const nextTabs = prev.map((item) =>
-          item.id === tab.id
-            ? { ...item, title: nextTitle, filePath: path }
-            : item,
-        );
-        persistState(nextTabs);
-        return nextTabs;
-      });
-      updateSavedTabsSnapshot([{ id: tab.id, title: nextTitle, content: tab.content }]);
-    },
-    [applyPathMapping, persistState, updateSavedTabsSnapshot],
-  );
-
   const isRecentEligiblePath = useCallback((path?: string | null) => {
     if (!path) return false;
     return FILE_PATH_PATTERN.test(path);
@@ -722,14 +659,29 @@ function App() {
         setStatus("ファイルが見つかりませんでした");
         return;
       }
-      const { title } = appendOpenedFileTab(opened);
+      const id = crypto.randomUUID();
+      const title = getFileNameFromPath(opened.path);
+      const content = textToHtml(opened.contents);
+      const pathMap = getPathMap();
+      setPathMap({ ...pathMap, [id]: opened.path });
+      savedTabsRef.current = {
+        ...savedTabsRef.current,
+        [id]: { title, content },
+      };
+      setSavedVersion((prev) => prev + 1);
+      setTabs((prev) => {
+        const next = [...prev, { id, title, content, filePath: opened.path }];
+        persistState(next, id);
+        return next;
+      });
+      setActiveTabId(id);
       setStatus(`Opened ${title}`);
       closeMenus();
     } catch (error) {
       console.error(error);
       setStatus("Failed to open recent file");
     }
-  }, [appendOpenedFileTab, closeMenus, recentClosedKey, tabs]);
+  }, [closeMenus, getFileNameFromPath, getPathMap, persistState, recentClosedKey, setPathMap, tabs, textToHtml]);
 
   const openFilePicker = useCallback(async () => {
     try {
@@ -768,16 +720,29 @@ function App() {
         closeMenus();
         return;
       }
-      const { title } = appendOpenedFileTab(opened, {
-        title: getFileNameFromPath(opened.path) || `メモ ${tabs.length + 1}`,
+      const id = crypto.randomUUID();
+      const title = getFileNameFromPath(opened.path) || `メモ ${tabs.length + 1}`;
+      const content = textToHtml(opened.contents);
+      const pathMap = getPathMap();
+      setPathMap({ ...pathMap, [id]: opened.path });
+      savedTabsRef.current = {
+        ...savedTabsRef.current,
+        [id]: { title, content },
+      };
+      setSavedVersion((prev) => prev + 1);
+      setTabs((prev) => {
+        const next = [...prev, { id, title, content, filePath: opened.path }];
+        persistState(next, id);
+        return next;
       });
+      setActiveTabId(id);
       setStatus(`Opened ${title}`);
       closeMenus();
     } catch (error) {
       console.error(error);
       setStatus("Failed to open file");
     }
-  }, [alwaysOnTop, appendOpenedFileTab, closeMenus, fileOpenBehavior, getFileNameFromPath, tabs, windowHandle]);
+  }, [alwaysOnTop, closeMenus, fileOpenBehavior, getPathMap, persistState, setPathMap, tabs, textToHtml, windowHandle]);
 
   const saveTabAs = useCallback(async (tab: Tab) => {
     try {
@@ -789,9 +754,27 @@ function App() {
         return false;
       }
       setStatus(`Saving to ${resolvedPath}...`);
-      await writeTabToPath(tab, resolvedPath);
+      await invoke("write_text_file", {
+        path: resolvedPath,
+        contents: htmlToText(tab.content),
+      });
       const nextTitle = getFileNameFromPath(resolvedPath);
-      markTabSaved(tab, resolvedPath, nextTitle);
+      const pathMap = getPathMap();
+      setPathMap({ ...pathMap, [tab.id]: resolvedPath });
+      setTabs((prev) => {
+        const nextTabs = prev.map((item) =>
+          item.id === tab.id
+            ? { ...item, title: nextTitle, filePath: resolvedPath }
+            : item,
+        );
+        persistState(nextTabs);
+        return nextTabs;
+      });
+      savedTabsRef.current = {
+        ...savedTabsRef.current,
+        [tab.id]: { title: nextTitle, content: tab.content },
+      };
+      setSavedVersion((prev) => prev + 1);
       setStatus(`Saved ${nextTitle}`);
       closeMenus();
       return true;
@@ -803,9 +786,11 @@ function App() {
   }, [
     closeMenus,
     getFileNameFromPath,
-    markTabSaved,
+    htmlToText,
+    getPathMap,
     pickSavePath,
-    writeTabToPath,
+    persistState,
+    setPathMap,
   ]);
 
   const saveActiveTabAs = useCallback(async () => {
@@ -824,8 +809,26 @@ function App() {
     }
     try {
       setStatus(`Saving to ${resolvedPath}...`);
-      await writeTabToPath(tab, resolvedPath);
-      markTabSaved(tab, resolvedPath);
+      await invoke("write_text_file", {
+        path: resolvedPath,
+        contents: htmlToText(tab.content),
+      });
+      const pathMap = getPathMap();
+      if (!pathMap[tab.id]) {
+        setPathMap({
+          ...pathMap,
+          [tab.id]: resolvedPath,
+        });
+      }
+      savedTabsRef.current = {
+        ...savedTabsRef.current,
+        [tab.id]: { title: tab.title, content: tab.content },
+      };
+      setSavedVersion((prev) => prev + 1);
+      setTabs((prev) => {
+        persistState(prev);
+        return prev;
+      });
       setStatus(`Saved ${tab.title}`);
       closeMenus();
       return true;
@@ -836,10 +839,11 @@ function App() {
     }
   }, [
     closeMenus,
+    htmlToText,
     getPathMap,
-    markTabSaved,
+    persistState,
     saveTabAs,
-    writeTabToPath,
+    setPathMap,
   ]);
 
   const saveActiveTab = useCallback(async () => {
@@ -856,11 +860,20 @@ function App() {
     }
     try {
       await Promise.all(
-        tabsWithPath.map((tab) => writeTabToPath(tab, tab.filePath as string)),
+        tabsWithPath.map((tab) =>
+          invoke("write_text_file", {
+            path: tab.filePath,
+            contents: htmlToText(tab.content),
+          }),
+        ),
       );
-      updateSavedTabsSnapshot(
-        tabsWithPath.map((tab) => ({ id: tab.id, title: tab.title, content: tab.content })),
-      );
+      savedTabsRef.current = {
+        ...savedTabsRef.current,
+        ...Object.fromEntries(
+          tabsWithPath.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
+        ),
+      };
+      setSavedVersion((prev) => prev + 1);
       persistState(tabs);
       setStatus("Saved all");
       closeMenus();
@@ -868,7 +881,7 @@ function App() {
       console.error(error);
       setStatus("Failed to save all");
     }
-  }, [closeMenus, persistState, tabs, updateSavedTabsSnapshot, writeTabToPath]);
+  }, [closeMenus, htmlToText, persistState, tabs]);
 
   const openNewWindow = useCallback(async () => {
     try {
@@ -1164,9 +1177,22 @@ function App() {
               { path: decodedPath },
             );
             if (opened) {
-              appendOpenedFileTab(opened, {
-                title: getFileNameFromPath(opened.path) || "タイトルなし",
+              const id = crypto.randomUUID();
+              const title = getFileNameFromPath(opened.path) || "タイトルなし";
+              const content = textToHtml(opened.contents);
+              const pathMap = getPathMap();
+              setPathMap({ ...pathMap, [id]: opened.path });
+              savedTabsRef.current = {
+                ...savedTabsRef.current,
+                [id]: { title, content },
+              };
+              setSavedVersion((prev) => prev + 1);
+              setTabs((prev) => {
+                const next = [...prev, { id, title, content, filePath: opened.path }];
+                persistState(next, id);
+                return next;
               });
+              setActiveTabId(id);
             }
           } catch (error) {
             console.error("Failed to open startup path", error);
@@ -1180,7 +1206,7 @@ function App() {
       }
     };
     void initState();
-  }, [appendOpenedFileTab, getFileNameFromPath, getPathMap, normalizeHtml, persistState, setPathMap, snapLeft, snapRight, storageKey, windowHandle]);
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
