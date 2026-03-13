@@ -61,6 +61,16 @@ fn validate_write_path(path: &Path) -> Result<PathBuf, String> {
     Ok(candidate)
 }
 
+fn ensure_text_extension(path: PathBuf) -> PathBuf {
+    if has_allowed_text_extension(&path) {
+        return path;
+    }
+
+    let mut next = path.into_os_string();
+    next.push(".txt");
+    PathBuf::from(next)
+}
+
 fn read_validated_text_file(path: &Path) -> Result<OpenedFile, String> {
     let canonical = validate_read_path(path)?;
     let contents =
@@ -199,6 +209,7 @@ fn save_text_file_dialog(
         }
         let result = dialog
             .save_file()
+            .map(ensure_text_extension)
             .map(|path| path.to_string_lossy().into_owned());
         if was_on_top {
             let _ = window_clone.set_always_on_top(true);

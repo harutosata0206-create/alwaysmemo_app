@@ -171,6 +171,12 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function ensureTextFileExtension(path: string, fallbackExtension = ".txt"): string {
+  const trimmed = path.trim();
+  if (!trimmed) return fallbackExtension;
+  return FILE_PATH_PATTERN.test(trimmed) ? trimmed : `${trimmed}${fallbackExtension}`;
+}
+
 function sanitizeEditorHtml(html: string): string {
   const sanitized = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: ALLOWED_EDITOR_TAGS,
@@ -733,7 +739,7 @@ function App() {
   }, []);
 
   const pickSavePath = useCallback(async (suggested: string) => {
-    const withExt = suggested.includes(".") ? suggested : `${suggested}.txt`;
+    const withExt = ensureTextFileExtension(suggested);
     const defaultPath = withExt;
     let resolvedPath: string | null = null;
     let dialogFailed = false;
@@ -759,7 +765,7 @@ function App() {
       });
     }
     if (!resolvedPath) return null;
-    return FILE_PATH_PATTERN.test(resolvedPath) ? resolvedPath : `${resolvedPath}.txt`;
+    return ensureTextFileExtension(resolvedPath);
   }, []);
 
   const pathsKey = useMemo(() => `${storageKey}-paths`, [storageKey]);
