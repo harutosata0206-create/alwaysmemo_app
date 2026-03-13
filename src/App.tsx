@@ -2845,10 +2845,6 @@ function App() {
                     <span className="menu-shortcut">Ctrl+Alt+S</span>
                   </button>
                   <div className="menu-divider" />
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
-                    <span>ページ設定</span>
-                  </button>
-                  <div className="menu-divider" />
                   <button
                     type="button"
                     className="menu-item toggle"
