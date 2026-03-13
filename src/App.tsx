@@ -43,6 +43,7 @@ const SETTINGS_MIN_WINDOW_WIDTH = 571;
 const SETTINGS_MIN_WINDOW_HEIGHT = 410;
 const STATE_PERSIST_DEBOUNCE_MS = 300;
 const STORAGE_KEY = "alwaysmemo-state";
+const GLOBAL_SHORTCUT_SYNC_KEY = "alwaysmemo-global-shortcut-sync";
 const TAB_CLOSE_ANIMATION_MS = 140;
 const FILE_PATH_PATTERN = /\.(txt|md|markdown)$/i;
 
@@ -72,6 +73,12 @@ type PersistedState = {
   editorFontSizePx?: number;
   lineSpacing?: LineSpacing;
   themeMode?: ThemeMode;
+};
+
+type GlobalShortcutSyncMessage = {
+  enabled: boolean;
+  reason: "manual" | "auto-multi-window";
+  ts: number;
 };
 
 type SavedWindowBounds = {
@@ -644,6 +651,47 @@ function App() {
     [activeTabId, alwaysOnTop, editorFontSizePx, fileOpenBehavior, lineSpacing, sessionBehavior, snap, storageKey, themeMode, useGlobalShortcuts],
   );
 
+  const setGlobalShortcutsPreference = useCallback(
+    (
+      enabled: boolean,
+      reason: "manual" | "auto-multi-window",
+      options?: { broadcast?: boolean },
+    ) => {
+      setUseGlobalShortcuts(enabled);
+      if (reason === "auto-multi-window" && !enabled) {
+        setStatus("複数ウィンドウのためグローバルショートカットをオフにしました");
+      }
+      if (options?.broadcast === false) return;
+      try {
+        const payload: GlobalShortcutSyncMessage = {
+          enabled,
+          reason,
+          ts: Date.now(),
+        };
+        window.localStorage.setItem(GLOBAL_SHORTCUT_SYNC_KEY, JSON.stringify(payload));
+      } catch {
+        // Ignore storage sync failures; local state already changed.
+      }
+    },
+    [],
+  );
+
+  const ensureGlobalShortcutsSingleWindow = useCallback(async () => {
+    try {
+      const openWindows = await WebviewWindow.getAll();
+      if (openWindows.length > 1) {
+        if (useGlobalShortcuts) {
+          setGlobalShortcutsPreference(false, "auto-multi-window");
+        }
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("Failed to inspect open windows", error);
+      return true;
+    }
+  }, [setGlobalShortcutsPreference, useGlobalShortcuts]);
+
   const closeMenus = useCallback(() => {
     setOpenMenu(null);
     setOpenFileSubmenu(null);
@@ -1040,6 +1088,35 @@ function App() {
       setStatus("Failed to open new window");
     }
   }, [alwaysOnTop, closeMenus, windowHandle]);
+
+  useEffect(() => {
+    const syncFromStorage = (event: StorageEvent) => {
+      if (event.key !== GLOBAL_SHORTCUT_SYNC_KEY || !event.newValue) return;
+      try {
+        const payload = JSON.parse(event.newValue) as GlobalShortcutSyncMessage;
+        setGlobalShortcutsPreference(payload.enabled, payload.reason, { broadcast: false });
+      } catch (error) {
+        console.error("Failed to sync global shortcut preference", error);
+      }
+    };
+
+    let unlistenFocusChanged: (() => void) | undefined;
+    window.addEventListener("storage", syncFromStorage);
+    void ensureGlobalShortcutsSingleWindow();
+    void windowHandle.onFocusChanged(({ payload: focused }) => {
+      if (!focused) return;
+      void ensureGlobalShortcutsSingleWindow();
+    }).then((cleanup) => {
+      unlistenFocusChanged = cleanup;
+    }).catch((error) => {
+      console.error("Failed to listen for focus changes", error);
+    });
+
+    return () => {
+      window.removeEventListener("storage", syncFromStorage);
+      unlistenFocusChanged?.();
+    };
+  }, [ensureGlobalShortcutsSingleWindow, setGlobalShortcutsPreference, windowHandle]);
 
   const setAlwaysOnTop = useCallback(
     async (value: boolean) => {
@@ -2540,7 +2617,8 @@ function App() {
 
     const configure = async () => {
       try {
-        if (useGlobalShortcuts) {
+        const canUseGlobalShortcuts = await ensureGlobalShortcutsSingleWindow();
+        if (useGlobalShortcuts && canUseGlobalShortcuts) {
           await registerGlobalShortcuts();
         } else {
           await unregisterAll();
@@ -2559,7 +2637,7 @@ function App() {
         console.error("Failed to unregister shortcuts", error);
       });
     };
-  }, [shortcutActions, useGlobalShortcuts]);
+  }, [ensureGlobalShortcutsSingleWindow, setGlobalShortcutsPreference, shortcutActions, useGlobalShortcuts]);
 
   const handleTopTabsWheel = useCallback((event: WheelEvent) => {
     // While pointer is on the top bar, block vertical page/editor scrolling.
@@ -2856,7 +2934,16 @@ function App() {
                   <button
                     type="button"
                     className="menu-item toggle"
-                    onClick={() => setUseGlobalShortcuts((prev) => !prev)}
+                    onClick={() => {
+                      void (async () => {
+                        const nextValue = !useGlobalShortcuts;
+                        if (nextValue) {
+                          const canEnable = await ensureGlobalShortcutsSingleWindow();
+                          if (!canEnable) return;
+                        }
+                        setGlobalShortcutsPreference(nextValue, "manual");
+                      })();
+                    }}
                   >
                     <span>グローバルショートカット</span>
                     <span className={`menu-toggle ${useGlobalShortcuts ? "on" : ""}`} aria-hidden="true" />
@@ -3278,8 +3365,12 @@ function App() {
                       checked={useGlobalShortcuts}
                       onChange={(event) => {
                         const anchor = event.currentTarget.closest(".feature-row") as HTMLElement | null;
-                        keepSettingsViewport(anchor, () => {
-                          setUseGlobalShortcuts(event.target.checked);
+                        keepSettingsViewport(anchor, async () => {
+                          if (event.target.checked) {
+                            const canEnable = await ensureGlobalShortcutsSingleWindow();
+                            if (!canEnable) return;
+                          }
+                          setGlobalShortcutsPreference(event.target.checked, "manual");
                         });
                       }}
                     />
