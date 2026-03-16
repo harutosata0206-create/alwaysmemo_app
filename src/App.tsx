@@ -170,10 +170,10 @@ function App() {
   const [fileMenuStyle, setFileMenuStyle] = useState<CSSProperties | undefined>(undefined);
   const editMenuRef = useRef<HTMLDivElement | null>(null);
   const editMenuWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [editMenuLeft, setEditMenuLeft] = useState<number | null>(null);
+  const [editMenuStyle, setEditMenuStyle] = useState<CSSProperties | undefined>(undefined);
   const viewMenuRef = useRef<HTMLDivElement | null>(null);
   const viewMenuWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [viewMenuLeft, setViewMenuLeft] = useState<number | null>(null);
+  const [viewMenuStyle, setViewMenuStyle] = useState<CSSProperties | undefined>(undefined);
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
   const [editorFontSizePx, setEditorFontSizePx] = useState(14);
@@ -1466,6 +1466,94 @@ function App() {
   }, [openMenu]);
 
   useEffect(() => {
+    if (openMenu !== "edit") {
+      setEditMenuStyle(undefined);
+      return;
+    }
+
+    const updatePlacement = () => {
+      window.requestAnimationFrame(() => {
+        const wrapper = editMenuWrapperRef.current;
+        const panel = editMenuRef.current;
+        if (!wrapper || !panel) return;
+
+        const margin = 8;
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const panelWidth = Math.max(panel.offsetWidth, 180);
+        const panelHeight = Math.max(panel.scrollHeight, panel.offsetHeight);
+        const availableBelow = window.innerHeight - wrapperRect.bottom - margin;
+        const availableAbove = wrapperRect.top - margin;
+        const showAbove = panelHeight > availableBelow && availableAbove > availableBelow;
+        const availableVertical = Math.max(showAbove ? availableAbove : availableBelow, 140);
+
+        let left = 0;
+        const overflowRight = wrapperRect.left + panelWidth - (window.innerWidth - margin);
+        if (overflowRight > 0) {
+          left -= overflowRight;
+        }
+        if (wrapperRect.left + left < margin) {
+          left = margin - wrapperRect.left;
+        }
+
+        setEditMenuStyle({
+          left: `${Math.round(left)}px`,
+          top: showAbove ? "auto" : "calc(100% + 6px)",
+          bottom: showAbove ? "calc(100% + 6px)" : "auto",
+          maxHeight: `${Math.round(availableVertical)}px`,
+        });
+      });
+    };
+
+    updatePlacement();
+    window.addEventListener("resize", updatePlacement);
+    return () => window.removeEventListener("resize", updatePlacement);
+  }, [openMenu]);
+
+  useEffect(() => {
+    if (openMenu !== "view") {
+      setViewMenuStyle(undefined);
+      return;
+    }
+
+    const updatePlacement = () => {
+      window.requestAnimationFrame(() => {
+        const wrapper = viewMenuWrapperRef.current;
+        const panel = viewMenuRef.current;
+        if (!wrapper || !panel) return;
+
+        const margin = 8;
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const panelWidth = Math.max(panel.offsetWidth, 180);
+        const panelHeight = Math.max(panel.scrollHeight, panel.offsetHeight);
+        const availableBelow = window.innerHeight - wrapperRect.bottom - margin;
+        const availableAbove = wrapperRect.top - margin;
+        const showAbove = panelHeight > availableBelow && availableAbove > availableBelow;
+        const availableVertical = Math.max(showAbove ? availableAbove : availableBelow, 140);
+
+        let left = 0;
+        const overflowRight = wrapperRect.left + panelWidth - (window.innerWidth - margin);
+        if (overflowRight > 0) {
+          left -= overflowRight;
+        }
+        if (wrapperRect.left + left < margin) {
+          left = margin - wrapperRect.left;
+        }
+
+        setViewMenuStyle({
+          left: `${Math.round(left)}px`,
+          top: showAbove ? "auto" : "calc(100% + 6px)",
+          bottom: showAbove ? "calc(100% + 6px)" : "auto",
+          maxHeight: `${Math.round(availableVertical)}px`,
+        });
+      });
+    };
+
+    updatePlacement();
+    window.addEventListener("resize", updatePlacement);
+    return () => window.removeEventListener("resize", updatePlacement);
+  }, [openMenu]);
+
+  useEffect(() => {
     const handler = (event: MouseEvent) => {
       if (!menuRef.current) return;
       if (menuRef.current.contains(event.target as Node)) return;
@@ -1493,46 +1581,6 @@ function App() {
       goToLineInputRef.current?.select();
     });
   }, [goToLineOpen]);
-
-  useEffect(() => {
-    if (openMenu !== "edit") {
-      setEditMenuLeft(null);
-      return;
-    }
-    const updateLeft = () => {
-      if (!editMenuWrapperRef.current || !menuRef.current) return;
-      if (window.innerWidth > 640) {
-        setEditMenuLeft(null);
-        return;
-      }
-      const wrapperRect = editMenuWrapperRef.current.getBoundingClientRect();
-      const groupRect = menuRef.current.getBoundingClientRect();
-      setEditMenuLeft(groupRect.left - wrapperRect.left);
-    };
-    updateLeft();
-    window.addEventListener("resize", updateLeft);
-    return () => window.removeEventListener("resize", updateLeft);
-  }, [openMenu]);
-
-  useEffect(() => {
-    if (openMenu !== "view") {
-      setViewMenuLeft(null);
-      return;
-    }
-    const updateLeft = () => {
-      if (!viewMenuWrapperRef.current || !menuRef.current) return;
-      if (window.innerWidth > 640) {
-        setViewMenuLeft(null);
-        return;
-      }
-      const wrapperRect = viewMenuWrapperRef.current.getBoundingClientRect();
-      const groupRect = menuRef.current.getBoundingClientRect();
-      setViewMenuLeft(groupRect.left - wrapperRect.left);
-    };
-    updateLeft();
-    window.addEventListener("resize", updateLeft);
-    return () => window.removeEventListener("resize", updateLeft);
-  }, [openMenu]);
 
   const revealTabById = useCallback((id: string, retriesLeft = 10) => {
     pendingRevealTabIdRef.current = id;
@@ -2585,7 +2633,7 @@ function App() {
                   <div
                     className="menu-panel"
                     ref={editMenuRef}
-                    style={editMenuLeft !== null ? { left: `${editMenuLeft}px` } : undefined}
+                    style={editMenuStyle}
                     onMouseDown={(event) => event.stopPropagation()}
                   >
                     <button type="button" className="menu-item" onClick={() => { runEditorCommand("undo"); closeMenus(); }}>
@@ -2636,7 +2684,7 @@ function App() {
                   <div
                     className="menu-panel"
                     ref={viewMenuRef}
-                    style={viewMenuLeft !== null ? { left: `${viewMenuLeft}px` } : undefined}
+                    style={viewMenuStyle}
                     onMouseDown={(event) => event.stopPropagation()}
                   >
                     <button type="button" className="menu-item" onClick={zoomIn}>
