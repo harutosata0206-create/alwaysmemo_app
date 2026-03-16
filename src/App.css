@@ -1964,6 +1964,14 @@ body::-webkit-scrollbar-thumb,
   box-shadow: 0 16px 28px rgba(2, 6, 23, 0.5);
 }
 
+.app.theme-dark .menu-panel {
+  scrollbar-color: #355487 transparent;
+}
+
+.app.theme-dark .menu-panel::-webkit-scrollbar-thumb {
+  background-color: #355487;
+}
+
 .app.theme-dark .menu-item {
   color: #dce7ff;
 }
