@@ -605,6 +605,13 @@ body::-webkit-scrollbar-thumb,
   pointer-events: auto;
 }
 
+.file-menu-panel {
+  min-width: 250px;
+  max-width: min(320px, calc(100vw - 16px));
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .menu-subpanel {
   position: absolute;
   top: 0;
@@ -664,6 +671,9 @@ body::-webkit-scrollbar-thumb,
 
 .menu-item > span:first-child {
   font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .menu-item:hover {
@@ -693,6 +703,25 @@ body::-webkit-scrollbar-thumb,
 
 .menu-item.toggle {
   justify-content: space-between;
+}
+
+.menu-item.subtle {
+  color: #475569;
+}
+
+.menu-section-label {
+  padding: 6px 8px 2px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.menu-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .menu-toggle {
@@ -1021,6 +1050,24 @@ body::-webkit-scrollbar-thumb,
   position: relative;
   display: flex;
   flex-direction: column;
+}
+
+.settings-screen.standalone {
+  min-height: 100vh;
+}
+
+.settings-window-root {
+  min-height: 100vh;
+}
+
+.settings-window-loading {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  color: #5f6f86;
+  font-size: 14px;
 }
 
 .settings-content {
@@ -1920,6 +1967,14 @@ body::-webkit-scrollbar-thumb,
 .app.theme-dark .menu-item:hover {
   background: #2456cc;
   color: #f8fbff;
+}
+
+.app.theme-dark .menu-item.subtle {
+  color: #9fb3d8;
+}
+
+.app.theme-dark .menu-section-label {
+  color: #8ea4c8;
 }
 
 .app.theme-dark .menu-check.on {

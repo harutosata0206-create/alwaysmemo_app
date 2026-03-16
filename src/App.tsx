@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ClipboardEvent as ReactClipboardEvent,
   type DragEvent as ReactDragEvent,
@@ -16,22 +17,17 @@ import {
   currentMonitor,
   getCurrentWindow,
   LogicalSize,
-  monitorFromPoint,
   PhysicalPosition,
   PhysicalSize,
 } from "@tauri-apps/api/window";
 import {
-  ArrowLeft,
   Copy,
   Minus,
-  Monitor,
-  Moon,
   Plus,
   RefreshCw,
   Search,
   Settings,
   Square,
-  Sun,
   X,
 } from "lucide-react";
 import {
@@ -47,19 +43,24 @@ import {
   stripSearchHighlights,
   textToHtml,
 } from "./lib/editorContent";
+import {
+  SETTINGS_REQUEST_EVENT,
+  SETTINGS_SYNC_EVENT,
+  SETTINGS_UPDATE_EVENT,
+  createSettingsWindowLabel,
+  type SettingsPatch,
+  type SettingsRequestPayload,
+  type SettingsSnapshot as BridgeSettingsSnapshot,
+} from "./lib/settingsBridge";
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 300;
 const MIN_WINDOW_HEIGHT = 200;
-const SETTINGS_MIN_WINDOW_WIDTH = 571;
-const SETTINGS_MIN_WINDOW_HEIGHT = 410;
 const STATE_PERSIST_DEBOUNCE_MS = 300;
 const STORAGE_KEY = "alwaysmemo-state";
 const GLOBAL_SHORTCUT_SYNC_KEY = "alwaysmemo-global-shortcut-sync";
 const TAB_CLOSE_ANIMATION_MS = 140;
 const GEOMETRY_TRACE_WINDOW_MS = 500;
-const DISABLE_GUARDED_WINDOW_SIZE_EXPERIMENT = true;
-const DISABLE_MENU_AUTO_RESIZE_EXPERIMENT = true;
 
 type Tab = {
   id: string;
@@ -82,6 +83,8 @@ type PersistedState = {
   alwaysOnTop: boolean;
   snap: SnapPosition;
   useGlobalShortcuts: boolean;
+  showStatusBar?: boolean;
+  wrapAtRightEdge?: boolean;
   sessionBehavior?: SessionBehavior;
   fileOpenBehavior?: FileOpenBehavior;
   editorFontSizePx?: number;
@@ -93,11 +96,6 @@ type GlobalShortcutSyncMessage = {
   enabled: boolean;
   reason: "manual" | "auto-multi-window";
   ts: number;
-};
-
-type SavedWindowBounds = {
-  size: PhysicalSize;
-  position: PhysicalPosition;
 };
 
 type RecentClosedFile = {
@@ -166,24 +164,20 @@ function App() {
   const savedTabsRef = useRef<Record<string, { title: string; content: string }>>({});
   const [, setSavedVersion] = useState(0);
   const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(null);
-  const [openFileSubmenu, setOpenFileSubmenu] = useState<"recent" | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const fileMenuWrapperRef = useRef<HTMLDivElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
-  const fileRecentSubmenuRef = useRef<HTMLDivElement | null>(null);
+  const [fileMenuStyle, setFileMenuStyle] = useState<CSSProperties | undefined>(undefined);
   const editMenuRef = useRef<HTMLDivElement | null>(null);
   const editMenuWrapperRef = useRef<HTMLDivElement | null>(null);
   const [editMenuLeft, setEditMenuLeft] = useState<number | null>(null);
   const viewMenuRef = useRef<HTMLDivElement | null>(null);
   const viewMenuWrapperRef = useRef<HTMLDivElement | null>(null);
   const [viewMenuLeft, setViewMenuLeft] = useState<number | null>(null);
-  const settingsContentRef = useRef<HTMLDivElement | null>(null);
-  const originalWindowSizeRef = useRef<LogicalSize | null>(null);
-  const settingsWindowBoundsRef = useRef<SavedWindowBounds | null>(null);
-  const expandedWindowRef = useRef(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
   const [editorFontSizePx, setEditorFontSizePx] = useState(14);
-  const [editorFontSizeInput, setEditorFontSizeInput] = useState("14");
+  const [, setEditorFontSizeInput] = useState("14");
   const [lineSpacing, setLineSpacing] = useState<LineSpacing>("standard");
   const [themeMode, setThemeMode] = useState<ThemeMode>("system");
   const [systemPrefersDark, setSystemPrefersDark] = useState(() =>
@@ -191,8 +185,6 @@ function App() {
   );
   const [sessionBehavior, setSessionBehavior] = useState<SessionBehavior>("restore");
   const [fileOpenBehavior, setFileOpenBehavior] = useState<FileOpenBehavior>("existing");
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsNav, setSettingsNav] = useState<"appearance" | "formatting" | "features" | "startup" | "about">("appearance");
   const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
   const [windowClosePromptOpen, setWindowClosePromptOpen] = useState(false);
   const [closingTabIds, setClosingTabIds] = useState<string[]>([]);
@@ -201,6 +193,17 @@ function App() {
   const tabCloseTimerRef = useRef<Record<string, number>>({});
   const windowStateSyncTimerRef = useRef<number | null>(null);
   const geometryTraceRef = useRef<GeometryTraceState | null>(null);
+  const settingsSnapshotRef = useRef<BridgeSettingsSnapshot>({
+    alwaysOnTop: false,
+    useGlobalShortcuts: true,
+    showStatusBar: true,
+    wrapAtRightEdge: true,
+    editorFontSizePx: 14,
+    lineSpacing: "standard",
+    themeMode: "system",
+    sessionBehavior: "restore",
+    fileOpenBehavior: "existing",
+  });
   const settingsReadyRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
@@ -217,8 +220,13 @@ function App() {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
     deletePromptTabId ? tabs.find((tab) => tab.id === deletePromptTabId) ?? null : null;
-  const modalMinSizeActive = settingsOpen || windowClosePromptOpen || deletePromptTab !== null;
   const windowHandle = getCurrentWindow();
+  const currentWebviewWindow = useMemo(() => WebviewWindow.getCurrent(), []);
+  const currentWindowLabel = currentWebviewWindow.label;
+  const settingsWindowLabel = useMemo(
+    () => createSettingsWindowLabel(currentWindowLabel),
+    [currentWindowLabel],
+  );
   const effectiveTheme = useMemo(
     () => (themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : themeMode),
     [systemPrefersDark, themeMode],
@@ -341,33 +349,6 @@ function App() {
     }
   }, [formatPosition, formatSize, readWindowStateSnapshot]);
 
-  const tracedSetWindowMinSize = useCallback(
-    async (size: LogicalSize, source: string) => {
-      void traceGeometry(`${source}:setMinSize:before`, { size: formatSize(size) });
-      await windowHandle.setMinSize(size);
-      void traceGeometry(`${source}:setMinSize:after`, { size: formatSize(size) });
-    },
-    [formatSize, traceGeometry, windowHandle],
-  );
-
-  const tracedSetWindowSize = useCallback(
-    async (size: LogicalSize | PhysicalSize, source: string) => {
-      void traceGeometry(`${source}:setSize:before`, { size: formatSize(size) });
-      await windowHandle.setSize(size);
-      void traceGeometry(`${source}:setSize:after`, { size: formatSize(size) });
-    },
-    [formatSize, traceGeometry, windowHandle],
-  );
-
-  const tracedSetWindowPosition = useCallback(
-    async (position: PhysicalPosition, source: string) => {
-      void traceGeometry(`${source}:setPosition:before`, { position: formatPosition(position) });
-      await windowHandle.setPosition(position);
-      void traceGeometry(`${source}:setPosition:after`, { position: formatPosition(position) });
-    },
-    [formatPosition, traceGeometry, windowHandle],
-  );
-
   const syncWindowMaximizedState = useCallback(async (source = "sync") => {
     try {
       const snapshot = await readWindowStateSnapshot();
@@ -405,35 +386,6 @@ function App() {
     }, delay);
   }, [syncWindowMaximizedState]);
 
-  const jumpToSettingsSection = useCallback((key: "appearance" | "formatting" | "features" | "startup" | "about") => {
-    setSettingsNav(key);
-    const container = settingsContentRef.current;
-    const target = document.getElementById(`settings-${key}`);
-    if (!container || !target) return;
-    const rawTop =
-      target.getBoundingClientRect().top -
-      container.getBoundingClientRect().top +
-      container.scrollTop -
-      8;
-    const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
-    const top = Math.max(0, Math.min(rawTop, maxTop));
-    container.scrollTo({ top, behavior: "smooth" });
-  }, []);
-
-  const commitEditorFontSize = useCallback(
-    (raw: string) => {
-      const parsed = Number.parseInt(raw, 10);
-      if (Number.isNaN(parsed)) {
-        setEditorFontSizeInput(String(editorFontSizePx));
-        return;
-      }
-      const clamped = Math.max(8, Math.min(72, parsed));
-      setEditorFontSizePx(clamped);
-      setEditorFontSizeInput(String(clamped));
-    },
-    [editorFontSizePx],
-  );
-
   useEffect(() => {
     setEditorFontSizeInput(String(editorFontSizePx));
   }, [editorFontSizePx]);
@@ -457,15 +409,6 @@ function App() {
     return "LF";
   }, [activePlainText]);
   const zoomPercentLabel = useMemo(() => `${Math.round(zoomLevel * 100)}%`, [zoomLevel]);
-  const previewFontSizePx = useMemo(() => {
-    const parsed = Number.parseInt(editorFontSizeInput, 10);
-    if (Number.isNaN(parsed)) return editorFontSizePx;
-    return Math.max(8, Math.min(72, parsed));
-  }, [editorFontSizeInput, editorFontSizePx]);
-  const previewLineHeight = useMemo(
-    () => (lineSpacing === "relaxed" ? 1.45 : 1.15),
-    [lineSpacing],
-  );
   const editorLineHeight = useMemo(
     () => (lineSpacing === "relaxed" ? 1.75 : 1.15),
     [lineSpacing],
@@ -563,6 +506,8 @@ function App() {
         alwaysOnTop,
         snap,
         useGlobalShortcuts,
+        showStatusBar,
+        wrapAtRightEdge,
         sessionBehavior,
         fileOpenBehavior,
         editorFontSizePx,
@@ -571,7 +516,20 @@ function App() {
       };
       window.localStorage.setItem(storageKey, JSON.stringify(state));
     },
-    [activeTabId, alwaysOnTop, editorFontSizePx, fileOpenBehavior, lineSpacing, sessionBehavior, snap, storageKey, themeMode, useGlobalShortcuts],
+    [
+      activeTabId,
+      alwaysOnTop,
+      editorFontSizePx,
+      fileOpenBehavior,
+      lineSpacing,
+      sessionBehavior,
+      showStatusBar,
+      snap,
+      storageKey,
+      themeMode,
+      useGlobalShortcuts,
+      wrapAtRightEdge,
+    ],
   );
 
   const setGlobalShortcutsPreference = useCallback(
@@ -617,7 +575,6 @@ function App() {
 
   const closeMenus = useCallback(() => {
     setOpenMenu(null);
-    setOpenFileSubmenu(null);
   }, []);
 
   const pickSavePath = useCallback(async (suggested: string) => {
@@ -1020,29 +977,187 @@ function App() {
     [],
   );
 
-  const keepSettingsViewport = useCallback(
-    (anchor: HTMLElement | null, runner: () => void | Promise<void>) => {
-      const container = settingsContentRef.current;
-      if (!container) {
-        void runner();
-        return;
-      }
-      const beforeTop = anchor?.getBoundingClientRect().top ?? null;
-      void Promise.resolve(runner()).finally(() => {
-        window.requestAnimationFrame(() => {
-          const current = settingsContentRef.current;
-          if (!current) return;
-          if (anchor && beforeTop !== null) {
-            const afterTop = anchor.getBoundingClientRect().top;
-            current.scrollTop += afterTop - beforeTop;
-          }
-          const maxTop = Math.max(0, current.scrollHeight - current.clientHeight);
-          current.scrollTop = Math.max(0, Math.min(current.scrollTop, maxTop));
-        });
+  const settingsSnapshot = useMemo<BridgeSettingsSnapshot>(() => ({
+    alwaysOnTop,
+    useGlobalShortcuts,
+    showStatusBar,
+    wrapAtRightEdge,
+    editorFontSizePx,
+    lineSpacing,
+    themeMode,
+    sessionBehavior,
+    fileOpenBehavior,
+  }), [
+    alwaysOnTop,
+    editorFontSizePx,
+    fileOpenBehavior,
+    lineSpacing,
+    sessionBehavior,
+    showStatusBar,
+    themeMode,
+    useGlobalShortcuts,
+    wrapAtRightEdge,
+  ]);
+
+  useEffect(() => {
+    settingsSnapshotRef.current = settingsSnapshot;
+  }, [settingsSnapshot]);
+
+  const emitSettingsSnapshot = useCallback(
+    async (targetLabel = settingsWindowLabel, snapshot = settingsSnapshotRef.current) => {
+      const target = await WebviewWindow.getByLabel(targetLabel);
+      if (!target) return;
+      await currentWebviewWindow.emitTo(targetLabel, SETTINGS_SYNC_EVENT, {
+        sourceLabel: currentWindowLabel,
+        snapshot,
       });
     },
-    [],
+    [currentWebviewWindow, currentWindowLabel, settingsWindowLabel],
   );
+
+  const applySettingsPatch = useCallback(async (patch: SettingsPatch) => {
+    let nextSnapshot: BridgeSettingsSnapshot = settingsSnapshotRef.current;
+
+    if (patch.themeMode !== undefined) {
+      setThemeMode(patch.themeMode);
+      nextSnapshot = { ...nextSnapshot, themeMode: patch.themeMode };
+    }
+    if (patch.lineSpacing !== undefined) {
+      setLineSpacing(patch.lineSpacing);
+      nextSnapshot = { ...nextSnapshot, lineSpacing: patch.lineSpacing };
+    }
+    if (patch.editorFontSizePx !== undefined) {
+      setEditorFontSizePx(patch.editorFontSizePx);
+      setEditorFontSizeInput(String(patch.editorFontSizePx));
+      nextSnapshot = { ...nextSnapshot, editorFontSizePx: patch.editorFontSizePx };
+    }
+    if (patch.wrapAtRightEdge !== undefined) {
+      setWrapAtRightEdge(patch.wrapAtRightEdge);
+      nextSnapshot = { ...nextSnapshot, wrapAtRightEdge: patch.wrapAtRightEdge };
+    }
+    if (patch.showStatusBar !== undefined) {
+      setShowStatusBar(patch.showStatusBar);
+      nextSnapshot = { ...nextSnapshot, showStatusBar: patch.showStatusBar };
+    }
+    if (patch.sessionBehavior !== undefined) {
+      setSessionBehavior(patch.sessionBehavior);
+      nextSnapshot = { ...nextSnapshot, sessionBehavior: patch.sessionBehavior };
+    }
+    if (patch.fileOpenBehavior !== undefined) {
+      setFileOpenBehavior(patch.fileOpenBehavior);
+      nextSnapshot = { ...nextSnapshot, fileOpenBehavior: patch.fileOpenBehavior };
+    }
+    if (patch.alwaysOnTop !== undefined) {
+      await setAlwaysOnTop(patch.alwaysOnTop);
+      nextSnapshot = { ...nextSnapshot, alwaysOnTop: patch.alwaysOnTop };
+    }
+    if (patch.useGlobalShortcuts !== undefined) {
+      if (patch.useGlobalShortcuts) {
+        const canEnable = await ensureGlobalShortcutsSingleWindow();
+        if (canEnable) {
+          setGlobalShortcutsPreference(true, "manual");
+          nextSnapshot = { ...nextSnapshot, useGlobalShortcuts: true };
+        } else {
+          nextSnapshot = { ...nextSnapshot, useGlobalShortcuts: false };
+        }
+      } else {
+        setGlobalShortcutsPreference(false, "manual");
+        nextSnapshot = { ...nextSnapshot, useGlobalShortcuts: false };
+      }
+    }
+
+    settingsSnapshotRef.current = nextSnapshot;
+    return nextSnapshot;
+  }, [
+    ensureGlobalShortcutsSingleWindow,
+    setAlwaysOnTop,
+    setGlobalShortcutsPreference,
+  ]);
+
+  const openSettingsWindow = useCallback(async () => {
+    closeMenus();
+    setShowSearchBox(false);
+    const existing = await WebviewWindow.getByLabel(settingsWindowLabel);
+    if (existing) {
+      await emitSettingsSnapshot(settingsWindowLabel);
+      await existing.show();
+      await existing.setFocus();
+      return;
+    }
+
+    const settingsWindow = new WebviewWindow(settingsWindowLabel, {
+      url: `/?view=settings&source=${encodeURIComponent(currentWindowLabel)}&instance=${encodeURIComponent(settingsWindowLabel)}`,
+      width: 960,
+      height: 720,
+      minWidth: 760,
+      minHeight: 620,
+      decorations: false,
+      resizable: true,
+      title: "AlwaysMemo Settings",
+    });
+
+    settingsWindow.once("tauri://created", async () => {
+      try {
+        await emitSettingsSnapshot(settingsWindowLabel);
+        await settingsWindow.show();
+        await settingsWindow.setFocus();
+      } catch (error) {
+        console.error("Failed to focus settings window", error);
+      }
+    });
+
+    settingsWindow.once("tauri://error", (error) => {
+      console.error("Failed to create settings window", error);
+      setStatus("Failed to open settings window");
+    });
+  }, [
+    closeMenus,
+    currentWindowLabel,
+    emitSettingsSnapshot,
+    settingsWindowLabel,
+  ]);
+
+  useEffect(() => {
+    let unlistenRequest: (() => void) | undefined;
+    let unlistenUpdate: (() => void) | undefined;
+
+    void currentWebviewWindow.listen<SettingsRequestPayload>(SETTINGS_REQUEST_EVENT, ({ payload }) => {
+      void emitSettingsSnapshot(payload.settingsLabel);
+    }).then((cleanup) => {
+      unlistenRequest = cleanup;
+    }).catch((error) => {
+      console.error("Failed to listen for settings requests", error);
+    });
+
+    void currentWebviewWindow.listen<{
+      settingsLabel: string;
+      patch: SettingsPatch;
+    }>(SETTINGS_UPDATE_EVENT, ({ payload }) => {
+      if (payload.settingsLabel !== settingsWindowLabel) return;
+      void (async () => {
+        const nextSnapshot = await applySettingsPatch(payload.patch);
+        await emitSettingsSnapshot(payload.settingsLabel, nextSnapshot);
+      })();
+    }).then((cleanup) => {
+      unlistenUpdate = cleanup;
+    }).catch((error) => {
+      console.error("Failed to listen for settings updates", error);
+    });
+
+    return () => {
+      unlistenRequest?.();
+      unlistenUpdate?.();
+    };
+  }, [
+    applySettingsPatch,
+    currentWebviewWindow,
+    emitSettingsSnapshot,
+    settingsWindowLabel,
+  ]);
+
+  useEffect(() => {
+    void emitSettingsSnapshot();
+  }, [emitSettingsSnapshot, settingsSnapshot]);
 
   const toggleAlwaysOnTop = useCallback(async () => {
     const now = performance.now();
@@ -1173,11 +1288,15 @@ function App() {
           const nextEditorFontSizePx = parsed.editorFontSizePx ?? 14;
           const nextLineSpacing = parsed.lineSpacing ?? "standard";
           const nextThemeMode = parsed.themeMode ?? "system";
+          const nextShowStatusBar = parsed.showStatusBar ?? true;
+          const nextWrapAtRightEdge = parsed.wrapAtRightEdge ?? true;
           setSessionBehavior(nextSessionBehavior);
           setFileOpenBehavior(nextFileOpenBehavior);
           setEditorFontSizePx(nextEditorFontSizePx);
           setLineSpacing(nextLineSpacing);
           setThemeMode(nextThemeMode);
+          setShowStatusBar(nextShowStatusBar);
+          setWrapAtRightEdge(nextWrapAtRightEdge);
           const pathMap = getPathMap();
           const shouldRestoreTabs = nextSessionBehavior === "restore";
           const restoredTabs = ((shouldRestoreTabs && parsed.tabs.length)
@@ -1217,6 +1336,8 @@ function App() {
           setEditorFontSizePx(14);
           setLineSpacing("standard");
           setThemeMode("system");
+          setShowStatusBar(true);
+          setWrapAtRightEdge(true);
           const nextAlwaysOnTop = forceAlwaysOnTopDefined
             ? forceAlwaysOnTop
             : current;
@@ -1287,112 +1408,6 @@ function App() {
   }, [effectiveTheme]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const syncGuardedWindowSize = async () => {
-      try {
-        void traceGeometry("syncGuardedWindowSize:enter", { modalMinSizeActive });
-        if (DISABLE_GUARDED_WINDOW_SIZE_EXPERIMENT) {
-          void traceGeometry("syncGuardedWindowSize:disabled", { modalMinSizeActive });
-          return;
-        }
-        if (modalMinSizeActive) {
-          const currentSize = await windowHandle.outerSize();
-          const currentPosition = await windowHandle.outerPosition();
-
-          if (!settingsWindowBoundsRef.current) {
-            settingsWindowBoundsRef.current = {
-              size: new PhysicalSize(currentSize),
-              position: new PhysicalPosition(currentPosition),
-            };
-          }
-
-          await tracedSetWindowMinSize(
-            new LogicalSize(SETTINGS_MIN_WINDOW_WIDTH, SETTINGS_MIN_WINDOW_HEIGHT),
-            "syncGuardedWindowSize:modal",
-          );
-
-          const probeX = currentPosition.x + Math.max(currentSize.width - 1, 0);
-          const probeY = currentPosition.y + Math.floor(currentSize.height / 2);
-          const monitor =
-            (await monitorFromPoint(probeX, probeY)) ??
-            (await currentMonitor());
-          const scaleFactor = monitor?.scaleFactor ?? window.devicePixelRatio ?? 1;
-          const settingsMinPhysical = new LogicalSize(
-            SETTINGS_MIN_WINDOW_WIDTH,
-            SETTINGS_MIN_WINDOW_HEIGHT,
-          ).toPhysical(scaleFactor);
-
-          const nextWidth = Math.max(currentSize.width, settingsMinPhysical.width);
-          const nextHeight = Math.max(currentSize.height, settingsMinPhysical.height);
-          const needsResize = nextWidth !== currentSize.width || nextHeight !== currentSize.height;
-          if (!cancelled && needsResize) {
-            const workArea = monitor?.workArea;
-            if (workArea && nextWidth > currentSize.width) {
-              const currentRight = currentPosition.x + currentSize.width;
-              const workAreaRight = workArea.position.x + workArea.size.width;
-              const edgeThreshold = Math.max(8, Math.round(scaleFactor * 8));
-              if (Math.abs(workAreaRight - currentRight) <= edgeThreshold) {
-                const nextX = Math.max(workArea.position.x, currentRight - nextWidth);
-                await tracedSetWindowPosition(
-                  new PhysicalPosition(nextX, currentPosition.y),
-                  "syncGuardedWindowSize:modal",
-                );
-              }
-            }
-
-            await tracedSetWindowSize(
-              new PhysicalSize(nextWidth, nextHeight),
-              "syncGuardedWindowSize:modal",
-            );
-          }
-          return;
-        }
-
-        await tracedSetWindowMinSize(
-          new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT),
-          "syncGuardedWindowSize:reset",
-        );
-
-        const previousBounds = settingsWindowBoundsRef.current;
-        settingsWindowBoundsRef.current = null;
-        if (!previousBounds || cancelled) return;
-
-        const currentSize = await windowHandle.outerSize();
-        const currentPosition = await windowHandle.outerPosition();
-
-        if (
-          previousBounds.size.width !== currentSize.width ||
-          previousBounds.size.height !== currentSize.height
-        ) {
-          await tracedSetWindowSize(previousBounds.size, "syncGuardedWindowSize:restore");
-        }
-
-        if (
-          previousBounds.position.x !== currentPosition.x ||
-          previousBounds.position.y !== currentPosition.y
-        ) {
-          await tracedSetWindowPosition(previousBounds.position, "syncGuardedWindowSize:restore");
-        }
-      } catch (error) {
-          console.error("Failed to sync guarded window size", error);
-      }
-    };
-
-    void syncGuardedWindowSize();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    modalMinSizeActive,
-    traceGeometry,
-    tracedSetWindowMinSize,
-    tracedSetWindowPosition,
-    tracedSetWindowSize,
-    windowHandle,
-  ]);
-
-  useEffect(() => {
     if (!settingsReadyRef.current) return;
     if (persistStateTimerRef.current !== null) {
       window.clearTimeout(persistStateTimerRef.current);
@@ -1458,9 +1473,47 @@ function App() {
 
   useEffect(() => {
     if (openMenu !== "file") {
-      setOpenFileSubmenu(null);
+      setFileMenuStyle(undefined);
+      return;
     }
-  }, [openMenu]);
+
+    const updatePlacement = () => {
+      window.requestAnimationFrame(() => {
+        const wrapper = fileMenuWrapperRef.current;
+        const panel = fileMenuRef.current;
+        if (!wrapper || !panel) return;
+
+        const margin = 8;
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const panelWidth = Math.max(panel.offsetWidth, 220);
+        const panelHeight = Math.max(panel.scrollHeight, panel.offsetHeight);
+        const availableBelow = window.innerHeight - wrapperRect.bottom - margin;
+        const availableAbove = wrapperRect.top - margin;
+        const showAbove = panelHeight > availableBelow && availableAbove > availableBelow;
+        const availableVertical = Math.max(showAbove ? availableAbove : availableBelow, 180);
+
+        let left = 0;
+        const overflowRight = wrapperRect.left + panelWidth - (window.innerWidth - margin);
+        if (overflowRight > 0) {
+          left -= overflowRight;
+        }
+        if (wrapperRect.left + left < margin) {
+          left = margin - wrapperRect.left;
+        }
+
+        setFileMenuStyle({
+          left: `${Math.round(left)}px`,
+          top: showAbove ? "auto" : "calc(100% + 6px)",
+          bottom: showAbove ? "calc(100% + 6px)" : "auto",
+          maxHeight: `${Math.round(availableVertical)}px`,
+        });
+      });
+    };
+
+    updatePlacement();
+    window.addEventListener("resize", updatePlacement);
+    return () => window.removeEventListener("resize", updatePlacement);
+  }, [openMenu, recentClosedFiles.length]);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -1490,84 +1543,6 @@ function App() {
       goToLineInputRef.current?.select();
     });
   }, [goToLineOpen]);
-
-  useEffect(() => {
-    if (DISABLE_MENU_AUTO_RESIZE_EXPERIMENT) {
-      void traceGeometry("menuAutoResize:disabled", {
-        openMenu,
-        openFileSubmenu,
-      });
-      return;
-    }
-    const hasPopupOpen = openMenu !== null;
-    if (!hasPopupOpen) {
-      if (expandedWindowRef.current && originalWindowSizeRef.current) {
-        void tracedSetWindowSize(originalWindowSizeRef.current, "menuAutoResize:restore");
-        expandedWindowRef.current = false;
-        originalWindowSizeRef.current = null;
-      }
-      return;
-    }
-
-    const frame = window.requestAnimationFrame(async () => {
-      const panel =
-        openMenu === "file"
-          ? fileMenuRef.current
-          : openMenu === "edit"
-            ? editMenuRef.current
-            : viewMenuRef.current;
-      if (!panel) return;
-      const rect = panel.getBoundingClientRect();
-      const activeSubmenu =
-        openMenu === "file" && openFileSubmenu === "recent"
-          ? fileRecentSubmenuRef.current
-          : null;
-      const subRect = activeSubmenu?.getBoundingClientRect() ?? rect;
-      const panelBottom = Math.max(rect.bottom, subRect.bottom);
-      const panelNeededBottom = Math.max(
-        panelBottom,
-        rect.top + Math.max(panel.scrollHeight, rect.height),
-      );
-      const overflowCss = panelNeededBottom - window.innerHeight;
-      const allowHorizontalExpand = openMenu === "file" && openFileSubmenu === "recent";
-      const overflowRight = allowHorizontalExpand
-        ? Math.max(rect.right, subRect.right) - window.innerWidth
-        : 0;
-      if (overflowCss <= 0 && overflowRight <= 0) return;
-
-      try {
-        if (!originalWindowSizeRef.current) {
-          originalWindowSizeRef.current = new LogicalSize(
-            window.innerWidth,
-            window.innerHeight,
-          );
-        }
-        const base = originalWindowSizeRef.current;
-        const maxHeight = window.screen?.availHeight ?? base.height;
-        const nextHeight = Math.min(
-          Math.max(window.innerHeight, window.innerHeight + Math.max(overflowCss, 0) + 8),
-          maxHeight,
-        );
-        const maxWidth = window.screen?.availWidth ?? base.width;
-        const nextWidth = Math.min(
-          Math.max(window.innerWidth, window.innerWidth + Math.max(overflowRight, 0) + 8),
-          maxWidth,
-        );
-
-        if (nextHeight > base.height || nextWidth > base.width) {
-          expandedWindowRef.current = true;
-          await tracedSetWindowSize(
-            new LogicalSize(nextWidth, nextHeight),
-            "menuAutoResize:expand",
-          );
-        }
-      } catch (error) {
-        console.error("Failed to expand window for menu", error);
-      }
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [openFileSubmenu, openMenu, traceGeometry, tracedSetWindowSize, windowHandle]);
 
   useEffect(() => {
     if (openMenu !== "edit") {
@@ -2024,7 +1999,7 @@ function App() {
     }
     setSearchMatchCount(0);
     applyEditorHtml(editor, sanitizedActiveHtml);
-  }, [activeTabId, applyEditorHtml, applySearchHighlights, sanitizedActiveHtml, searchQuery, settingsOpen, showSearchBox]);
+  }, [activeTabId, applyEditorHtml, applySearchHighlights, sanitizedActiveHtml, searchQuery, showSearchBox]);
 
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
@@ -2426,7 +2401,7 @@ function App() {
     };
     topBar.addEventListener("wheel", listener, { passive: false });
     return () => topBar.removeEventListener("wheel", listener);
-  }, [handleTopTabsWheel, settingsOpen]);
+  }, [handleTopTabsWheel]);
 
   useEffect(() => {
     return () => {
@@ -2450,7 +2425,6 @@ function App() {
 
   return (
     <div className={`app theme-${effectiveTheme} ${isWindowMaximized ? "window-maximized" : ""}`}>
-      {!settingsOpen ? (
       <div className="titlebar">
         <div
           className="titlebar-row top"
@@ -2563,658 +2537,343 @@ function App() {
           </div>
         </div>
         <div className="titlebar-row toolbar">
-          {settingsOpen ? (
-            <div className="settings-toolbar">
-              <button
-                type="button"
-                className="settings-back"
-                onClick={() => setSettingsOpen(false)}
-                aria-label="Back to editor"
-              >
-                <ArrowLeft size={16} strokeWidth={1.9} aria-hidden="true" />
-              </button>
-              <span className="settings-toolbar-title">設定</span>
-            </div>
-          ) : (
-            <>
-              <div className="menu-group" ref={menuRef}>
-            <div className="menu-wrapper">
-              <button
-                type="button"
-                className={`menu-button file-menu-button ${openMenu === "file" ? "active" : ""}`}
-                onClick={() => setOpenMenu((prev) => (prev === "file" ? null : "file"))}
-              >
-                ファイル
-              </button>
-              {openMenu === "file" ? (
-                <div
-                  className="menu-panel"
-                  ref={fileMenuRef}
-                  onMouseDown={(event) => event.stopPropagation()}
+          <>
+            <div className="menu-group" ref={menuRef}>
+              <div className="menu-wrapper" ref={fileMenuWrapperRef}>
+                <button
+                  type="button"
+                  className={`menu-button file-menu-button ${openMenu === "file" ? "active" : ""}`}
+                  onClick={() => setOpenMenu((prev) => (prev === "file" ? null : "file"))}
                 >
-                  <button type="button" className="menu-item" onClick={() => { addTab(); closeMenus(); }}>
-                    <span>新しいタブ</span>
-                    <span className="menu-shortcut">Ctrl+N</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={() => void openNewWindow()}>
-                    <span>新しいウィンドウ</span>
-                    <span className="menu-shortcut">Ctrl+Shift+N</span>
-                  </button>
-                  <div className="menu-divider" />
-                  <button type="button" className="menu-item" onClick={openFilePicker}>
-                    <span>開く</span>
-                    <span className="menu-shortcut">Ctrl+O</span>
-                  </button>
+                  ファイル
+                </button>
+                {openMenu === "file" ? (
                   <div
-                    className="menu-submenu-wrap"
-                    onMouseLeave={() => setOpenFileSubmenu(null)}
+                    className="menu-panel file-menu-panel"
+                    ref={fileMenuRef}
+                    style={fileMenuStyle}
+                    onMouseDown={(event) => event.stopPropagation()}
                   >
+                    <button type="button" className="menu-item" onClick={() => { addTab(); closeMenus(); }}>
+                      <span>新しいタブ</span>
+                      <span className="menu-shortcut">Ctrl+N</span>
+                    </button>
+                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void openNewWindow(); }}>
+                      <span>新しいウィンドウ</span>
+                      <span className="menu-shortcut">Ctrl+Shift+N</span>
+                    </button>
+                    <div className="menu-divider" />
+                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void openFilePicker(); }}>
+                      <span>開く</span>
+                      <span className="menu-shortcut">Ctrl+O</span>
+                    </button>
+                    <div className="menu-divider" />
+                    <div className="menu-section-label">最近閉じたファイル</div>
+                    <div className="menu-recent-list" role="group" aria-label="最近閉じたファイル">
+                      {recentClosedFiles.length === 0 ? (
+                        <button type="button" className="menu-item disabled" aria-disabled="true">
+                          <span>最近閉じたファイルはありません</span>
+                        </button>
+                      ) : (
+                        recentClosedFiles.slice(0, MAX_RECENT_CLOSED_FILES).map((item) => (
+                          <button
+                            key={item.path}
+                            type="button"
+                            className="menu-item"
+                            onClick={() => {
+                              closeMenus();
+                              void openRecentClosedFile(item.path);
+                            }}
+                            title={item.path}
+                          >
+                            <span>{item.title}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
                     <button
                       type="button"
-                      className="menu-item has-submenu"
-                      onMouseEnter={() => setOpenFileSubmenu("recent")}
-                      onClick={() => setOpenFileSubmenu("recent")}
+                      className={`menu-item subtle ${recentClosedFiles.length === 0 ? "disabled" : ""}`}
+                      aria-disabled={recentClosedFiles.length === 0}
+                      onClick={() => {
+                        if (recentClosedFiles.length === 0) return;
+                        clearRecentClosedFiles();
+                      }}
                     >
-                      <span>新着順</span>
-                      <span className="menu-shortcut">›</span>
+                      <span>最近閉じた一覧を消去</span>
                     </button>
-                    {openFileSubmenu === "recent" ? (
-                      <div className="menu-panel menu-subpanel menu-subpanel-recent" ref={fileRecentSubmenuRef}>
-                        {recentClosedFiles.length === 0 ? (
-                          <button type="button" className="menu-item disabled" aria-disabled="true">
-                            <span>最近閉じたファイルはありません</span>
-                          </button>
-                        ) : (
-                          recentClosedFiles.slice(0, MAX_RECENT_CLOSED_FILES).map((item) => (
-                            <button
-                              key={item.path}
-                              type="button"
-                              className="menu-item"
-                              onClick={() => void openRecentClosedFile(item.path)}
-                              title={item.path}
-                            >
-                              <span>{item.title}</span>
-                            </button>
-                          ))
-                        )}
-                        {recentClosedFiles.length > 0 ? <div className="menu-divider" /> : null}
-                        <button
-                          type="button"
-                          className={`menu-item ${recentClosedFiles.length === 0 ? "disabled" : ""}`}
-                          aria-disabled={recentClosedFiles.length === 0}
-                          onClick={() => {
-                            if (recentClosedFiles.length === 0) return;
-                            clearRecentClosedFiles();
-                          }}
-                        >
-                          <span>一覧を消去する</span>
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="menu-divider" />
-                  <button type="button" className="menu-item" onClick={() => void saveActiveTab()}>
-                    <span>保存</span>
-                    <span className="menu-shortcut">Ctrl+S</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={() => void saveActiveTabAs()}>
-                    <span>名前を付けて保存</span>
-                    <span className="menu-shortcut">Ctrl+Shift+S</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={() => void saveAllTabs()}>
-                    <span>すべて保存</span>
-                    <span className="menu-shortcut">Ctrl+Alt+S</span>
-                  </button>
-                  <div className="menu-divider" />
-                  <button
-                    type="button"
-                    className="menu-item toggle"
-                    onClick={() => setAlwaysOnTop(!alwaysOnTop)}
-                  >
-                    <span>常に手前に表示</span>
-                    <span className={`menu-toggle ${alwaysOnTop ? "on" : ""}`} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className="menu-item toggle"
-                    onClick={() => {
-                      void (async () => {
-                        const nextValue = !useGlobalShortcuts;
-                        if (nextValue) {
-                          const canEnable = await ensureGlobalShortcutsSingleWindow();
-                          if (!canEnable) return;
-                        }
-                        setGlobalShortcutsPreference(nextValue, "manual");
-                      })();
-                    }}
-                  >
-                    <span>グローバルショートカット</span>
-                    <span className={`menu-toggle ${useGlobalShortcuts ? "on" : ""}`} aria-hidden="true" />
-                  </button>
-                  <div className="menu-divider" />
-                  <button type="button" className="menu-item" onClick={closeActiveTab}>
-                    <span>タブを閉じる</span>
-                    <span className="menu-shortcut">Ctrl+W</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={() => { closeWindow(); closeMenus(); }}>
-                    <span>ウィンドウを閉じる</span>
-                    <span className="menu-shortcut">Ctrl+Shift+W</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={() => { closeWindow(); closeMenus(); }}>
-                    <span>終了</span>
-                  </button>
-                </div>
-              ) : null}
-            </div>
-            <div className="menu-wrapper" ref={editMenuWrapperRef}>
-              <button
-                type="button"
-                className={`menu-button ${openMenu === "edit" ? "active" : ""}`}
-                onClick={() => setOpenMenu((prev) => (prev === "edit" ? null : "edit"))}
-              >
-                編集
-              </button>
-              {openMenu === "edit" ? (
-                <div
-                  className="menu-panel"
-                  ref={editMenuRef}
-                  style={editMenuLeft !== null ? { left: `${editMenuLeft}px` } : undefined}
-                  onMouseDown={(event) => event.stopPropagation()}
-                >
-                  <button type="button" className="menu-item" onClick={() => { runEditorCommand("undo"); closeMenus(); }}>
-                    <span>元に戻す</span>
-                    <span className="menu-shortcut">Ctrl+Z</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={() => { runEditorCommand("cut"); closeMenus(); }}>
-                    <span>切り取り</span>
-                    <span className="menu-shortcut">Ctrl+X</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={() => { runEditorCommand("copy"); closeMenus(); }}>
-                    <span>コピー</span>
-                    <span className="menu-shortcut">Ctrl+C</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={() => { void pasteFromClipboard(); closeMenus(); }}>
-                    <span>貼り付け</span>
-                    <span className="menu-shortcut">Ctrl+V</span>
-                  </button>
-                  <div className="menu-divider" />
-                  <button type="button" className="menu-item" onClick={() => { focusSearchBox(); closeMenus(); }}>
-                    <span>検索する</span>
-                    <span className="menu-shortcut">Ctrl+F</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={() => { focusReplaceBox(); closeMenus(); }}>
-                    <span>置換</span>
-                    <span className="menu-shortcut">Ctrl+H</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={openGoToLine}>
-                    <span>移動先</span>
-                    <span className="menu-shortcut">Ctrl+G</span>
-                  </button>
-                  <div className="menu-divider" />
-                  <button type="button" className="menu-item disabled" aria-disabled="true">
-                    <span>フォント</span>
-                  </button>
-                </div>
-              ) : null}
-            </div>
-            <div className="menu-wrapper" ref={viewMenuWrapperRef}>
-              <button
-                type="button"
-                className={`menu-button ${openMenu === "view" ? "active" : ""}`}
-                onClick={() => setOpenMenu((prev) => (prev === "view" ? null : "view"))}
-              >
-                表示
-              </button>
-              {openMenu === "view" ? (
-                <div
-                  className="menu-panel"
-                  ref={viewMenuRef}
-                  style={viewMenuLeft !== null ? { left: `${viewMenuLeft}px` } : undefined}
-                  onMouseDown={(event) => event.stopPropagation()}
-                >
-                  <button type="button" className="menu-item" onClick={zoomIn}>
-                    <span>拡大</span>
-                    <span className="menu-shortcut">Ctrl+プラス記号 (+)</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={zoomOut}>
-                    <span>縮小</span>
-                    <span className="menu-shortcut">Ctrl+マイナス記号 (-)</span>
-                  </button>
-                  <button type="button" className="menu-item" onClick={resetZoom}>
-                    <span>既定の倍率に戻す</span>
-                    <span className="menu-shortcut">Ctrl+0</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="menu-item"
-                    onClick={() => setShowStatusBar((prev) => !prev)}
-                  >
-                    <span className={`menu-check ${showStatusBar ? "on" : ""}`}>✓</span>
-                    <span>ステータスバー</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="menu-item"
-                    onClick={() => setWrapAtRightEdge((prev) => !prev)}
-                  >
-                    <span className={`menu-check ${wrapAtRightEdge ? "on" : ""}`}>✓</span>
-                    <span>右端での折り返し</span>
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-          {showSearchBox ? (
-            <div className="search-group">
-              <div className="search-bar">
-                <span className="search-icon">
-                  <Search size={12} strokeWidth={2} aria-hidden="true" />
-                </span>
-                <input
-                  ref={searchInputRef}
-                  type="search"
-                  className="search-input"
-                  placeholder="検索"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      applySearchHighlights(event.currentTarget.value);
-                    }
-                    if (event.key === "Escape") {
-                      setShowSearchBox(false);
-                    }
-                  }}
-                />
-                {searchQuery.trim() ? (
-                  <span className="search-count">{searchMatchCount} 件</span>
-                ) : null}
-                <button
-                  type="button"
-                  className="search-close"
-                  onClick={() => setShowSearchBox(false)}
-                  aria-label="Close search"
-                >
-                  <X size={14} strokeWidth={2} aria-hidden="true" />
-                </button>
-              </div>
-              <div className="search-bar">
-                <span className="search-icon">
-                  <RefreshCw size={12} strokeWidth={2} aria-hidden="true" />
-                </span>
-                <input
-                  ref={replaceInputRef}
-                  type="text"
-                  className="search-input"
-                  placeholder="置換"
-                  value={replaceQuery}
-                  onChange={(event) => setReplaceQuery(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      replaceMatches("one");
-                    }
-                    if (event.key === "Escape") {
-                      setShowSearchBox(false);
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="search-action"
-                  onClick={() => replaceMatches("one")}
-                >
-                  置換
-                </button>
-                <button
-                  type="button"
-                  className="search-action"
-                  onClick={() => replaceMatches("all")}
-                >
-                  すべて置換
-                </button>
-              </div>
-            </div>
-          ) : null}
-              <div className="right-group">
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label="Settings"
-                  onClick={() => {
-                    closeMenus();
-                    setShowSearchBox(false);
-                    setSettingsOpen(true);
-                  }}
-                >
-                  <Settings size={14} strokeWidth={1.9} aria-hidden="true" />
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-      ) : null}
-
-      {settingsOpen ? (
-        <section className="settings-screen">
-          <div
-            className="settings-drag-region"
-            onPointerDown={handleWindowDragStart}
-          />
-          <div className="settings-window-controls">
-            <button
-              type="button"
-              className="window-button"
-              onClick={minimizeWindow}
-              aria-label="Minimize"
-            >
-              <Minus className="window-icon" strokeWidth={1.2} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="window-button"
-              onClick={toggleMaximizeWindow}
-              aria-label={isWindowMaximized ? "Restore" : "Maximize"}
-            >
-              {isWindowMaximized ? (
-                <Copy className="window-icon" strokeWidth={1.2} aria-hidden="true" />
-              ) : (
-                <Square className="window-icon" strokeWidth={1.2} aria-hidden="true" />
-              )}
-            </button>
-            <button
-              type="button"
-              className="window-button close"
-              onClick={closeWindow}
-              aria-label="Close"
-            >
-              <X className="window-icon close-window-icon" strokeWidth={1.2} aria-hidden="true" />
-            </button>
-          </div>
-          <div className="settings-layout">
-            <div className="settings-mobile-header">
-              <div className="settings-brand">
-                <button
-                  type="button"
-                  className="settings-brand-back"
-                  onClick={() => setSettingsOpen(false)}
-                  aria-label="エディタへ戻る"
-                >
-                  <ArrowLeft className="settings-back-icon" strokeWidth={1.8} aria-hidden="true" />
-                </button>
-                <div className="settings-brand-name">AlwaysMemo</div>
-              </div>
-            </div>
-            <aside className="settings-sidebar">
-              <div className="settings-brand">
-                <button
-                  type="button"
-                  className="settings-brand-back"
-                  onClick={() => setSettingsOpen(false)}
-                  aria-label="エディタへ戻る"
-                >
-                  <ArrowLeft className="settings-back-icon" strokeWidth={1.8} aria-hidden="true" />
-                </button>
-                <div className="settings-brand-name">AlwaysMemo</div>
-              </div>
-              <div className="settings-nav">
-                <button type="button" className={`settings-nav-item ${settingsNav === "appearance" ? "active" : ""}`} onClick={() => jumpToSettingsSection("appearance")}>外観</button>
-                <button type="button" className={`settings-nav-item ${settingsNav === "formatting" ? "active" : ""}`} onClick={() => jumpToSettingsSection("formatting")}>書式設定</button>
-                <button type="button" className={`settings-nav-item ${settingsNav === "features" ? "active" : ""}`} onClick={() => jumpToSettingsSection("features")}>機能</button>
-                <button type="button" className={`settings-nav-item ${settingsNav === "startup" ? "active" : ""}`} onClick={() => jumpToSettingsSection("startup")}>起動時</button>
-                <button type="button" className={`settings-nav-item ${settingsNav === "about" ? "active" : ""}`} onClick={() => jumpToSettingsSection("about")}>情報</button>
-              </div>
-            </aside>
-
-            <div className="settings-content" ref={settingsContentRef}>
-              <div className="settings-sections">
-              <section id="settings-appearance" className="settings-block">
-                <h2>外観</h2>
-                <p className="settings-desc">メモ画面の見た目を調整します。</p>
-                <div className="theme-options">
-                  <button
-                    type="button"
-                    className={`theme-card ${themeMode === "light" ? "active" : ""}`}
-                    onClick={() => setThemeMode("light")}
-                  >
-                    <span className="theme-icon">
-                      <Sun size={18} strokeWidth={1.8} aria-hidden="true" />
-                    </span>
-                    <span>ライト</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`theme-card ${themeMode === "dark" ? "active" : ""}`}
-                    onClick={() => setThemeMode("dark")}
-                  >
-                    <span className="theme-icon">
-                      <Moon size={18} strokeWidth={1.8} aria-hidden="true" />
-                    </span>
-                    <span>ダーク</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`theme-card ${themeMode === "system" ? "active" : ""}`}
-                    onClick={() => setThemeMode("system")}
-                  >
-                    <span className="theme-icon">
-                      <Monitor size={18} strokeWidth={1.8} aria-hidden="true" />
-                    </span>
-                    <span>システム</span>
-                  </button>
-                </div>
-              </section>
-
-              <section id="settings-formatting" className="settings-block">
-                <h2>書式設定</h2>
-                <p className="settings-desc">テキストの表示や構造を調整します。</p>
-                <div className="settings-card">
-                  <div className="settings-field-row">
-                    <div><strong>文字サイズ</strong><small>読みやすさに合わせて調整します</small></div>
-                    <label className="settings-number-wrap">
-                      <input
-                        className="settings-number-input"
-                        type="number"
-                        min={8}
-                        max={72}
-                        step={1}
-                        value={editorFontSizeInput}
-                        onChange={(event) => {
-                          setEditorFontSizeInput(event.target.value);
-                        }}
-                        onBlur={() => commitEditorFontSize(editorFontSizeInput)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            commitEditorFontSize(editorFontSizeInput);
-                            event.currentTarget.blur();
-                          }
-                          if (event.key === "Escape") {
-                            setEditorFontSizeInput(String(editorFontSizePx));
-                            event.currentTarget.blur();
-                          }
-                        }}
-                      />
-                      <span>px</span>
-                    </label>
-                  </div>
-                  <div className="settings-field-row">
-                    <div><strong>行間</strong><small>行どうしの間隔を調整します</small></div>
-                    <select
-                      value={lineSpacing}
-                      onChange={(event) => {
-                        setLineSpacing(event.target.value as LineSpacing);
+                    <div className="menu-divider" />
+                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void saveActiveTab(); }}>
+                      <span>保存</span>
+                      <span className="menu-shortcut">Ctrl+S</span>
+                    </button>
+                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void saveActiveTabAs(); }}>
+                      <span>名前を付けて保存</span>
+                      <span className="menu-shortcut">Ctrl+Shift+S</span>
+                    </button>
+                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void saveAllTabs(); }}>
+                      <span>すべて保存</span>
+                      <span className="menu-shortcut">Ctrl+Alt+S</span>
+                    </button>
+                    <div className="menu-divider" />
+                    <button
+                      type="button"
+                      className="menu-item toggle"
+                      onClick={() => {
+                        void setAlwaysOnTop(!alwaysOnTop);
                       }}
                     >
-                      <option value="standard">標準</option>
-                      <option value="relaxed">広い</option>
-                    </select>
-                  </div>
-                  <div className="settings-field-row switch">
-                    <div><strong>折り返し</strong><small>長い行を自動で折り返します</small></div>
-                    <label className="modern-switch">
-                      <input
-                        type="checkbox"
-                        checked={wrapAtRightEdge}
-                        onChange={(event) => {
-                          const anchor = event.currentTarget.closest(".settings-field-row") as HTMLElement | null;
-                          keepSettingsViewport(anchor, () => {
-                            setWrapAtRightEdge(event.target.checked);
-                          });
-                        }}
-                      />
-                      <span />
-                    </label>
-                  </div>
-                  <div
-                    className="settings-preview"
-                    data-wrap={wrapAtRightEdge ? "on" : "off"}
-                    data-line-spacing={lineSpacing}
-                    style={{ fontSize: `${previewFontSizePx}px`, lineHeight: previewLineHeight }}
-                  >
-                    <p className="settings-preview-title">プレビュー:</p>
-                    <p className="settings-preview-line">alwaysmemoの表示サンプルです。</p>
-                    <p className="settings-preview-line">この文章は折り返し設定の確認用に、少し長めのテキストを表示しています。</p>
-                  </div>
-                </div>
-              </section>
-
-              <section id="settings-features" className="settings-block">
-                <h2>機能</h2>
-                <p className="settings-desc">作業効率を高める機能を設定します。</p>
-                <div className="feature-row">
-                  <div><strong>常に手前に表示</strong><small>他のアプリより前面に表示します</small></div>
-                  <label className="modern-switch">
-                    <input
-                      type="checkbox"
-                      checked={alwaysOnTop}
-                      onChange={(event) => {
-                        const anchor = event.currentTarget.closest(".feature-row") as HTMLElement | null;
-                        keepSettingsViewport(anchor, async () => {
-                          await setAlwaysOnTop(event.target.checked);
-                        });
-                      }}
-                    />
-                    <span />
-                  </label>
-                </div>
-                <div className="feature-row">
-                  <div><strong>グローバルショートカット</strong><small>OS 全体から操作を呼び出せます</small></div>
-                  <label className="modern-switch">
-                    <input
-                      type="checkbox"
-                      checked={useGlobalShortcuts}
-                      onChange={(event) => {
-                        const anchor = event.currentTarget.closest(".feature-row") as HTMLElement | null;
-                        keepSettingsViewport(anchor, async () => {
-                          if (event.target.checked) {
+                      <span>常に手前に表示</span>
+                      <span className={`menu-toggle ${alwaysOnTop ? "on" : ""}`} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      className="menu-item toggle"
+                      onClick={() => {
+                        void (async () => {
+                          const nextValue = !useGlobalShortcuts;
+                          if (nextValue) {
                             const canEnable = await ensureGlobalShortcutsSingleWindow();
                             if (!canEnable) return;
                           }
-                          setGlobalShortcutsPreference(event.target.checked, "manual");
-                        });
+                          setGlobalShortcutsPreference(nextValue, "manual");
+                        })();
                       }}
-                    />
-                    <span />
-                  </label>
-                </div>
-              </section>
-
-              <section id="settings-startup" className="settings-block">
-                <h2>起動時</h2>
-                <p className="settings-desc">起動時の動作を設定します。</p>
-                <div className="startup-grid">
-                  <div className="startup-card">
-                    <strong>セッション</strong>
-                    <label>
-                      <input
-                        type="radio"
-                        name="session"
-                        checked={sessionBehavior === "restore"}
-                        onChange={() => setSessionBehavior("restore")}
-                      />
-                      前回の状態を復元
-                    </label>
-                    <label>
-                      <input
-                        type="radio"
-                        name="session"
-                        checked={sessionBehavior === "new"}
-                        onChange={() => setSessionBehavior("new")}
-                      />
-                      常に新規で開始
-                    </label>
+                    >
+                      <span>グローバルショートカット</span>
+                      <span className={`menu-toggle ${useGlobalShortcuts ? "on" : ""}`} aria-hidden="true" />
+                    </button>
+                    <div className="menu-divider" />
+                    <button type="button" className="menu-item" onClick={() => { closeActiveTab(); closeMenus(); }}>
+                      <span>タブを閉じる</span>
+                      <span className="menu-shortcut">Ctrl+W</span>
+                    </button>
+                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void closeWindow(); }}>
+                      <span>ウィンドウを閉じる</span>
+                      <span className="menu-shortcut">Ctrl+Shift+W</span>
+                    </button>
+                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void closeWindow(); }}>
+                      <span>終了</span>
+                    </button>
                   </div>
-                  <div className="startup-card">
-                    <strong>ファイルの開き方</strong>
-                    <label>
-                      <input
-                        type="radio"
-                        name="open"
-                        checked={fileOpenBehavior === "existing"}
-                        onChange={() => setFileOpenBehavior("existing")}
-                      />
-                      既存ウィンドウに追加
-                    </label>
-                    <label>
-                      <input
-                        type="radio"
-                        name="open"
-                        checked={fileOpenBehavior === "new_window"}
-                        onChange={() => setFileOpenBehavior("new_window")}
-                      />
-                      新しいウィンドウで開く
-                    </label>
+                ) : null}
+              </div>
+              <div className="menu-wrapper" ref={editMenuWrapperRef}>
+                <button
+                  type="button"
+                  className={`menu-button ${openMenu === "edit" ? "active" : ""}`}
+                  onClick={() => setOpenMenu((prev) => (prev === "edit" ? null : "edit"))}
+                >
+                  編集
+                </button>
+                {openMenu === "edit" ? (
+                  <div
+                    className="menu-panel"
+                    ref={editMenuRef}
+                    style={editMenuLeft !== null ? { left: `${editMenuLeft}px` } : undefined}
+                    onMouseDown={(event) => event.stopPropagation()}
+                  >
+                    <button type="button" className="menu-item" onClick={() => { runEditorCommand("undo"); closeMenus(); }}>
+                      <span>元に戻す</span>
+                      <span className="menu-shortcut">Ctrl+Z</span>
+                    </button>
+                    <button type="button" className="menu-item" onClick={() => { runEditorCommand("cut"); closeMenus(); }}>
+                      <span>切り取り</span>
+                      <span className="menu-shortcut">Ctrl+X</span>
+                    </button>
+                    <button type="button" className="menu-item" onClick={() => { runEditorCommand("copy"); closeMenus(); }}>
+                      <span>コピー</span>
+                      <span className="menu-shortcut">Ctrl+C</span>
+                    </button>
+                    <button type="button" className="menu-item" onClick={() => { void pasteFromClipboard(); closeMenus(); }}>
+                      <span>貼り付け</span>
+                      <span className="menu-shortcut">Ctrl+V</span>
+                    </button>
+                    <div className="menu-divider" />
+                    <button type="button" className="menu-item" onClick={() => { focusSearchBox(); closeMenus(); }}>
+                      <span>検索する</span>
+                      <span className="menu-shortcut">Ctrl+F</span>
+                    </button>
+                    <button type="button" className="menu-item" onClick={() => { focusReplaceBox(); closeMenus(); }}>
+                      <span>置換</span>
+                      <span className="menu-shortcut">Ctrl+H</span>
+                    </button>
+                    <button type="button" className="menu-item" onClick={openGoToLine}>
+                      <span>移動先</span>
+                      <span className="menu-shortcut">Ctrl+G</span>
+                    </button>
+                    <div className="menu-divider" />
+                    <button type="button" className="menu-item disabled" aria-disabled="true">
+                      <span>フォント</span>
+                    </button>
                   </div>
-                </div>
-              </section>
-
-              <section id="settings-about" className="settings-about-card">
-                <div className="about-logo">🗒</div>
-                <h3>AlwaysMemo</h3>
-                <p>作業を中断せず、必要なメモをすぐ残せるツールです。</p>
-                <div className="about-meta">
-                  <span>バージョン 0.1</span>
-                  <span>ビルド dev</span>
-                  <span>MIT ライセンス</span>
-                </div>
-              </section>
+                ) : null}
+              </div>
+              <div className="menu-wrapper" ref={viewMenuWrapperRef}>
+                <button
+                  type="button"
+                  className={`menu-button ${openMenu === "view" ? "active" : ""}`}
+                  onClick={() => setOpenMenu((prev) => (prev === "view" ? null : "view"))}
+                >
+                  表示
+                </button>
+                {openMenu === "view" ? (
+                  <div
+                    className="menu-panel"
+                    ref={viewMenuRef}
+                    style={viewMenuLeft !== null ? { left: `${viewMenuLeft}px` } : undefined}
+                    onMouseDown={(event) => event.stopPropagation()}
+                  >
+                    <button type="button" className="menu-item" onClick={zoomIn}>
+                      <span>拡大</span>
+                      <span className="menu-shortcut">Ctrl+プラス記号 (+)</span>
+                    </button>
+                    <button type="button" className="menu-item" onClick={zoomOut}>
+                      <span>縮小</span>
+                      <span className="menu-shortcut">Ctrl+マイナス記号 (-)</span>
+                    </button>
+                    <button type="button" className="menu-item" onClick={resetZoom}>
+                      <span>既定の倍率に戻す</span>
+                      <span className="menu-shortcut">Ctrl+0</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => setShowStatusBar((prev) => !prev)}
+                    >
+                      <span className={`menu-check ${showStatusBar ? "on" : ""}`}>✓</span>
+                      <span>ステータスバー</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => setWrapAtRightEdge((prev) => !prev)}
+                    >
+                      <span className={`menu-check ${wrapAtRightEdge ? "on" : ""}`}>✓</span>
+                      <span>右端での折り返し</span>
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
-          </div>
-        </section>
-      ) : (
-        <section className="card memo" style={{ zoom: zoomLevel }}>
-          <div className="editor">
-            <div className="editor-header">
+            {showSearchBox ? (
+              <div className="search-group">
+                <div className="search-bar">
+                  <span className="search-icon">
+                    <Search size={12} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                  <input
+                    ref={searchInputRef}
+                    type="search"
+                    className="search-input"
+                    placeholder="検索"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        applySearchHighlights(event.currentTarget.value);
+                      }
+                      if (event.key === "Escape") {
+                        setShowSearchBox(false);
+                      }
+                    }}
+                  />
+                  {searchQuery.trim() ? (
+                    <span className="search-count">{searchMatchCount} 件</span>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="search-close"
+                    onClick={() => setShowSearchBox(false)}
+                    aria-label="Close search"
+                  >
+                    <X size={14} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="search-bar">
+                  <span className="search-icon">
+                    <RefreshCw size={12} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                  <input
+                    ref={replaceInputRef}
+                    type="text"
+                    className="search-input"
+                    placeholder="置換"
+                    value={replaceQuery}
+                    onChange={(event) => setReplaceQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        replaceMatches("one");
+                      }
+                      if (event.key === "Escape") {
+                        setShowSearchBox(false);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="search-action"
+                    onClick={() => replaceMatches("one")}
+                  >
+                    置換
+                  </button>
+                  <button
+                    type="button"
+                    className="search-action"
+                    onClick={() => replaceMatches("all")}
+                  >
+                    すべて置換
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            <div className="right-group">
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Settings"
+                onClick={() => {
+                  void openSettingsWindow();
+                }}
+              >
+                <Settings size={14} strokeWidth={1.9} aria-hidden="true" />
+              </button>
             </div>
+          </>
+        </div>
+      </div>
 
-            <div
-              ref={editorRef}
-              className="editor-body"
-              data-wrap={wrapAtRightEdge ? "on" : "off"}
-              data-line-spacing={lineSpacing}
-              style={{
-                fontSize: `${editorFontSizePx}px`,
-                lineHeight: editorLineHeight,
-                ["--editor-block-gap" as string]: `${editorBlockGapPx}px`,
-              }}
-              contentEditable
-              suppressContentEditableWarning
-              data-placeholder="ここにメモを書く"
-              onInput={(event) => {
-                updateContent(event.currentTarget.innerHTML);
-                scheduleCursorIndexUpdate();
-              }}
-              onPaste={handleEditorPaste}
-              onDrop={handleEditorDrop}
-              onDragOver={(event) => event.preventDefault()}
-              onKeyUp={scheduleCursorIndexUpdate}
-              onMouseUp={scheduleCursorIndexUpdate}
-              onClick={scheduleCursorIndexUpdate}
-            />
+      <section className="card memo" style={{ zoom: zoomLevel }}>
+        <div className="editor">
+          <div className="editor-header">
           </div>
-        </section>
-      )}
+
+          <div
+            ref={editorRef}
+            className="editor-body"
+            data-wrap={wrapAtRightEdge ? "on" : "off"}
+            data-line-spacing={lineSpacing}
+            style={{
+              fontSize: `${editorFontSizePx}px`,
+              lineHeight: editorLineHeight,
+              ["--editor-block-gap" as string]: `${editorBlockGapPx}px`,
+            }}
+            contentEditable
+            suppressContentEditableWarning
+            data-placeholder="ここにメモを書く"
+            onInput={(event) => {
+              updateContent(event.currentTarget.innerHTML);
+              scheduleCursorIndexUpdate();
+            }}
+            onPaste={handleEditorPaste}
+            onDrop={handleEditorDrop}
+            onDragOver={(event) => event.preventDefault()}
+            onKeyUp={scheduleCursorIndexUpdate}
+            onMouseUp={scheduleCursorIndexUpdate}
+            onClick={scheduleCursorIndexUpdate}
+          />
+        </div>
+      </section>
 
       {windowClosePromptOpen ? (
         <div className="format-choice-overlay" role="presentation">
@@ -3353,7 +3012,7 @@ function App() {
         </div>
       ) : null}
 
-      {showStatusBar && !settingsOpen ? (
+      {showStatusBar ? (
         <div className="bottom-bar">
           <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
           <span className="bottom-item">{activePlainText.length} 文字</span>
