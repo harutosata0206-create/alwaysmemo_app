@@ -215,7 +215,7 @@ function App() {
   const [goToLineValue, setGoToLineValue] = useState("1");
   const goToLineInputRef = useRef<HTMLInputElement | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [recentClosedFiles, setRecentClosedFiles] = useState<RecentClosedFile[]>([]);
+  const [, setRecentClosedFiles] = useState<RecentClosedFile[]>([]);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
@@ -648,56 +648,6 @@ function App() {
       return next;
     });
   }, [getFileNameFromPath, isRecentEligiblePath, recentClosedKey]);
-
-  const clearRecentClosedFiles = useCallback(() => {
-    setRecentClosedFiles([]);
-    window.localStorage.setItem(recentClosedKey, JSON.stringify([]));
-  }, [recentClosedKey]);
-
-  const openRecentClosedFile = useCallback(async (path: string) => {
-    const existing = tabs.find((tab) => tab.filePath === path);
-    if (existing) {
-      setActiveTabId(existing.id);
-      closeMenus();
-      return;
-    }
-    try {
-      const opened = await invoke<{ path: string; contents: string } | null>(
-        "open_text_file_by_path",
-        { path },
-      );
-      if (!opened) {
-        setRecentClosedFiles((prev) => {
-          const next = prev.filter((item) => item.path !== path);
-          window.localStorage.setItem(recentClosedKey, JSON.stringify(next));
-          return next;
-        });
-        setStatus("ファイルが見つかりませんでした");
-        return;
-      }
-      const id = crypto.randomUUID();
-      const title = getFileNameFromPath(opened.path);
-      const content = textToHtml(opened.contents);
-      const pathMap = getPathMap();
-      setPathMap({ ...pathMap, [id]: opened.path });
-      savedTabsRef.current = {
-        ...savedTabsRef.current,
-        [id]: { title, content },
-      };
-      setSavedVersion((prev) => prev + 1);
-      setTabs((prev) => {
-        const next = [...prev, { id, title, content, filePath: opened.path }];
-        persistState(next, id);
-        return next;
-      });
-      setActiveTabId(id);
-      setStatus(`Opened ${title}`);
-      closeMenus();
-    } catch (error) {
-      console.error(error);
-      setStatus("Failed to open recent file");
-    }
-  }, [closeMenus, getFileNameFromPath, getPathMap, persistState, recentClosedKey, setPathMap, tabs, textToHtml]);
 
   const openFilePicker = useCallback(async () => {
     try {
@@ -1513,7 +1463,7 @@ function App() {
     updatePlacement();
     window.addEventListener("resize", updatePlacement);
     return () => window.removeEventListener("resize", updatePlacement);
-  }, [openMenu, recentClosedFiles.length]);
+  }, [openMenu]);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -2566,41 +2516,6 @@ function App() {
                     <button type="button" className="menu-item" onClick={() => { closeMenus(); void openFilePicker(); }}>
                       <span>開く</span>
                       <span className="menu-shortcut">Ctrl+O</span>
-                    </button>
-                    <div className="menu-divider" />
-                    <div className="menu-section-label">最近閉じたファイル</div>
-                    <div className="menu-recent-list" role="group" aria-label="最近閉じたファイル">
-                      {recentClosedFiles.length === 0 ? (
-                        <button type="button" className="menu-item disabled" aria-disabled="true">
-                          <span>最近閉じたファイルはありません</span>
-                        </button>
-                      ) : (
-                        recentClosedFiles.slice(0, MAX_RECENT_CLOSED_FILES).map((item) => (
-                          <button
-                            key={item.path}
-                            type="button"
-                            className="menu-item"
-                            onClick={() => {
-                              closeMenus();
-                              void openRecentClosedFile(item.path);
-                            }}
-                            title={item.path}
-                          >
-                            <span>{item.title}</span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className={`menu-item subtle ${recentClosedFiles.length === 0 ? "disabled" : ""}`}
-                      aria-disabled={recentClosedFiles.length === 0}
-                      onClick={() => {
-                        if (recentClosedFiles.length === 0) return;
-                        clearRecentClosedFiles();
-                      }}
-                    >
-                      <span>最近閉じた一覧を消去</span>
                     </button>
                     <div className="menu-divider" />
                     <button type="button" className="menu-item" onClick={() => { closeMenus(); void saveActiveTab(); }}>

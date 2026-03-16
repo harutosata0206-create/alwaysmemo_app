@@ -593,6 +593,7 @@ body::-webkit-scrollbar-thumb,
   top: calc(100% + 6px);
   left: 0;
   min-width: 160px;
+  max-height: min(360px, calc(100vh - 48px));
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -603,6 +604,8 @@ body::-webkit-scrollbar-thumb,
   gap: 2px;
   z-index: 100;
   pointer-events: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .file-menu-panel {
@@ -703,25 +706,6 @@ body::-webkit-scrollbar-thumb,
 
 .menu-item.toggle {
   justify-content: space-between;
-}
-
-.menu-item.subtle {
-  color: #475569;
-}
-
-.menu-section-label {
-  padding: 6px 8px 2px;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.menu-recent-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .menu-toggle {
@@ -1967,14 +1951,6 @@ body::-webkit-scrollbar-thumb,
 .app.theme-dark .menu-item:hover {
   background: #2456cc;
   color: #f8fbff;
-}
-
-.app.theme-dark .menu-item.subtle {
-  color: #9fb3d8;
-}
-
-.app.theme-dark .menu-section-label {
-  color: #8ea4c8;
 }
 
 .app.theme-dark .menu-check.on {
