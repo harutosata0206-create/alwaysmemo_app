@@ -201,6 +201,7 @@ function App() {
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
   const tabCloseTimerRef = useRef<Record<string, number>>({});
   const manualMaximizeRestoreBoundsRef = useRef<ManualMaximizeBounds | null>(null);
+  const lastNormalWindowBoundsRef = useRef<ManualMaximizeBounds | null>(null);
   const pendingWindowDragRef = useRef<PendingWindowDrag | null>(null);
   const windowStateSyncTimerRef = useRef<number | null>(null);
   const settingsReadyRef = useRef(false);
@@ -312,36 +313,7 @@ function App() {
 
   const syncWindowMaximizedState = useCallback(async (source = "sync") => {
     try {
-      let snapshot = await readWindowStateSnapshot();
-      if (prefersManualMaximize && !snapshot.tauriMaximized && snapshot.workArea) {
-        const threshold = Math.max(4, Math.round((window.devicePixelRatio ?? 1) * 4));
-        const sizeMatchesWorkArea =
-          Math.abs(snapshot.size.width - snapshot.workArea.size.width) <= threshold &&
-          Math.abs(snapshot.size.height - snapshot.workArea.size.height) <= threshold;
-        const innerSizeMatchesWorkArea =
-          Math.abs(snapshot.innerSize.width - snapshot.workArea.size.width) <= threshold &&
-          Math.abs(snapshot.innerSize.height - snapshot.workArea.size.height) <= threshold;
-        const positionMatchesWorkArea =
-          Math.abs(snapshot.position.x - snapshot.workArea.position.x) <= threshold &&
-          Math.abs(snapshot.position.y - snapshot.workArea.position.y) <= threshold;
-        const innerPositionMatchesWorkArea =
-          Math.abs(snapshot.innerPosition.x - snapshot.workArea.position.x) <= threshold &&
-          Math.abs(snapshot.innerPosition.y - snapshot.workArea.position.y) <= threshold;
-
-        if ((sizeMatchesWorkArea || innerSizeMatchesWorkArea) && !(positionMatchesWorkArea || innerPositionMatchesWorkArea)) {
-          if (!manualMaximizeRestoreBoundsRef.current) {
-            manualMaximizeRestoreBoundsRef.current = {
-              innerSize: new PhysicalSize(snapshot.innerSize),
-              position: new PhysicalPosition(snapshot.position),
-            };
-          }
-          await windowHandle.setPosition(new PhysicalPosition({
-            x: snapshot.workArea.position.x - snapshot.frameInsets.left,
-            y: snapshot.workArea.position.y - snapshot.frameInsets.top,
-          }));
-          snapshot = await readWindowStateSnapshot();
-        }
-      }
+      const snapshot = await readWindowStateSnapshot();
       setIsWindowMaximized(snapshot.effectiveMaximized);
       pushWindowDebug(source, {
         max: snapshot.effectiveMaximized,
@@ -363,7 +335,15 @@ function App() {
       console.error("Failed to sync maximized state", error);
       return null;
     }
-  }, [prefersManualMaximize, pushWindowDebug, readWindowStateSnapshot, windowHandle]);
+  }, [pushWindowDebug, readWindowStateSnapshot]);
+
+  const rememberNormalWindowBounds = useCallback((snapshot: WindowStateSnapshot | null) => {
+    if (!snapshot || snapshot.effectiveMaximized) return;
+    lastNormalWindowBoundsRef.current = {
+      innerSize: new PhysicalSize(snapshot.innerSize),
+      position: new PhysicalPosition(snapshot.position),
+    };
+  }, []);
 
   const scheduleWindowMaximizedSync = useCallback((source = "sync", delay = 120) => {
     if (windowStateSyncTimerRef.current !== null) {
@@ -371,9 +351,11 @@ function App() {
     }
     windowStateSyncTimerRef.current = window.setTimeout(() => {
       windowStateSyncTimerRef.current = null;
-      void syncWindowMaximizedState(source);
+      void syncWindowMaximizedState(source).then((snapshot) => {
+        rememberNormalWindowBounds(snapshot);
+      });
     }, delay);
-  }, [syncWindowMaximizedState]);
+  }, [rememberNormalWindowBounds, syncWindowMaximizedState]);
 
   const jumpToSettingsSection = useCallback((key: "appearance" | "formatting" | "features" | "startup" | "about") => {
     setSettingsNav(key);
@@ -2020,7 +2002,9 @@ function App() {
       return;
     }
 
-    const restoreBounds = manualMaximizeRestoreBoundsRef.current;
+    const restoreBounds =
+      manualMaximizeRestoreBoundsRef.current ??
+      lastNormalWindowBoundsRef.current;
     if (!restoreBounds) {
       pushWindowDebug("drag-restore-skipped", { reason: "missing-bounds" });
       return;
@@ -2175,12 +2159,23 @@ function App() {
       return;
     }
     clearPendingWindowDrag();
+    void readWindowStateSnapshot().then((snapshot) => {
+      rememberNormalWindowBounds(snapshot);
+    });
     pushWindowDebug("drag-region-start", { detail: event.detail });
     void windowHandle.startDragging().catch((error) => {
       console.error("Failed to start dragging window", error);
       pushWindowDebug("drag-region-failed", { error: String(error) });
     });
-  }, [clearPendingWindowDrag, isWindowMaximized, pushWindowDebug, toggleMaximizeWindow, windowHandle]);
+  }, [
+    clearPendingWindowDrag,
+    isWindowMaximized,
+    pushWindowDebug,
+    readWindowStateSnapshot,
+    rememberNormalWindowBounds,
+    toggleMaximizeWindow,
+    windowHandle,
+  ]);
 
   const handleWindowDragMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const pending = pendingWindowDragRef.current;
@@ -2279,7 +2274,9 @@ function App() {
   useEffect(() => {
     let unlistenResize: (() => void) | undefined;
     let unlistenMove: (() => void) | undefined;
-    void syncWindowMaximizedState("mount");
+    void syncWindowMaximizedState("mount").then((snapshot) => {
+      rememberNormalWindowBounds(snapshot);
+    });
     void windowHandle.onResized(() => {
       scheduleWindowMaximizedSync("resized");
     }).then((cleanup) => {
@@ -2301,7 +2298,7 @@ function App() {
       unlistenResize?.();
       unlistenMove?.();
     };
-  }, [scheduleWindowMaximizedSync, syncWindowMaximizedState, windowHandle]);
+  }, [rememberNormalWindowBounds, scheduleWindowMaximizedSync, syncWindowMaximizedState, windowHandle]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
