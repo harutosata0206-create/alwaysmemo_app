@@ -1437,10 +1437,11 @@ function App() {
         const wrapperRect = wrapper.getBoundingClientRect();
         const panelWidth = Math.max(panel.offsetWidth, 220);
         const panelHeight = Math.max(panel.scrollHeight, panel.offsetHeight);
-        const availableBelow = window.innerHeight - wrapperRect.bottom - margin;
-        const availableAbove = wrapperRect.top - margin;
-        const showAbove = panelHeight > availableBelow && availableAbove > availableBelow;
-        const availableVertical = Math.max(showAbove ? availableAbove : availableBelow, 180);
+        const availableViewportHeight = Math.max(window.innerHeight - margin * 2, 180);
+        const maxHeight = Math.min(panelHeight, availableViewportHeight);
+        const desiredTop = wrapperRect.bottom + 6;
+        const maxViewportTop = Math.max(margin, window.innerHeight - margin - maxHeight);
+        const viewportTop = Math.min(Math.max(desiredTop, margin), maxViewportTop);
 
         let left = 0;
         const overflowRight = wrapperRect.left + panelWidth - (window.innerWidth - margin);
@@ -1453,9 +1454,9 @@ function App() {
 
         setFileMenuStyle({
           left: `${Math.round(left)}px`,
-          top: showAbove ? "auto" : "calc(100% + 6px)",
-          bottom: showAbove ? "calc(100% + 6px)" : "auto",
-          maxHeight: `${Math.round(availableVertical)}px`,
+          top: `${Math.round(viewportTop - wrapperRect.top)}px`,
+          bottom: "auto",
+          maxHeight: `${Math.round(maxHeight)}px`,
         });
       });
     };
@@ -1481,10 +1482,11 @@ function App() {
         const wrapperRect = wrapper.getBoundingClientRect();
         const panelWidth = Math.max(panel.offsetWidth, 180);
         const panelHeight = Math.max(panel.scrollHeight, panel.offsetHeight);
-        const availableBelow = window.innerHeight - wrapperRect.bottom - margin;
-        const availableAbove = wrapperRect.top - margin;
-        const showAbove = panelHeight > availableBelow && availableAbove > availableBelow;
-        const availableVertical = Math.max(showAbove ? availableAbove : availableBelow, 140);
+        const availableViewportHeight = Math.max(window.innerHeight - margin * 2, 140);
+        const maxHeight = Math.min(panelHeight, availableViewportHeight);
+        const desiredTop = wrapperRect.bottom + 6;
+        const maxViewportTop = Math.max(margin, window.innerHeight - margin - maxHeight);
+        const viewportTop = Math.min(Math.max(desiredTop, margin), maxViewportTop);
 
         let left = 0;
         const overflowRight = wrapperRect.left + panelWidth - (window.innerWidth - margin);
@@ -1497,9 +1499,9 @@ function App() {
 
         setEditMenuStyle({
           left: `${Math.round(left)}px`,
-          top: showAbove ? "auto" : "calc(100% + 6px)",
-          bottom: showAbove ? "calc(100% + 6px)" : "auto",
-          maxHeight: `${Math.round(availableVertical)}px`,
+          top: `${Math.round(viewportTop - wrapperRect.top)}px`,
+          bottom: "auto",
+          maxHeight: `${Math.round(maxHeight)}px`,
         });
       });
     };
@@ -1525,10 +1527,11 @@ function App() {
         const wrapperRect = wrapper.getBoundingClientRect();
         const panelWidth = Math.max(panel.offsetWidth, 180);
         const panelHeight = Math.max(panel.scrollHeight, panel.offsetHeight);
-        const availableBelow = window.innerHeight - wrapperRect.bottom - margin;
-        const availableAbove = wrapperRect.top - margin;
-        const showAbove = panelHeight > availableBelow && availableAbove > availableBelow;
-        const availableVertical = Math.max(showAbove ? availableAbove : availableBelow, 140);
+        const availableViewportHeight = Math.max(window.innerHeight - margin * 2, 140);
+        const maxHeight = Math.min(panelHeight, availableViewportHeight);
+        const desiredTop = wrapperRect.bottom + 6;
+        const maxViewportTop = Math.max(margin, window.innerHeight - margin - maxHeight);
+        const viewportTop = Math.min(Math.max(desiredTop, margin), maxViewportTop);
 
         let left = 0;
         const overflowRight = wrapperRect.left + panelWidth - (window.innerWidth - margin);
@@ -1541,9 +1544,9 @@ function App() {
 
         setViewMenuStyle({
           left: `${Math.round(left)}px`,
-          top: showAbove ? "auto" : "calc(100% + 6px)",
-          bottom: showAbove ? "calc(100% + 6px)" : "auto",
-          maxHeight: `${Math.round(availableVertical)}px`,
+          top: `${Math.round(viewportTop - wrapperRect.top)}px`,
+          bottom: "auto",
+          maxHeight: `${Math.round(maxHeight)}px`,
         });
       });
     };
