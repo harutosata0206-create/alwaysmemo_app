@@ -592,7 +592,7 @@ body::-webkit-scrollbar-thumb,
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  min-width: 160px;
+  min-width: 152px;
   max-height: min(360px, calc(100vh - 48px));
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -606,13 +606,28 @@ body::-webkit-scrollbar-thumb,
   pointer-events: auto;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #c7d3e7 transparent;
 }
 
 .file-menu-panel {
-  min-width: 250px;
-  max-width: min(320px, calc(100vw - 16px));
+  min-width: 232px;
+  max-width: min(296px, calc(100vw - 16px));
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+.menu-panel::-webkit-scrollbar {
+  width: 5px;
+}
+
+.menu-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.menu-panel::-webkit-scrollbar-thumb {
+  background-color: #c7d3e7;
+  border-radius: 999px;
 }
 
 .menu-subpanel {
@@ -660,11 +675,11 @@ body::-webkit-scrollbar-thumb,
   background: transparent;
   color: #0f172a;
   border-radius: 8px;
-  padding: 6px 7px;
+  padding: 6px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   font-size: 12px;
   width: 100%;
   text-align: left;
@@ -697,8 +712,9 @@ body::-webkit-scrollbar-thumb,
 .menu-shortcut {
   flex: 0 0 auto;
   color: #64748b;
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: -0.01em;
+  line-height: 1;
   white-space: nowrap;
 }
 
