@@ -202,6 +202,8 @@ function App() {
   const tabCloseTimerRef = useRef<Record<string, number>>({});
   const manualMaximizeRestoreBoundsRef = useRef<ManualMaximizeBounds | null>(null);
   const lastNormalWindowBoundsRef = useRef<ManualMaximizeBounds | null>(null);
+  const nativeWindowDragActiveRef = useRef(false);
+  const nativeWindowDragCleanupTimerRef = useRef<number | null>(null);
   const pendingWindowDragRef = useRef<PendingWindowDrag | null>(null);
   const windowStateSyncTimerRef = useRef<number | null>(null);
   const settingsReadyRef = useRef(false);
@@ -344,6 +346,96 @@ function App() {
       position: new PhysicalPosition(snapshot.position),
     };
   }, []);
+
+  const clearNativeWindowDragTracking = useCallback(() => {
+    nativeWindowDragActiveRef.current = false;
+    if (nativeWindowDragCleanupTimerRef.current !== null) {
+      window.clearTimeout(nativeWindowDragCleanupTimerRef.current);
+      nativeWindowDragCleanupTimerRef.current = null;
+    }
+  }, []);
+
+  const markNativeWindowDragTracking = useCallback(() => {
+    nativeWindowDragActiveRef.current = true;
+    if (nativeWindowDragCleanupTimerRef.current !== null) {
+      window.clearTimeout(nativeWindowDragCleanupTimerRef.current);
+      nativeWindowDragCleanupTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleNativeWindowDragCleanup = useCallback((delay = 180) => {
+    if (!nativeWindowDragActiveRef.current) return;
+    if (nativeWindowDragCleanupTimerRef.current !== null) {
+      window.clearTimeout(nativeWindowDragCleanupTimerRef.current);
+    }
+    nativeWindowDragCleanupTimerRef.current = window.setTimeout(() => {
+      nativeWindowDragCleanupTimerRef.current = null;
+      nativeWindowDragActiveRef.current = false;
+    }, delay);
+  }, []);
+
+  const applyManualMaximizeFromSnapshot = useCallback(async (snapshot: WindowStateSnapshot) => {
+    const workArea = snapshot.workArea ?? (await getCurrentWorkArea());
+    if (!workArea) {
+      pushWindowDebug("manual-maximize-missing-workarea", {});
+      return false;
+    }
+
+    manualMaximizeRestoreBoundsRef.current =
+      lastNormalWindowBoundsRef.current ?? {
+        innerSize: new PhysicalSize(snapshot.innerSize),
+        position: new PhysicalPosition(snapshot.position),
+      };
+
+    const targetInnerSize = new PhysicalSize({
+      width: Math.max(MIN_WINDOW_WIDTH, workArea.size.width),
+      height: Math.max(MIN_WINDOW_HEIGHT, workArea.size.height),
+    });
+    const targetPosition = new PhysicalPosition({
+      x: workArea.position.x - snapshot.frameInsets.left,
+      y: workArea.position.y - snapshot.frameInsets.top,
+    });
+
+    await windowHandle.setPosition(targetPosition);
+    await windowHandle.setSize(targetInnerSize);
+    pushWindowDebug("manual-maximize-applied", {
+      targetOuter: `${workArea.size.width + snapshot.frameSize.width}x${workArea.size.height + snapshot.frameSize.height}`,
+      targetInner: `${targetInnerSize.width}x${targetInnerSize.height}`,
+      frame: `${snapshot.frameSize.width}x${snapshot.frameSize.height}`,
+      insets: `${snapshot.frameInsets.left},${snapshot.frameInsets.top},${snapshot.frameInsets.right},${snapshot.frameInsets.bottom}`,
+      pos: `${targetPosition.x},${targetPosition.y}`,
+    });
+    void window.setTimeout(() => {
+      void syncWindowMaximizedState("manual-maximize-after");
+    }, 60);
+    return true;
+  }, [getCurrentWorkArea, pushWindowDebug, syncWindowMaximizedState, windowHandle]);
+
+  const maybeHandleNativeDragTopSnap = useCallback(async (snapshot: WindowStateSnapshot | null) => {
+    if (!prefersManualMaximize || !nativeWindowDragActiveRef.current || !snapshot || snapshot.tauriMaximized) {
+      return false;
+    }
+    const workArea = snapshot.workArea;
+    if (!workArea) return false;
+
+    const threshold = Math.max(6, Math.round((window.devicePixelRatio ?? 1) * 6));
+    const snappedToTop =
+      snapshot.position.y <= workArea.position.y + threshold ||
+      snapshot.innerPosition.y <= workArea.position.y + threshold;
+    const outerSizeMatches =
+      Math.abs(snapshot.size.width - workArea.size.width) <= threshold &&
+      Math.abs(snapshot.size.height - workArea.size.height) <= threshold;
+    const innerSizeMatches =
+      Math.abs(snapshot.innerSize.width - workArea.size.width) <= threshold &&
+      Math.abs(snapshot.innerSize.height - workArea.size.height) <= threshold;
+
+    if (!(snappedToTop || outerSizeMatches || innerSizeMatches)) {
+      return false;
+    }
+
+    clearNativeWindowDragTracking();
+    return applyManualMaximizeFromSnapshot(snapshot);
+  }, [applyManualMaximizeFromSnapshot, clearNativeWindowDragTracking, prefersManualMaximize]);
 
   const scheduleWindowMaximizedSync = useCallback((source = "sync", delay = 120) => {
     if (windowStateSyncTimerRef.current !== null) {
@@ -1994,8 +2086,10 @@ function App() {
       pushWindowDebug("drag-native-restore", {});
       void window.setTimeout(() => {
         void syncWindowMaximizedState("drag-native-restore-after");
+        markNativeWindowDragTracking();
         void windowHandle.startDragging().catch((error) => {
           console.error("Failed to start dragging restored native-maximized window", error);
+          clearNativeWindowDragTracking();
           pushWindowDebug("drag-region-failed", { error: String(error), via: "native-restore" });
         });
       }, 60);
@@ -2046,13 +2140,22 @@ function App() {
     });
     void syncWindowMaximizedState("drag-manual-restore-after");
     try {
+      markNativeWindowDragTracking();
       await windowHandle.startDragging();
       pushWindowDebug("drag-region-start", { via: "manual-restore" });
     } catch (error) {
       console.error("Failed to start dragging restored manual-maximized window", error);
+      clearNativeWindowDragTracking();
       pushWindowDebug("drag-region-failed", { error: String(error), via: "manual-restore" });
     }
-  }, [getCurrentWorkArea, pushWindowDebug, syncWindowMaximizedState, windowHandle]);
+  }, [
+    clearNativeWindowDragTracking,
+    getCurrentWorkArea,
+    markNativeWindowDragTracking,
+    pushWindowDebug,
+    syncWindowMaximizedState,
+    windowHandle,
+  ]);
 
   const toggleMaximizeWindow = useCallback(async () => {
     const before = await syncWindowMaximizedState("toggle-before");
@@ -2087,35 +2190,11 @@ function App() {
         return;
       }
 
-      const workArea = await getCurrentWorkArea();
-      if (!workArea || !before) {
+      if (!before) {
         pushWindowDebug("manual-maximize-missing-workarea", {});
         return;
       }
-      manualMaximizeRestoreBoundsRef.current = {
-        innerSize: new PhysicalSize(before.innerSize),
-        position: new PhysicalPosition(before.position),
-      };
-      const targetInnerSize = new PhysicalSize({
-        width: Math.max(MIN_WINDOW_WIDTH, workArea.size.width),
-        height: Math.max(MIN_WINDOW_HEIGHT, workArea.size.height),
-      });
-      const targetPosition = new PhysicalPosition({
-        x: workArea.position.x - before.frameInsets.left,
-        y: workArea.position.y - before.frameInsets.top,
-      });
-      await windowHandle.setPosition(targetPosition);
-      await windowHandle.setSize(targetInnerSize);
-      pushWindowDebug("manual-maximize-applied", {
-        targetOuter: `${workArea.size.width + before.frameSize.width}x${workArea.size.height + before.frameSize.height}`,
-        targetInner: `${targetInnerSize.width}x${targetInnerSize.height}`,
-        frame: `${before.frameSize.width}x${before.frameSize.height}`,
-        insets: `${before.frameInsets.left},${before.frameInsets.top},${before.frameInsets.right},${before.frameInsets.bottom}`,
-        pos: `${targetPosition.x},${targetPosition.y}`,
-      });
-      void window.setTimeout(() => {
-        void syncWindowMaximizedState("manual-maximize-after");
-      }, 60);
+      await applyManualMaximizeFromSnapshot(before);
       return;
     }
 
@@ -2136,12 +2215,13 @@ function App() {
     void window.setTimeout(() => {
       void syncWindowMaximizedState("toggle-after-180ms");
     }, 180);
-  }, [getCurrentWorkArea, prefersManualMaximize, pushWindowDebug, syncWindowMaximizedState, windowHandle]);
+  }, [applyManualMaximizeFromSnapshot, prefersManualMaximize, pushWindowDebug, syncWindowMaximizedState, windowHandle]);
 
   const handleWindowDragStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     if (event.detail === 2) {
       clearPendingWindowDrag();
+      clearNativeWindowDragTracking();
       void toggleMaximizeWindow();
       return;
     }
@@ -2162,14 +2242,18 @@ function App() {
     void readWindowStateSnapshot().then((snapshot) => {
       rememberNormalWindowBounds(snapshot);
     });
+    markNativeWindowDragTracking();
     pushWindowDebug("drag-region-start", { detail: event.detail });
     void windowHandle.startDragging().catch((error) => {
       console.error("Failed to start dragging window", error);
       pushWindowDebug("drag-region-failed", { error: String(error) });
+      clearNativeWindowDragTracking();
     });
   }, [
     clearPendingWindowDrag,
+    clearNativeWindowDragTracking,
     isWindowMaximized,
+    markNativeWindowDragTracking,
     pushWindowDebug,
     readWindowStateSnapshot,
     rememberNormalWindowBounds,
@@ -2200,13 +2284,14 @@ function App() {
 
   const handleWindowDragEnd = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const pending = pendingWindowDragRef.current;
+    clearNativeWindowDragTracking();
     if (!pending || pending.pointerId !== event.pointerId) return;
     clearPendingWindowDrag();
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     pushWindowDebug("drag-region-cancelled", { pointerId: event.pointerId });
-  }, [clearPendingWindowDrag, pushWindowDebug]);
+  }, [clearPendingWindowDrag, clearNativeWindowDragTracking, pushWindowDebug]);
 
   const closeWindow = useCallback(async () => {
     if (allowImmediateCloseRef.current) {
@@ -2271,6 +2356,26 @@ function App() {
     ],
   );
 
+  const handleWindowGeometryChange = useCallback((source: "moved" | "resized") => {
+    if (nativeWindowDragActiveRef.current) {
+      void syncWindowMaximizedState(source).then(async (snapshot) => {
+        const applied = await maybeHandleNativeDragTopSnap(snapshot);
+        if (!applied) {
+          rememberNormalWindowBounds(snapshot);
+          scheduleNativeWindowDragCleanup();
+        }
+      });
+      return;
+    }
+    scheduleWindowMaximizedSync(source);
+  }, [
+    maybeHandleNativeDragTopSnap,
+    rememberNormalWindowBounds,
+    scheduleNativeWindowDragCleanup,
+    scheduleWindowMaximizedSync,
+    syncWindowMaximizedState,
+  ]);
+
   useEffect(() => {
     let unlistenResize: (() => void) | undefined;
     let unlistenMove: (() => void) | undefined;
@@ -2278,14 +2383,14 @@ function App() {
       rememberNormalWindowBounds(snapshot);
     });
     void windowHandle.onResized(() => {
-      scheduleWindowMaximizedSync("resized");
+      handleWindowGeometryChange("resized");
     }).then((cleanup) => {
       unlistenResize = cleanup;
     }).catch((error) => {
       console.error("Failed to listen for resize", error);
     });
     void windowHandle.onMoved(() => {
-      scheduleWindowMaximizedSync("moved");
+      handleWindowGeometryChange("moved");
     }).then((cleanup) => {
       unlistenMove = cleanup;
     }).catch((error) => {
@@ -2295,10 +2400,13 @@ function App() {
       if (windowStateSyncTimerRef.current !== null) {
         window.clearTimeout(windowStateSyncTimerRef.current);
       }
+      if (nativeWindowDragCleanupTimerRef.current !== null) {
+        window.clearTimeout(nativeWindowDragCleanupTimerRef.current);
+      }
       unlistenResize?.();
       unlistenMove?.();
     };
-  }, [rememberNormalWindowBounds, scheduleWindowMaximizedSync, syncWindowMaximizedState, windowHandle]);
+  }, [handleWindowGeometryChange, rememberNormalWindowBounds, syncWindowMaximizedState, windowHandle]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
