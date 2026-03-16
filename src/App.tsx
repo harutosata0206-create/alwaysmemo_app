@@ -102,12 +102,6 @@ type ManualMaximizeBounds = {
   position: PhysicalPosition;
 };
 
-type PendingWindowDrag = {
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-};
-
 type RecentClosedFile = {
   path: string;
   title: string;
@@ -201,10 +195,6 @@ function App() {
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
   const tabCloseTimerRef = useRef<Record<string, number>>({});
   const manualMaximizeRestoreBoundsRef = useRef<ManualMaximizeBounds | null>(null);
-  const lastNormalWindowBoundsRef = useRef<ManualMaximizeBounds | null>(null);
-  const nativeWindowDragActiveRef = useRef(false);
-  const nativeWindowDragCleanupTimerRef = useRef<number | null>(null);
-  const pendingWindowDragRef = useRef<PendingWindowDrag | null>(null);
   const windowStateSyncTimerRef = useRef<number | null>(null);
   const settingsReadyRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -339,41 +329,6 @@ function App() {
     }
   }, [pushWindowDebug, readWindowStateSnapshot]);
 
-  const rememberNormalWindowBounds = useCallback((snapshot: WindowStateSnapshot | null) => {
-    if (!snapshot || snapshot.effectiveMaximized) return;
-    lastNormalWindowBoundsRef.current = {
-      innerSize: new PhysicalSize(snapshot.innerSize),
-      position: new PhysicalPosition(snapshot.position),
-    };
-  }, []);
-
-  const clearNativeWindowDragTracking = useCallback(() => {
-    nativeWindowDragActiveRef.current = false;
-    if (nativeWindowDragCleanupTimerRef.current !== null) {
-      window.clearTimeout(nativeWindowDragCleanupTimerRef.current);
-      nativeWindowDragCleanupTimerRef.current = null;
-    }
-  }, []);
-
-  const markNativeWindowDragTracking = useCallback(() => {
-    nativeWindowDragActiveRef.current = true;
-    if (nativeWindowDragCleanupTimerRef.current !== null) {
-      window.clearTimeout(nativeWindowDragCleanupTimerRef.current);
-      nativeWindowDragCleanupTimerRef.current = null;
-    }
-  }, []);
-
-  const scheduleNativeWindowDragCleanup = useCallback((delay = 180) => {
-    if (!nativeWindowDragActiveRef.current) return;
-    if (nativeWindowDragCleanupTimerRef.current !== null) {
-      window.clearTimeout(nativeWindowDragCleanupTimerRef.current);
-    }
-    nativeWindowDragCleanupTimerRef.current = window.setTimeout(() => {
-      nativeWindowDragCleanupTimerRef.current = null;
-      nativeWindowDragActiveRef.current = false;
-    }, delay);
-  }, []);
-
   const applyManualMaximizeFromSnapshot = useCallback(async (snapshot: WindowStateSnapshot) => {
     const workArea = snapshot.workArea ?? (await getCurrentWorkArea());
     if (!workArea) {
@@ -381,11 +336,10 @@ function App() {
       return false;
     }
 
-    manualMaximizeRestoreBoundsRef.current =
-      lastNormalWindowBoundsRef.current ?? {
-        innerSize: new PhysicalSize(snapshot.innerSize),
-        position: new PhysicalPosition(snapshot.position),
-      };
+    manualMaximizeRestoreBoundsRef.current = {
+      innerSize: new PhysicalSize(snapshot.innerSize),
+      position: new PhysicalPosition(snapshot.position),
+    };
 
     const targetInnerSize = new PhysicalSize({
       width: Math.max(MIN_WINDOW_WIDTH, workArea.size.width),
@@ -411,43 +365,15 @@ function App() {
     return true;
   }, [getCurrentWorkArea, pushWindowDebug, syncWindowMaximizedState, windowHandle]);
 
-  const maybeHandleNativeDragTopSnap = useCallback(async (snapshot: WindowStateSnapshot | null) => {
-    if (!prefersManualMaximize || !nativeWindowDragActiveRef.current || !snapshot || snapshot.tauriMaximized) {
-      return false;
-    }
-    const workArea = snapshot.workArea;
-    if (!workArea) return false;
-
-    const threshold = Math.max(6, Math.round((window.devicePixelRatio ?? 1) * 6));
-    const snappedToTop =
-      snapshot.position.y <= workArea.position.y + threshold ||
-      snapshot.innerPosition.y <= workArea.position.y + threshold;
-    const outerSizeMatches =
-      Math.abs(snapshot.size.width - workArea.size.width) <= threshold &&
-      Math.abs(snapshot.size.height - workArea.size.height) <= threshold;
-    const innerSizeMatches =
-      Math.abs(snapshot.innerSize.width - workArea.size.width) <= threshold &&
-      Math.abs(snapshot.innerSize.height - workArea.size.height) <= threshold;
-
-    if (!(snappedToTop || outerSizeMatches || innerSizeMatches)) {
-      return false;
-    }
-
-    clearNativeWindowDragTracking();
-    return applyManualMaximizeFromSnapshot(snapshot);
-  }, [applyManualMaximizeFromSnapshot, clearNativeWindowDragTracking, prefersManualMaximize]);
-
   const scheduleWindowMaximizedSync = useCallback((source = "sync", delay = 120) => {
     if (windowStateSyncTimerRef.current !== null) {
       window.clearTimeout(windowStateSyncTimerRef.current);
     }
     windowStateSyncTimerRef.current = window.setTimeout(() => {
       windowStateSyncTimerRef.current = null;
-      void syncWindowMaximizedState(source).then((snapshot) => {
-        rememberNormalWindowBounds(snapshot);
-      });
+      void syncWindowMaximizedState(source);
     }, delay);
-  }, [rememberNormalWindowBounds, syncWindowMaximizedState]);
+  }, [syncWindowMaximizedState]);
 
   const jumpToSettingsSection = useCallback((key: "appearance" | "formatting" | "features" | "startup" | "about") => {
     setSettingsNav(key);
@@ -2070,93 +1996,6 @@ function App() {
     await windowHandle.minimize();
   };
 
-  const clearPendingWindowDrag = useCallback(() => {
-    pendingWindowDragRef.current = null;
-  }, []);
-
-  const restoreWindowForDrag = useCallback(async (clientX: number, clientY: number) => {
-    const before = await syncWindowMaximizedState("drag-restore-before");
-    if (!before?.effectiveMaximized) {
-      pushWindowDebug("drag-restore-skipped", { reason: "not-maximized" });
-      return;
-    }
-
-    if (before.tauriMaximized) {
-      await windowHandle.unmaximize();
-      pushWindowDebug("drag-native-restore", {});
-      void window.setTimeout(() => {
-        void syncWindowMaximizedState("drag-native-restore-after");
-        markNativeWindowDragTracking();
-        void windowHandle.startDragging().catch((error) => {
-          console.error("Failed to start dragging restored native-maximized window", error);
-          clearNativeWindowDragTracking();
-          pushWindowDebug("drag-region-failed", { error: String(error), via: "native-restore" });
-        });
-      }, 60);
-      return;
-    }
-
-    const restoreBounds =
-      manualMaximizeRestoreBoundsRef.current ??
-      lastNormalWindowBoundsRef.current;
-    if (!restoreBounds) {
-      pushWindowDebug("drag-restore-skipped", { reason: "missing-bounds" });
-      return;
-    }
-
-    const workArea = before.workArea ?? (await getCurrentWorkArea());
-    const restoreOuterWidth = restoreBounds.innerSize.width + before.frameSize.width;
-    const restoreOuterHeight = restoreBounds.innerSize.height + before.frameSize.height;
-    const pointerScreenX = before.innerPosition.x + clientX;
-    const pointerScreenY = before.innerPosition.y + clientY;
-    const ratioX = before.innerSize.width > 0 ? clientX / before.innerSize.width : 0.5;
-    const titlebarOffset = Math.max(12, Math.min(clientY, 28));
-    let targetX = Math.round(
-      pointerScreenX - restoreBounds.innerSize.width * Math.max(0, Math.min(1, ratioX)) - before.frameInsets.left,
-    );
-    let targetY = Math.round(pointerScreenY - titlebarOffset - before.frameInsets.top);
-
-    if (workArea) {
-      const minX = workArea.position.x - before.frameInsets.left;
-      const maxX =
-        workArea.position.x + workArea.size.width - restoreOuterWidth + before.frameInsets.right;
-      const minY = workArea.position.y - before.frameInsets.top;
-      const maxY =
-        workArea.position.y + workArea.size.height - restoreOuterHeight + before.frameInsets.bottom;
-      targetX = Math.max(Math.min(targetX, maxX), minX);
-      targetY = Math.max(Math.min(targetY, maxY), minY);
-    }
-
-    manualMaximizeRestoreBoundsRef.current = null;
-    await windowHandle.setSize(restoreBounds.innerSize);
-    await windowHandle.setPosition(new PhysicalPosition({ x: targetX, y: targetY }));
-    pushWindowDebug("drag-manual-restore", {
-      inner: `${restoreBounds.innerSize.width}x${restoreBounds.innerSize.height}`,
-      pos: `${targetX},${targetY}`,
-      pointer: `${Math.round(pointerScreenX)},${Math.round(pointerScreenY)}`,
-    });
-    await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, 32);
-    });
-    void syncWindowMaximizedState("drag-manual-restore-after");
-    try {
-      markNativeWindowDragTracking();
-      await windowHandle.startDragging();
-      pushWindowDebug("drag-region-start", { via: "manual-restore" });
-    } catch (error) {
-      console.error("Failed to start dragging restored manual-maximized window", error);
-      clearNativeWindowDragTracking();
-      pushWindowDebug("drag-region-failed", { error: String(error), via: "manual-restore" });
-    }
-  }, [
-    clearNativeWindowDragTracking,
-    getCurrentWorkArea,
-    markNativeWindowDragTracking,
-    pushWindowDebug,
-    syncWindowMaximizedState,
-    windowHandle,
-  ]);
-
   const toggleMaximizeWindow = useCallback(async () => {
     const before = await syncWindowMaximizedState("toggle-before");
     if (prefersManualMaximize) {
@@ -2220,78 +2059,14 @@ function App() {
   const handleWindowDragStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     if (event.detail === 2) {
-      clearPendingWindowDrag();
-      clearNativeWindowDragTracking();
       void toggleMaximizeWindow();
       return;
     }
-    if (isWindowMaximized) {
-      pendingWindowDragRef.current = {
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-      };
-      event.currentTarget.setPointerCapture(event.pointerId);
-      pushWindowDebug("drag-region-pending", {
-        pointerId: event.pointerId,
-        client: `${Math.round(event.clientX)},${Math.round(event.clientY)}`,
-      });
-      return;
-    }
-    clearPendingWindowDrag();
-    void readWindowStateSnapshot().then((snapshot) => {
-      rememberNormalWindowBounds(snapshot);
-    });
-    markNativeWindowDragTracking();
-    pushWindowDebug("drag-region-start", { detail: event.detail });
     void windowHandle.startDragging().catch((error) => {
       console.error("Failed to start dragging window", error);
       pushWindowDebug("drag-region-failed", { error: String(error) });
-      clearNativeWindowDragTracking();
     });
-  }, [
-    clearPendingWindowDrag,
-    clearNativeWindowDragTracking,
-    isWindowMaximized,
-    markNativeWindowDragTracking,
-    pushWindowDebug,
-    readWindowStateSnapshot,
-    rememberNormalWindowBounds,
-    toggleMaximizeWindow,
-    windowHandle,
-  ]);
-
-  const handleWindowDragMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const pending = pendingWindowDragRef.current;
-    if (!pending || pending.pointerId !== event.pointerId) return;
-    if ((event.buttons & 1) !== 1) {
-      clearPendingWindowDrag();
-      return;
-    }
-    const deltaX = event.clientX - pending.startClientX;
-    const deltaY = event.clientY - pending.startClientY;
-    if (Math.hypot(deltaX, deltaY) < 6) return;
-    clearPendingWindowDrag();
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    pushWindowDebug("drag-region-restore-threshold", {
-      dx: Math.round(deltaX),
-      dy: Math.round(deltaY),
-    });
-    void restoreWindowForDrag(event.clientX, event.clientY);
-  }, [clearPendingWindowDrag, pushWindowDebug, restoreWindowForDrag]);
-
-  const handleWindowDragEnd = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const pending = pendingWindowDragRef.current;
-    clearNativeWindowDragTracking();
-    if (!pending || pending.pointerId !== event.pointerId) return;
-    clearPendingWindowDrag();
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    pushWindowDebug("drag-region-cancelled", { pointerId: event.pointerId });
-  }, [clearPendingWindowDrag, clearNativeWindowDragTracking, pushWindowDebug]);
+  }, [pushWindowDebug, toggleMaximizeWindow, windowHandle]);
 
   const closeWindow = useCallback(async () => {
     if (allowImmediateCloseRef.current) {
@@ -2356,41 +2131,19 @@ function App() {
     ],
   );
 
-  const handleWindowGeometryChange = useCallback((source: "moved" | "resized") => {
-    if (nativeWindowDragActiveRef.current) {
-      void syncWindowMaximizedState(source).then(async (snapshot) => {
-        const applied = await maybeHandleNativeDragTopSnap(snapshot);
-        if (!applied) {
-          rememberNormalWindowBounds(snapshot);
-          scheduleNativeWindowDragCleanup();
-        }
-      });
-      return;
-    }
-    scheduleWindowMaximizedSync(source);
-  }, [
-    maybeHandleNativeDragTopSnap,
-    rememberNormalWindowBounds,
-    scheduleNativeWindowDragCleanup,
-    scheduleWindowMaximizedSync,
-    syncWindowMaximizedState,
-  ]);
-
   useEffect(() => {
     let unlistenResize: (() => void) | undefined;
     let unlistenMove: (() => void) | undefined;
-    void syncWindowMaximizedState("mount").then((snapshot) => {
-      rememberNormalWindowBounds(snapshot);
-    });
+    void syncWindowMaximizedState("mount");
     void windowHandle.onResized(() => {
-      handleWindowGeometryChange("resized");
+      scheduleWindowMaximizedSync("resized");
     }).then((cleanup) => {
       unlistenResize = cleanup;
     }).catch((error) => {
       console.error("Failed to listen for resize", error);
     });
     void windowHandle.onMoved(() => {
-      handleWindowGeometryChange("moved");
+      scheduleWindowMaximizedSync("moved");
     }).then((cleanup) => {
       unlistenMove = cleanup;
     }).catch((error) => {
@@ -2400,13 +2153,10 @@ function App() {
       if (windowStateSyncTimerRef.current !== null) {
         window.clearTimeout(windowStateSyncTimerRef.current);
       }
-      if (nativeWindowDragCleanupTimerRef.current !== null) {
-        window.clearTimeout(nativeWindowDragCleanupTimerRef.current);
-      }
       unlistenResize?.();
       unlistenMove?.();
     };
-  }, [handleWindowGeometryChange, rememberNormalWindowBounds, syncWindowMaximizedState, windowHandle]);
+  }, [scheduleWindowMaximizedSync, syncWindowMaximizedState, windowHandle]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -2747,9 +2497,6 @@ function App() {
           <div
             className="drag-region"
             onPointerDown={handleWindowDragStart}
-            onPointerMove={handleWindowDragMove}
-            onPointerUp={handleWindowDragEnd}
-            onPointerCancel={handleWindowDragEnd}
           />
           <div className="window-controls">
             <button
@@ -3120,9 +2867,6 @@ function App() {
           <div
             className="settings-drag-region"
             onPointerDown={handleWindowDragStart}
-            onPointerMove={handleWindowDragMove}
-            onPointerUp={handleWindowDragEnd}
-            onPointerCancel={handleWindowDragEnd}
           />
           <div className="settings-window-controls">
             <button
