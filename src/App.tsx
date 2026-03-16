@@ -57,6 +57,9 @@ const STATE_PERSIST_DEBOUNCE_MS = 300;
 const STORAGE_KEY = "alwaysmemo-state";
 const GLOBAL_SHORTCUT_SYNC_KEY = "alwaysmemo-global-shortcut-sync";
 const TAB_CLOSE_ANIMATION_MS = 140;
+const GEOMETRY_TRACE_WINDOW_MS = 500;
+const DISABLE_GUARDED_WINDOW_SIZE_EXPERIMENT = true;
+const DISABLE_MENU_AUTO_RESIZE_EXPERIMENT = true;
 
 type Tab = {
   id: string;
@@ -128,6 +131,13 @@ type WindowStateSnapshot = {
     | null;
 };
 
+type GeometryTraceState = {
+  activeUntil: number;
+  startedAt: number;
+  reason: string;
+  seq: number;
+};
+
 function App() {
   const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(true);
   const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
@@ -190,6 +200,7 @@ function App() {
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
   const tabCloseTimerRef = useRef<Record<string, number>>({});
   const windowStateSyncTimerRef = useRef<number | null>(null);
+  const geometryTraceRef = useRef<GeometryTraceState | null>(null);
   const settingsReadyRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
@@ -220,6 +231,14 @@ function App() {
     },
     [],
   );
+
+  const formatSize = useCallback((size: { width: number; height: number }) => (
+    `${Math.round(size.width)}x${Math.round(size.height)}`
+  ), []);
+
+  const formatPosition = useCallback((position: { x: number; y: number }) => (
+    `${Math.round(position.x)},${Math.round(position.y)}`
+  ), []);
 
   const readWindowStateSnapshot = useCallback(async (): Promise<WindowStateSnapshot> => {
     const [tauriMaximized, fullscreen, size, innerSize, position, innerPosition, monitor] = await Promise.all([
@@ -276,6 +295,78 @@ function App() {
       workArea,
     };
   }, [windowHandle]);
+
+  const beginGeometryTrace = useCallback((reason: string) => {
+    const startedAt = performance.now();
+    geometryTraceRef.current = {
+      activeUntil: startedAt + GEOMETRY_TRACE_WINDOW_MS,
+      startedAt,
+      reason,
+      seq: 0,
+    };
+    console.info("[geometry-trace] start", {
+      reason,
+      windowMs: GEOMETRY_TRACE_WINDOW_MS,
+    });
+  }, []);
+
+  const traceGeometry = useCallback(async (event: string, detail: Record<string, unknown> = {}) => {
+    const trace = geometryTraceRef.current;
+    if (!trace) return;
+    const now = performance.now();
+    if (now > trace.activeUntil) return;
+    trace.seq += 1;
+    const seq = trace.seq;
+    try {
+      const snapshot = await readWindowStateSnapshot();
+      console.info(`[geometry-trace #${seq}] ${event}`, {
+        t: Math.round(now - trace.startedAt),
+        reason: trace.reason,
+        ...detail,
+        tauriMaximized: snapshot.tauriMaximized,
+        inferredMaximized: snapshot.inferredMaximized,
+        effectiveMaximized: snapshot.effectiveMaximized,
+        outer: formatSize(snapshot.size),
+        inner: formatSize(snapshot.innerSize),
+        pos: formatPosition(snapshot.position),
+        innerPos: formatPosition(snapshot.innerPosition),
+      });
+    } catch (error) {
+      console.info(`[geometry-trace #${seq}] ${event}`, {
+        t: Math.round(now - trace.startedAt),
+        reason: trace.reason,
+        ...detail,
+        snapshotError: String(error),
+      });
+    }
+  }, [formatPosition, formatSize, readWindowStateSnapshot]);
+
+  const tracedSetWindowMinSize = useCallback(
+    async (size: LogicalSize, source: string) => {
+      void traceGeometry(`${source}:setMinSize:before`, { size: formatSize(size) });
+      await windowHandle.setMinSize(size);
+      void traceGeometry(`${source}:setMinSize:after`, { size: formatSize(size) });
+    },
+    [formatSize, traceGeometry, windowHandle],
+  );
+
+  const tracedSetWindowSize = useCallback(
+    async (size: LogicalSize | PhysicalSize, source: string) => {
+      void traceGeometry(`${source}:setSize:before`, { size: formatSize(size) });
+      await windowHandle.setSize(size);
+      void traceGeometry(`${source}:setSize:after`, { size: formatSize(size) });
+    },
+    [formatSize, traceGeometry, windowHandle],
+  );
+
+  const tracedSetWindowPosition = useCallback(
+    async (position: PhysicalPosition, source: string) => {
+      void traceGeometry(`${source}:setPosition:before`, { position: formatPosition(position) });
+      await windowHandle.setPosition(position);
+      void traceGeometry(`${source}:setPosition:after`, { position: formatPosition(position) });
+    },
+    [formatPosition, traceGeometry, windowHandle],
+  );
 
   const syncWindowMaximizedState = useCallback(async (source = "sync") => {
     try {
@@ -1200,6 +1291,11 @@ function App() {
 
     const syncGuardedWindowSize = async () => {
       try {
+        void traceGeometry("syncGuardedWindowSize:enter", { modalMinSizeActive });
+        if (DISABLE_GUARDED_WINDOW_SIZE_EXPERIMENT) {
+          void traceGeometry("syncGuardedWindowSize:disabled", { modalMinSizeActive });
+          return;
+        }
         if (modalMinSizeActive) {
           const currentSize = await windowHandle.outerSize();
           const currentPosition = await windowHandle.outerPosition();
@@ -1211,8 +1307,9 @@ function App() {
             };
           }
 
-          await windowHandle.setMinSize(
+          await tracedSetWindowMinSize(
             new LogicalSize(SETTINGS_MIN_WINDOW_WIDTH, SETTINGS_MIN_WINDOW_HEIGHT),
+            "syncGuardedWindowSize:modal",
           );
 
           const probeX = currentPosition.x + Math.max(currentSize.width - 1, 0);
@@ -1237,17 +1334,24 @@ function App() {
               const edgeThreshold = Math.max(8, Math.round(scaleFactor * 8));
               if (Math.abs(workAreaRight - currentRight) <= edgeThreshold) {
                 const nextX = Math.max(workArea.position.x, currentRight - nextWidth);
-                await windowHandle.setPosition(new PhysicalPosition(nextX, currentPosition.y));
+                await tracedSetWindowPosition(
+                  new PhysicalPosition(nextX, currentPosition.y),
+                  "syncGuardedWindowSize:modal",
+                );
               }
             }
 
-            await windowHandle.setSize(new PhysicalSize(nextWidth, nextHeight));
+            await tracedSetWindowSize(
+              new PhysicalSize(nextWidth, nextHeight),
+              "syncGuardedWindowSize:modal",
+            );
           }
           return;
         }
 
-        await windowHandle.setMinSize(
+        await tracedSetWindowMinSize(
           new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT),
+          "syncGuardedWindowSize:reset",
         );
 
         const previousBounds = settingsWindowBoundsRef.current;
@@ -1261,14 +1365,14 @@ function App() {
           previousBounds.size.width !== currentSize.width ||
           previousBounds.size.height !== currentSize.height
         ) {
-          await windowHandle.setSize(previousBounds.size);
+          await tracedSetWindowSize(previousBounds.size, "syncGuardedWindowSize:restore");
         }
 
         if (
           previousBounds.position.x !== currentPosition.x ||
           previousBounds.position.y !== currentPosition.y
         ) {
-          await windowHandle.setPosition(previousBounds.position);
+          await tracedSetWindowPosition(previousBounds.position, "syncGuardedWindowSize:restore");
         }
       } catch (error) {
           console.error("Failed to sync guarded window size", error);
@@ -1279,7 +1383,14 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [modalMinSizeActive, windowHandle]);
+  }, [
+    modalMinSizeActive,
+    traceGeometry,
+    tracedSetWindowMinSize,
+    tracedSetWindowPosition,
+    tracedSetWindowSize,
+    windowHandle,
+  ]);
 
   useEffect(() => {
     if (!settingsReadyRef.current) return;
@@ -1381,10 +1492,17 @@ function App() {
   }, [goToLineOpen]);
 
   useEffect(() => {
+    if (DISABLE_MENU_AUTO_RESIZE_EXPERIMENT) {
+      void traceGeometry("menuAutoResize:disabled", {
+        openMenu,
+        openFileSubmenu,
+      });
+      return;
+    }
     const hasPopupOpen = openMenu !== null;
     if (!hasPopupOpen) {
       if (expandedWindowRef.current && originalWindowSizeRef.current) {
-        void windowHandle.setSize(originalWindowSizeRef.current);
+        void tracedSetWindowSize(originalWindowSizeRef.current, "menuAutoResize:restore");
         expandedWindowRef.current = false;
         originalWindowSizeRef.current = null;
       }
@@ -1438,7 +1556,10 @@ function App() {
 
         if (nextHeight > base.height || nextWidth > base.width) {
           expandedWindowRef.current = true;
-          await windowHandle.setSize(new LogicalSize(nextWidth, nextHeight));
+          await tracedSetWindowSize(
+            new LogicalSize(nextWidth, nextHeight),
+            "menuAutoResize:expand",
+          );
         }
       } catch (error) {
         console.error("Failed to expand window for menu", error);
@@ -1446,7 +1567,7 @@ function App() {
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [openFileSubmenu, openMenu, windowHandle]);
+  }, [openFileSubmenu, openMenu, traceGeometry, tracedSetWindowSize, windowHandle]);
 
   useEffect(() => {
     if (openMenu !== "edit") {
@@ -1937,7 +2058,12 @@ function App() {
 
   const toggleMaximizeWindow = useCallback(async () => {
     const before = await syncWindowMaximizedState("toggle-before");
+    const traceReason = before?.tauriMaximized ? "native-unmaximize" : "native-maximize";
+    beginGeometryTrace(traceReason);
     try {
+      void traceGeometry("maximize-button:before-api", {
+        from: before?.tauriMaximized ? "maximized" : "normal",
+      });
       if (before?.tauriMaximized) {
         await windowHandle.unmaximize();
         pushWindowDebug("native-unmaximize", {});
@@ -1945,9 +2071,11 @@ function App() {
         await windowHandle.maximize();
         pushWindowDebug("native-maximize", {});
       }
+      void traceGeometry("maximize-button:after-api");
     } catch (error) {
       console.error("Failed to toggle maximize", error);
       pushWindowDebug("toggle-failed", { error: String(error) });
+      void traceGeometry("maximize-button:api-failed", { error: String(error) });
       return;
     }
 
@@ -1957,7 +2085,7 @@ function App() {
     void window.setTimeout(() => {
       void syncWindowMaximizedState("toggle-after-180ms");
     }, 180);
-  }, [pushWindowDebug, syncWindowMaximizedState, windowHandle]);
+  }, [beginGeometryTrace, pushWindowDebug, syncWindowMaximizedState, traceGeometry, windowHandle]);
 
   const handleWindowDragStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
@@ -2039,6 +2167,7 @@ function App() {
     let unlistenMove: (() => void) | undefined;
     void syncWindowMaximizedState("mount");
     void windowHandle.onResized(() => {
+      void traceGeometry("onResized");
       scheduleWindowMaximizedSync("resized");
     }).then((cleanup) => {
       unlistenResize = cleanup;
@@ -2046,6 +2175,7 @@ function App() {
       console.error("Failed to listen for resize", error);
     });
     void windowHandle.onMoved(() => {
+      void traceGeometry("onMoved");
       scheduleWindowMaximizedSync("moved");
     }).then((cleanup) => {
       unlistenMove = cleanup;
@@ -2059,7 +2189,7 @@ function App() {
       unlistenResize?.();
       unlistenMove?.();
     };
-  }, [scheduleWindowMaximizedSync, syncWindowMaximizedState, windowHandle]);
+  }, [scheduleWindowMaximizedSync, syncWindowMaximizedState, traceGeometry, windowHandle]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
