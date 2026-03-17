@@ -48,6 +48,7 @@ import {
   SETTINGS_SYNC_EVENT,
   SETTINGS_UPDATE_EVENT,
   createSettingsWindowLabel,
+  isSettingsWindowLabel,
   type SettingsPatch,
   type SettingsRequestPayload,
   type SettingsSnapshot as BridgeSettingsSnapshot,
@@ -560,7 +561,8 @@ function App() {
   const ensureGlobalShortcutsSingleWindow = useCallback(async () => {
     try {
       const openWindows = await WebviewWindow.getAll();
-      if (openWindows.length > 1) {
+      const editorWindows = openWindows.filter((windowRef) => !isSettingsWindowLabel(windowRef.label));
+      if (editorWindows.length > 1) {
         if (useGlobalShortcuts) {
           setGlobalShortcutsPreference(false, "auto-multi-window");
         }

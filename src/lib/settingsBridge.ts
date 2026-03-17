@@ -37,3 +37,6 @@ export const SETTINGS_UPDATE_EVENT = "alwaysmemo:settings-update";
 
 export const createSettingsWindowLabel = (sourceLabel: string) =>
   `alwaysmemo-settings-${sourceLabel}`;
+
+export const isSettingsWindowLabel = (label: string) =>
+  label === "settings" || label.startsWith("alwaysmemo-settings-");
