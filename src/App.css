@@ -2153,7 +2153,13 @@ button:active {
   bottom: 0;
   z-index: 15;
   display: grid;
-  grid-template-columns: 16% 14% 10% 10% 25% 25%;
+  grid-template-columns:
+    minmax(0, 16fr)
+    minmax(0, 14fr)
+    minmax(0, 10fr)
+    minmax(0, 10fr)
+    minmax(0, 17fr)
+    minmax(0, 17fr);
   gap: 6px;
   padding: 5px 11px;
   border-top: 1px solid #e2e8f0;
