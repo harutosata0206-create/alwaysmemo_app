@@ -2153,7 +2153,7 @@ button:active {
   bottom: 0;
   z-index: 15;
   display: grid;
-  grid-template-columns: 15% 14% 10% 13% 12% 18% 18%;
+  grid-template-columns: 16% 14% 10% 12% 18% 30%;
   gap: 6px;
   padding: 5px 11px;
   border-top: 1px solid #e2e8f0;

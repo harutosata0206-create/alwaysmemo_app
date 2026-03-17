@@ -405,10 +405,6 @@ function App() {
     return instance ? `${STORAGE_KEY}-${instance}` : STORAGE_KEY;
   }, []);
   const recentClosedKey = useMemo(() => `${storageKey}-recent-closed`, [storageKey]);
-  const lineEndingLabel = useMemo(() => {
-    if (activePlainText.includes("\r\n")) return "Windows (CRLF)";
-    return "LF";
-  }, [activePlainText]);
   const zoomPercentLabel = useMemo(() => `${Math.round(zoomLevel * 100)}%`, [zoomLevel]);
   const editorLineHeight = useMemo(
     () => (lineSpacing === "relaxed" ? 1.75 : 1.15),
@@ -2985,7 +2981,6 @@ function App() {
           <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
           <span className="bottom-item">{activePlainText.length} 文字</span>
           <span className="bottom-item">{zoomPercentLabel}</span>
-          <span className="bottom-item">{lineEndingLabel}</span>
           <span className="bottom-item">UTF-8</span>
           <span className="bottom-item">
             <span className="bottom-label">Top: </span>
