@@ -2184,15 +2184,21 @@ button:active {
 }
 
 .bottom-item.status-item {
-  display: flex;
+  display: grid;
   align-items: center;
-  justify-content: space-between;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 8px;
+}
+
+.bottom-item.status-item .bottom-label {
+  justify-self: end;
 }
 
 .bottom-item.status-item .bottom-value {
   display: inline-flex;
+  grid-column: 2;
   min-width: 3ch;
+  justify-self: center;
   justify-content: center;
   text-align: center;
 }
@@ -2203,7 +2209,12 @@ button:active {
   }
 
   .bottom-item.status-item {
-    justify-content: center;
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .bottom-item.status-item .bottom-value {
+    grid-column: 1;
   }
 }
 
