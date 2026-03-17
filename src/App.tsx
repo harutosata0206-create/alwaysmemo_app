@@ -2982,11 +2982,11 @@ function App() {
           <span className="bottom-item">{activePlainText.length} 文字</span>
           <span className="bottom-item">{zoomPercentLabel}</span>
           <span className="bottom-item">UTF-8</span>
-          <span className="bottom-item">
+          <span className="bottom-item status-item">
             <span className="bottom-label">Top: </span>
             <span className="bottom-value">{alwaysOnTop ? "ON" : "OFF"}</span>
           </span>
-          <span className="bottom-item">
+          <span className="bottom-item status-item">
             <span className="bottom-label">Shortcuts: </span>
             <span className="bottom-value">{useGlobalShortcuts ? "ON" : "OFF"}</span>
           </span>

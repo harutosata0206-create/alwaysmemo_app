@@ -2153,7 +2153,7 @@ button:active {
   bottom: 0;
   z-index: 15;
   display: grid;
-  grid-template-columns: 16% 14% 10% 12% 18% 30%;
+  grid-template-columns: 16% 14% 10% 10% 25% 25%;
   gap: 6px;
   padding: 5px 11px;
   border-top: 1px solid #e2e8f0;
@@ -2177,9 +2177,27 @@ button:active {
   text-overflow: ellipsis;
 }
 
+.bottom-item.status-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bottom-item.status-item .bottom-value {
+  display: inline-flex;
+  min-width: 3ch;
+  justify-content: center;
+  text-align: center;
+}
+
 @media (max-width: 600px) {
   .bottom-label {
     display: none;
+  }
+
+  .bottom-item.status-item {
+    justify-content: center;
   }
 }
 
