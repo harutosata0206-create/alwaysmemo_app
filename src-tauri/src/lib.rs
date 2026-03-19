@@ -160,6 +160,51 @@ fn snap_right(window: tauri::WebviewWindow) -> Result<(), String> {
         .map_err(|e| format!("set_position failed: {e}"))
 }
 
+#[tauri::command]
+fn snap_top(window: tauri::WebviewWindow) -> Result<(), String> {
+    let monitor = window
+        .current_monitor()
+        .map_err(|e| format!("current_monitor failed: {e}"))?
+        .ok_or_else(|| "monitor unavailable".to_string())?;
+    let pos = monitor.position();
+    let size_monitor = monitor.size();
+    let size = window
+        .outer_size()
+        .map_err(|e| format!("outer_size failed: {e}"))?;
+    let current = window
+        .outer_position()
+        .map_err(|e| format!("outer_position failed: {e}"))?;
+    let max_x = pos.x + size_monitor.width.saturating_sub(size.width) as i32;
+    let x = current.x.clamp(pos.x, max_x);
+
+    window
+        .set_position(tauri::PhysicalPosition { x, y: pos.y })
+        .map_err(|e| format!("set_position failed: {e}"))
+}
+
+#[tauri::command]
+fn snap_bottom(window: tauri::WebviewWindow) -> Result<(), String> {
+    let monitor = window
+        .current_monitor()
+        .map_err(|e| format!("current_monitor failed: {e}"))?
+        .ok_or_else(|| "monitor unavailable".to_string())?;
+    let pos = monitor.position();
+    let size_monitor = monitor.size();
+    let size = window
+        .outer_size()
+        .map_err(|e| format!("outer_size failed: {e}"))?;
+    let current = window
+        .outer_position()
+        .map_err(|e| format!("outer_position failed: {e}"))?;
+    let max_x = pos.x + size_monitor.width.saturating_sub(size.width) as i32;
+    let x = current.x.clamp(pos.x, max_x);
+    let y = pos.y + size_monitor.height.saturating_sub(size.height) as i32;
+
+    window
+        .set_position(tauri::PhysicalPosition { x, y })
+        .map_err(|e| format!("set_position failed: {e}"))
+}
+
 #[derive(Serialize)]
 struct OpenedFile {
     path: String,
@@ -242,6 +287,8 @@ pub fn run() {
             toggle_always_on_top,
             snap_left,
             snap_right,
+            snap_top,
+            snap_bottom,
             open_text_file_dialog,
             open_text_file_by_path,
             save_text_file_dialog,

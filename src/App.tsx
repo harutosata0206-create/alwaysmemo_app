@@ -72,7 +72,7 @@ type Tab = {
 
 const DEFAULT_TITLE_REGEX = /^タイトルなし$/;
 
-type SnapPosition = "left" | "right" | null;
+type SnapPosition = "left" | "right" | "top" | "bottom" | null;
 type SessionBehavior = "restore" | "new";
 type FileOpenBehavior = "existing" | "new_window";
 type LineSpacing = "standard" | "relaxed";
@@ -1143,6 +1143,28 @@ function App() {
     }
   }, []);
 
+  const snapTop = useCallback(async () => {
+    try {
+      await invoke("snap_top");
+      setSnap("top");
+      setStatus("Snapped to top edge (hotkey)");
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to snap top");
+    }
+  }, []);
+
+  const snapBottom = useCallback(async () => {
+    try {
+      await invoke("snap_bottom");
+      setSnap("bottom");
+      setStatus("Snapped to bottom edge (hotkey)");
+    } catch (error) {
+      console.error(error);
+      setStatus("Failed to snap bottom");
+    }
+  }, []);
+
   const resizeToMinimum = useCallback(async () => {
     try {
       await windowHandle.setSize(new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT));
@@ -1277,6 +1299,10 @@ function App() {
             await snapLeft();
           } else if (parsed.snap === "right") {
             await snapRight();
+          } else if (parsed.snap === "top") {
+            await snapTop();
+          } else if (parsed.snap === "bottom") {
+            await snapBottom();
           }
         } else {
           setSessionBehavior("restore");
@@ -2124,14 +2150,18 @@ function App() {
       { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: toggleAlwaysOnTop },
       { id: "snapLeft", combo: "Ctrl+Alt+Left", action: snapLeft },
       { id: "snapRight", combo: "Ctrl+Alt+Right", action: snapRight },
+      { id: "snapTop", combo: "Ctrl+Alt+Up", action: snapTop },
+      { id: "snapBottom", combo: "Ctrl+Alt+Down", action: snapBottom },
       { id: "minimumSize", combo: "Ctrl+Alt+J", action: resizeToMinimum },
       { id: "fitContent", combo: "Ctrl+Alt+K", action: resizeToFitContent },
     ],
     [
       resizeToFitContent,
       resizeToMinimum,
+      snapBottom,
       snapLeft,
       snapRight,
+      snapTop,
       toggleAlwaysOnTop,
     ],
   );
@@ -2279,6 +2309,18 @@ function App() {
           void snapRight();
           break;
         }
+        case "ArrowUp": {
+          event.preventDefault();
+          setStatus("Hotkey: snap top");
+          void snapTop();
+          break;
+        }
+        case "ArrowDown": {
+          event.preventDefault();
+          setStatus("Hotkey: snap bottom");
+          void snapBottom();
+          break;
+        }
         case "KeyJ": {
           event.preventDefault();
           void resizeToMinimum();
@@ -2305,8 +2347,10 @@ function App() {
     resizeToFitContent,
     resizeToMinimum,
     saveActiveTab,
+    snapBottom,
     snapLeft,
     snapRight,
+    snapTop,
     toggleAlwaysOnTop,
   ]);
 
