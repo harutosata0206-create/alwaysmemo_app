@@ -12,6 +12,7 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   currentMonitor,
@@ -21,7 +22,9 @@ import {
   PhysicalSize,
 } from "@tauri-apps/api/window";
 import {
+  CircleQuestionMark,
   Copy,
+  ExternalLink,
   Minus,
   Plus,
   RefreshCw,
@@ -62,6 +65,7 @@ const STORAGE_KEY = "alwaysmemo-state";
 const GLOBAL_SHORTCUT_SYNC_KEY = "alwaysmemo-global-shortcut-sync";
 const TAB_CLOSE_ANIMATION_MS = 140;
 const GEOMETRY_TRACE_WINDOW_MS = 500;
+const HELP_URL = (import.meta.env.VITE_HELP_URL ?? "").trim();
 
 type Tab = {
   id: string;
@@ -71,6 +75,18 @@ type Tab = {
 };
 
 const DEFAULT_TITLE_REGEX = /^タイトルなし$/;
+
+const MINI_HELP_SHORTCUTS = [
+  { keys: ["Ctrl", "Alt", "T"], label: "常に手前を切り替え" },
+  { keys: ["Ctrl", "N"], label: "新しいメモ" },
+  { keys: ["Ctrl", "F"], label: "検索" },
+  { keys: ["Esc"], label: "ヘルプを閉じる" },
+] as const;
+
+const MINI_HELP_POINTS = [
+  "メモは自動保存されます",
+  "常に手前に表示できます",
+] as const;
 
 type SnapPosition = "left" | "right" | "top" | "bottom" | null;
 type SessionBehavior = "restore" | "new";
@@ -166,6 +182,9 @@ function App() {
   const [, setSavedVersion] = useState(0);
   const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const helpButtonRef = useRef<HTMLButtonElement | null>(null);
+  const helpPanelRef = useRef<HTMLDivElement | null>(null);
+  const [helpPanelOpen, setHelpPanelOpen] = useState(false);
   const fileMenuWrapperRef = useRef<HTMLDivElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
   const [fileMenuStyle, setFileMenuStyle] = useState<CSSProperties | undefined>(undefined);
@@ -573,6 +592,7 @@ function App() {
 
   const closeMenus = useCallback(() => {
     setOpenMenu(null);
+    setHelpPanelOpen(false);
   }, []);
 
   const pickSavePath = useCallback(async (suggested: string) => {
@@ -1064,6 +1084,20 @@ function App() {
     emitSettingsSnapshot,
     settingsWindowLabel,
   ]);
+
+  const openDetailedHelp = useCallback(async () => {
+    if (!HELP_URL) {
+      setStatus("詳細ヘルプの URL がまだ設定されていません");
+      return;
+    }
+    try {
+      await openUrl(HELP_URL);
+      setHelpPanelOpen(false);
+    } catch (error) {
+      console.error("Failed to open help URL", error);
+      setStatus("詳細ヘルプを開けませんでした");
+    }
+  }, []);
 
   useEffect(() => {
     let unlistenRequest: (() => void) | undefined;
@@ -1591,6 +1625,18 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!helpPanelOpen) return;
+    const handler = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (helpPanelRef.current?.contains(target)) return;
+      if (helpButtonRef.current?.contains(target)) return;
+      setHelpPanelOpen(false);
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, [helpPanelOpen]);
+
+  useEffect(() => {
     if (!goToLineOpen) return;
     const handler = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -1600,6 +1646,17 @@ function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [goToLineOpen]);
+
+  useEffect(() => {
+    if (!helpPanelOpen) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setHelpPanelOpen(false);
+      helpButtonRef.current?.focus();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [helpPanelOpen]);
 
   useEffect(() => {
     if (!goToLineOpen) return;
@@ -1826,24 +1883,24 @@ function App() {
   }, [restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const focusSearchBox = useCallback(() => {
-    setOpenMenu(null);
+    closeMenus();
     setShowSearchBox(true);
     searchInputRef.current?.focus();
     searchInputRef.current?.select();
-  }, []);
+  }, [closeMenus]);
 
   const focusReplaceBox = useCallback(() => {
-    setOpenMenu(null);
+    closeMenus();
     setShowSearchBox(true);
     replaceInputRef.current?.focus();
     replaceInputRef.current?.select();
-  }, []);
+  }, [closeMenus]);
 
   const openGoToLine = useCallback(() => {
-    setOpenMenu(null);
+    closeMenus();
     setGoToLineValue(String(cursorPosition.line));
     setGoToLineOpen(true);
-  }, [cursorPosition.line]);
+  }, [closeMenus, cursorPosition.line]);
 
   const moveCursorToLine = useCallback((lineNumber: number) => {
     const editor = editorRef.current;
@@ -2836,6 +2893,86 @@ function App() {
               </div>
             ) : null}
             <div className="right-group">
+              <div className="help-panel-wrap">
+                <button
+                  ref={helpButtonRef}
+                  type="button"
+                  className={`icon-button ${helpPanelOpen ? "active" : ""}`}
+                  aria-label="ヘルプ"
+                  aria-expanded={helpPanelOpen}
+                  aria-haspopup="dialog"
+                  onClick={() => {
+                    setOpenMenu(null);
+                    setHelpPanelOpen((prev) => !prev);
+                  }}
+                >
+                  <CircleQuestionMark size={14} strokeWidth={1.9} aria-hidden="true" />
+                </button>
+                {helpPanelOpen ? (
+                  <div
+                    ref={helpPanelRef}
+                    className="help-panel"
+                    role="dialog"
+                    aria-modal="false"
+                    aria-label="ミニヘルプ"
+                  >
+                    <div className="help-panel-header">
+                      <strong>ヘルプ</strong>
+                      <button
+                        type="button"
+                        className="help-panel-close"
+                        aria-label="ヘルプを閉じる"
+                        onClick={() => {
+                          setHelpPanelOpen(false);
+                          helpButtonRef.current?.focus();
+                        }}
+                      >
+                        <X size={14} strokeWidth={2} aria-hidden="true" />
+                      </button>
+                    </div>
+
+                    <section className="help-panel-section" aria-labelledby="mini-help-shortcuts-title">
+                      <h3 id="mini-help-shortcuts-title">よく使う操作</h3>
+                      <div className="help-shortcuts-list">
+                        {MINI_HELP_SHORTCUTS.map((item) => (
+                          <div key={`${item.keys.join("-")}-${item.label}`} className="help-shortcut-row">
+                            <div className="help-shortcut-keys" aria-hidden="true">
+                              {item.keys.map((key, index) => (
+                                <span key={`${item.label}-${key}`}>
+                                  {index > 0 ? <span className="help-plus">+</span> : null}
+                                  <kbd className="help-keycap">{key}</kbd>
+                                </span>
+                              ))}
+                            </div>
+                            <span className="help-shortcut-label">{item.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="help-panel-section" aria-labelledby="mini-help-points-title">
+                      <h3 id="mini-help-points-title">AlwaysMemo のポイント</h3>
+                      <ul className="help-points-list">
+                        {MINI_HELP_POINTS.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </section>
+
+                    <button
+                      type="button"
+                      className="help-link-button"
+                      onClick={() => {
+                        void openDetailedHelp();
+                      }}
+                      disabled={!HELP_URL}
+                    >
+                      <span>詳しいヘルプを開く</span>
+                      <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : null}
+              </div>
               <button
                 type="button"
                 className="icon-button"
