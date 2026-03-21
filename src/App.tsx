@@ -78,14 +78,14 @@ const DEFAULT_TITLE_REGEX = /^タイトルなし$/;
 
 const MINI_HELP_SHORTCUTS = [
   { keys: ["Ctrl", "Alt", "T"], label: "最前面表示の切り替え" },
-  { comboText: "Ctrl + Alt + ← / ↑ / → / ↓", label: "画面を移動" },
+  { groups: [["Ctrl", "Alt"], ["←", "↑", "→", "↓"]], label: "画面を移動" },
   { keys: ["Ctrl", "N"], label: "新しいメモ" },
   { keys: ["Ctrl", "W"], label: "メモを削除" },
 ] as const;
 
 const MINI_HELP_POINTS = [
   "常に手前で表示できます",
-  "ほかのアプリを開いていてもショートカットを使用できます",
+  "グローバルショートカットを使用可能にしてください",
 ] as const;
 
 type SnapPosition = "left" | "right" | "top" | "bottom" | null;
@@ -2936,11 +2936,24 @@ function App() {
                       <div className="help-shortcuts-list">
                         {MINI_HELP_SHORTCUTS.map((item) => (
                           <div
-                            key={`${"comboText" in item ? item.comboText : item.keys.join("-")}-${item.label}`}
+                            key={`${"groups" in item ? item.groups.flat().join("-") : item.keys.join("-")}-${item.label}`}
                             className="help-shortcut-row"
                           >
-                            {"comboText" in item ? (
-                              <span className="help-shortcut-inline">{item.comboText}</span>
+                            {"groups" in item ? (
+                              <div className="help-shortcut-groups" aria-hidden="true">
+                                {item.groups.map((group, groupIndex) => (
+                                  <div key={`${item.label}-${groupIndex}`} className="help-shortcut-group">
+                                    {groupIndex > 0 ? <span className="help-plus">+</span> : null}
+                                    <div className="help-shortcut-keys">
+                                      {group.map((key) => (
+                                        <kbd key={`${item.label}-${key}`} className="help-keycap">
+                                          {key}
+                                        </kbd>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             ) : (
                               <div className="help-shortcut-keys" aria-hidden="true">
                                 {item.keys.map((key, index) => (
