@@ -1059,12 +1059,31 @@ body::-webkit-scrollbar-thumb,
   top: calc(100% + 8px);
   right: 0;
   width: min(320px, calc(100vw - 20px));
+  max-height: min(420px, calc(100vh - 76px));
   padding: 10px 12px 12px;
   border: 1px solid #d8e2f0;
   border-radius: 14px;
   background: #ffffff;
   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.18);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #c7d3e7 transparent;
   z-index: 140;
+}
+
+.help-panel::-webkit-scrollbar {
+  width: 5px;
+}
+
+.help-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.help-panel::-webkit-scrollbar-thumb {
+  background-color: #c7d3e7;
+  border-radius: 999px;
 }
 
 .help-panel-header {
@@ -1887,6 +1906,11 @@ body::-webkit-scrollbar-thumb,
   background: #091736;
   border-color: #1e3563;
   box-shadow: 0 18px 34px rgba(2, 6, 23, 0.5);
+  scrollbar-color: #355487 transparent;
+}
+
+.app.theme-dark .help-panel::-webkit-scrollbar-thumb {
+  background-color: #355487;
 }
 
 .app.theme-dark .help-panel-header strong,
