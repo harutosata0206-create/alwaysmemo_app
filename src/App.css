@@ -460,6 +460,69 @@ body::-webkit-scrollbar-thumb,
   position: relative;
 }
 
+.help-hint-bubble {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: -4px;
+  width: min(240px, calc(100vw - 24px));
+  padding: 10px 28px 10px 12px;
+  border: 1px solid #c9dafd;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.18);
+  z-index: 145;
+}
+
+.help-hint-bubble::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: 12px;
+  width: 12px;
+  height: 12px;
+  border-top: 1px solid #c9dafd;
+  border-left: 1px solid #c9dafd;
+  background: #f6faff;
+  transform: rotate(45deg);
+}
+
+.help-hint-bubble p {
+  margin: 0;
+  color: #163154;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.help-hint-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: transparent;
+  color: #4b6ea8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  transform: none;
+}
+
+.help-hint-close:hover {
+  background: rgba(37, 99, 235, 0.1);
+  color: #163154;
+  transform: none;
+  box-shadow: none;
+}
+
+.help-hint-close:active {
+  background: rgba(37, 99, 235, 0.16);
+}
+
 .search-group {
   display: flex;
   align-items: center;
@@ -1273,6 +1336,11 @@ body::-webkit-scrollbar-thumb,
 }
 
 @media (max-width: 420px) {
+  .help-hint-bubble {
+    right: -28px;
+    width: min(220px, calc(100vw - 20px));
+  }
+
   .help-panel {
     width: min(300px, calc(100vw - 20px));
   }
@@ -1900,6 +1968,35 @@ body::-webkit-scrollbar-thumb,
 
 .app.theme-dark .icon-button.active {
   background: #132650;
+}
+
+.app.theme-dark .help-hint-bubble {
+  border-color: #2d4f91;
+  background: linear-gradient(180deg, #112653 0%, #0f2148 100%);
+  box-shadow: 0 14px 28px rgba(2, 6, 23, 0.42);
+}
+
+.app.theme-dark .help-hint-bubble::before {
+  border-top-color: #2d4f91;
+  border-left-color: #2d4f91;
+  background: #112653;
+}
+
+.app.theme-dark .help-hint-bubble p {
+  color: #e5efff;
+}
+
+.app.theme-dark .help-hint-close {
+  color: #9fb3d8;
+}
+
+.app.theme-dark .help-hint-close:hover {
+  background: rgba(79, 140, 255, 0.18);
+  color: #f8fbff;
+}
+
+.app.theme-dark .help-hint-close:active {
+  background: rgba(79, 140, 255, 0.24);
 }
 
 .app.theme-dark .help-panel {

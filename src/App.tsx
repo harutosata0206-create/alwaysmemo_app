@@ -66,6 +66,7 @@ const GLOBAL_SHORTCUT_SYNC_KEY = "alwaysmemo-global-shortcut-sync";
 const TAB_CLOSE_ANIMATION_MS = 140;
 const GEOMETRY_TRACE_WINDOW_MS = 500;
 const HELP_URL = (import.meta.env.VITE_HELP_URL ?? "").trim();
+const HELP_HINT_STORAGE_KEY = "alwaysmemo-help-hint-seen";
 
 type Tab = {
   id: string;
@@ -183,8 +184,10 @@ function App() {
   const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const helpButtonRef = useRef<HTMLButtonElement | null>(null);
+  const helpHintRef = useRef<HTMLDivElement | null>(null);
   const helpPanelRef = useRef<HTMLDivElement | null>(null);
   const [helpPanelOpen, setHelpPanelOpen] = useState(false);
+  const [helpHintVisible, setHelpHintVisible] = useState(false);
   const fileMenuWrapperRef = useRef<HTMLDivElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
   const [fileMenuStyle, setFileMenuStyle] = useState<CSSProperties | undefined>(undefined);
@@ -593,6 +596,15 @@ function App() {
   const closeMenus = useCallback(() => {
     setOpenMenu(null);
     setHelpPanelOpen(false);
+  }, []);
+
+  const dismissHelpHint = useCallback(() => {
+    setHelpHintVisible(false);
+    try {
+      window.localStorage.setItem(HELP_HINT_STORAGE_KEY, "1");
+    } catch {
+      // Ignore storage failures; hiding the hint for this session is enough.
+    }
   }, []);
 
   const pickSavePath = useCallback(async (suggested: string) => {
@@ -1407,6 +1419,17 @@ function App() {
   }, []);
 
   useEffect(() => {
+    try {
+      const seen = window.localStorage.getItem(HELP_HINT_STORAGE_KEY);
+      if (!seen) {
+        setHelpHintVisible(true);
+      }
+    } catch {
+      setHelpHintVisible(true);
+    }
+  }, []);
+
+  useEffect(() => {
     const root = document.documentElement;
     const dark = effectiveTheme === "dark";
     root.classList.toggle("global-dark", dark);
@@ -1637,6 +1660,18 @@ function App() {
   }, [helpPanelOpen]);
 
   useEffect(() => {
+    if (!helpHintVisible || helpPanelOpen) return;
+    const handler = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (helpHintRef.current?.contains(target)) return;
+      if (helpButtonRef.current?.contains(target)) return;
+      dismissHelpHint();
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, [dismissHelpHint, helpHintVisible, helpPanelOpen]);
+
+  useEffect(() => {
     if (!goToLineOpen) return;
     const handler = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -1657,6 +1692,17 @@ function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [helpPanelOpen]);
+
+  useEffect(() => {
+    if (!helpHintVisible || helpPanelOpen) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      dismissHelpHint();
+      helpButtonRef.current?.focus();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [dismissHelpHint, helpHintVisible, helpPanelOpen]);
 
   useEffect(() => {
     if (!goToLineOpen) return;
@@ -2903,11 +2949,32 @@ function App() {
                   aria-haspopup="dialog"
                   onClick={() => {
                     setOpenMenu(null);
+                    if (helpHintVisible) {
+                      dismissHelpHint();
+                    }
                     setHelpPanelOpen((prev) => !prev);
                   }}
                 >
                   <CircleQuestionMark size={14} strokeWidth={1.9} aria-hidden="true" />
                 </button>
+                {helpHintVisible && !helpPanelOpen ? (
+                  <div
+                    ref={helpHintRef}
+                    className="help-hint-bubble"
+                    role="note"
+                    aria-label="ヘルプの案内"
+                  >
+                    <button
+                      type="button"
+                      className="help-hint-close"
+                      aria-label="案内を閉じる"
+                      onClick={dismissHelpHint}
+                    >
+                      <X size={12} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                    <p>ショートカット一覧や機能の説明はこちらから</p>
+                  </div>
+                ) : null}
                 {helpPanelOpen ? (
                   <div
                     ref={helpPanelRef}
