@@ -77,15 +77,15 @@ type Tab = {
 const DEFAULT_TITLE_REGEX = /^タイトルなし$/;
 
 const MINI_HELP_SHORTCUTS = [
-  { keys: ["Ctrl", "Alt", "T"], label: "常に手前を切り替え" },
+  { keys: ["Ctrl", "Alt", "T"], label: "最前面表示の切り替え" },
+  { comboText: "Ctrl + Alt + ← / ↑ / → / ↓", label: "画面を移動" },
   { keys: ["Ctrl", "N"], label: "新しいメモ" },
-  { keys: ["Ctrl", "F"], label: "検索" },
-  { keys: ["Esc"], label: "ヘルプを閉じる" },
+  { keys: ["Ctrl", "W"], label: "メモを削除" },
 ] as const;
 
 const MINI_HELP_POINTS = [
-  "メモは自動保存されます",
-  "常に手前に表示できます",
+  "常に手前で表示できます",
+  "ほかのアプリを開いていてもショートカットを使用できます",
 ] as const;
 
 type SnapPosition = "left" | "right" | "top" | "bottom" | null;
@@ -2935,15 +2935,22 @@ function App() {
                       <h3 id="mini-help-shortcuts-title">よく使う操作</h3>
                       <div className="help-shortcuts-list">
                         {MINI_HELP_SHORTCUTS.map((item) => (
-                          <div key={`${item.keys.join("-")}-${item.label}`} className="help-shortcut-row">
-                            <div className="help-shortcut-keys" aria-hidden="true">
-                              {item.keys.map((key, index) => (
-                                <span key={`${item.label}-${key}`}>
-                                  {index > 0 ? <span className="help-plus">+</span> : null}
-                                  <kbd className="help-keycap">{key}</kbd>
-                                </span>
-                              ))}
-                            </div>
+                          <div
+                            key={`${"comboText" in item ? item.comboText : item.keys.join("-")}-${item.label}`}
+                            className="help-shortcut-row"
+                          >
+                            {"comboText" in item ? (
+                              <span className="help-shortcut-inline">{item.comboText}</span>
+                            ) : (
+                              <div className="help-shortcut-keys" aria-hidden="true">
+                                {item.keys.map((key, index) => (
+                                  <span key={`${item.label}-${key}`}>
+                                    {index > 0 ? <span className="help-plus">+</span> : null}
+                                    <kbd className="help-keycap">{key}</kbd>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                             <span className="help-shortcut-label">{item.label}</span>
                           </div>
                         ))}
