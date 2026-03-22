@@ -65,7 +65,7 @@ const STORAGE_KEY = "alwaysmemo-state";
 const GLOBAL_SHORTCUT_SYNC_KEY = "alwaysmemo-global-shortcut-sync";
 const TAB_CLOSE_ANIMATION_MS = 140;
 const GEOMETRY_TRACE_WINDOW_MS = 500;
-const HELP_URL = (import.meta.env.VITE_HELP_URL ?? "").trim();
+const HELP_URL = "https://alwaysmemo.pages.dev/help";
 const HELP_HINT_STORAGE_KEY = "alwaysmemo-help-hint-seen";
 
 type Tab = {
@@ -1098,10 +1098,6 @@ function App() {
   ]);
 
   const openDetailedHelp = useCallback(async () => {
-    if (!HELP_URL) {
-      setStatus("詳細ヘルプの URL がまだ設定されていません");
-      return;
-    }
     try {
       await openUrl(HELP_URL);
       setHelpPanelOpen(false);
@@ -3052,7 +3048,6 @@ function App() {
                       onClick={() => {
                         void openDetailedHelp();
                       }}
-                      disabled={!HELP_URL}
                     >
                       <span>詳しいヘルプを開く</span>
                       <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
