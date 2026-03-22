@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "alwaysmemo",
+  "productName": "AlwaysMemo",
   "version": "0.1.0",
   "identifier": "com.harut.alwaysmemo",
   "build": {
@@ -25,7 +25,8 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["msi","nsis"],
+    "publisher": "Harutdev",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
