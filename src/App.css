@@ -1885,6 +1885,38 @@ body::-webkit-scrollbar-thumb,
   color: rgba(255, 255, 255, 0.86);
 }
 
+.about-links {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.about-link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.about-link-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: none;
+  box-shadow: none;
+}
+
+.about-link-button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 2px;
+}
+
 .app.theme-dark {
   background: #040d24;
   border-color: #15233f;

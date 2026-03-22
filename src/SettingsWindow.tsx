@@ -7,7 +7,8 @@ import {
   useState,
 } from "react";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Monitor, Minus, Moon, Square, Sun, X, Copy } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { ExternalLink, Monitor, Minus, Moon, Square, Sun, X, Copy } from "lucide-react";
 import {
   SETTINGS_REQUEST_EVENT,
   SETTINGS_SYNC_EVENT,
@@ -19,6 +20,10 @@ import {
   type SettingsSyncPayload,
 } from "./lib/settingsBridge";
 import "./App.css";
+
+const HELP_URL = "https://alwaysmemo.pages.dev/help";
+const TERMS_URL = "https://alwaysmemo.pages.dev/terms";
+const PRIVACY_URL = "https://alwaysmemo.pages.dev/privacy";
 
 function SettingsWindow() {
   const windowHandle = useMemo(() => WebviewWindow.getCurrent(), []);
@@ -219,6 +224,14 @@ function SettingsWindow() {
     () => ((snapshot?.lineSpacing ?? "standard") === "relaxed" ? 1.45 : 1.15),
     [snapshot?.lineSpacing],
   );
+
+  const openExternalPage = useCallback(async (url: string) => {
+    try {
+      await openUrl(url);
+    } catch (error) {
+      console.error("Failed to open external page", error);
+    }
+  }, []);
 
   if (!snapshot) {
     return (
@@ -473,6 +486,38 @@ function SettingsWindow() {
                   <span>バージョン 0.1</span>
                   <span>設定ウィンドウ</span>
                   <span>MIT ライセンス</span>
+                </div>
+                <div className="about-links" aria-label="AlwaysMemo の関連ページ">
+                  <button
+                    type="button"
+                    className="about-link-button"
+                    onClick={() => {
+                      void openExternalPage(HELP_URL);
+                    }}
+                  >
+                    <span>ヘルプ</span>
+                    <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="about-link-button"
+                    onClick={() => {
+                      void openExternalPage(TERMS_URL);
+                    }}
+                  >
+                    <span>利用規約</span>
+                    <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="about-link-button"
+                    onClick={() => {
+                      void openExternalPage(PRIVACY_URL);
+                    }}
+                  >
+                    <span>プライバシー</span>
+                    <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
+                  </button>
                 </div>
               </section>
             </div>
