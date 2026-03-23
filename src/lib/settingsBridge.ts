@@ -2,6 +2,7 @@ export type SessionBehavior = "restore" | "new";
 export type FileOpenBehavior = "existing" | "new_window";
 export type LineSpacing = "standard" | "relaxed";
 export type ThemeMode = "light" | "dark" | "system";
+export type LanguagePreference = "system" | "ja" | "en";
 
 export type SettingsSnapshot = {
   alwaysOnTop: boolean;
@@ -13,6 +14,7 @@ export type SettingsSnapshot = {
   themeMode: ThemeMode;
   sessionBehavior: SessionBehavior;
   fileOpenBehavior: FileOpenBehavior;
+  languagePreference: LanguagePreference;
 };
 
 export type SettingsPatch = Partial<SettingsSnapshot>;

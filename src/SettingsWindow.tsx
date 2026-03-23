@@ -13,12 +13,14 @@ import {
   SETTINGS_REQUEST_EVENT,
   SETTINGS_SYNC_EVENT,
   SETTINGS_UPDATE_EVENT,
+  type LanguagePreference,
   type LineSpacing,
   type SettingsPatch,
   type SettingsRequestPayload,
   type SettingsSnapshot,
   type SettingsSyncPayload,
 } from "./lib/settingsBridge";
+import { useMessages } from "./lib/i18n";
 import "./App.css";
 
 const HELP_URL = "https://alwaysmemo.pages.dev/help";
@@ -42,6 +44,7 @@ function SettingsWindow() {
   );
   const [editorFontSizeInput, setEditorFontSizeInput] = useState("14");
   const settingsContentRef = useRef<HTMLDivElement | null>(null);
+  const { messages } = useMessages(snapshot?.languagePreference ?? "system");
 
   const effectiveTheme = useMemo(() => {
     const themeMode = snapshot?.themeMode ?? "system";
@@ -214,6 +217,12 @@ function SettingsWindow() {
     };
   }, [effectiveTheme]);
 
+  useEffect(() => {
+    void windowHandle.setTitle(messages.app.windowTitles.settings).catch((error) => {
+      console.error("Failed to update settings window title", error);
+    });
+  }, [messages.app.windowTitles.settings, windowHandle]);
+
   const previewFontSizePx = useMemo(() => {
     const parsed = Number.parseInt(editorFontSizeInput, 10);
     if (Number.isNaN(parsed)) return snapshot?.editorFontSizePx ?? 14;
@@ -239,7 +248,12 @@ function SettingsWindow() {
         <section className="settings-screen standalone">
           <div className="settings-drag-region" onPointerDown={handleWindowDragStart} />
           <div className="settings-window-controls">
-            <button type="button" className="window-button" onClick={() => void windowHandle.minimize()} aria-label="Minimize">
+            <button
+              type="button"
+              className="window-button"
+              onClick={() => void windowHandle.minimize()}
+              aria-label={messages.common.windowControls.minimize}
+            >
               <Minus className="window-icon" strokeWidth={1.2} aria-hidden="true" />
             </button>
             <button
@@ -253,7 +267,11 @@ function SettingsWindow() {
                 }
                 await syncWindowState();
               })()}
-              aria-label={isWindowMaximized ? "Restore" : "Maximize"}
+              aria-label={
+                isWindowMaximized
+                  ? messages.common.windowControls.restore
+                  : messages.common.windowControls.maximize
+              }
             >
               {isWindowMaximized ? (
                 <Copy className="window-icon" strokeWidth={1.2} aria-hidden="true" />
@@ -261,11 +279,16 @@ function SettingsWindow() {
                 <Square className="window-icon" strokeWidth={1.2} aria-hidden="true" />
               )}
             </button>
-            <button type="button" className="window-button close" onClick={() => void windowHandle.close()} aria-label="Close">
+            <button
+              type="button"
+              className="window-button close"
+              onClick={() => void windowHandle.close()}
+              aria-label={messages.common.windowControls.close}
+            >
               <X className="window-icon close-window-icon" strokeWidth={1.2} aria-hidden="true" />
             </button>
           </div>
-          <div className="settings-window-loading">設定を読み込んでいます...</div>
+          <div className="settings-window-loading">{messages.settings.loading}</div>
         </section>
       </div>
     );
@@ -276,7 +299,12 @@ function SettingsWindow() {
       <section className="settings-screen standalone">
         <div className="settings-drag-region" onPointerDown={handleWindowDragStart} />
         <div className="settings-window-controls">
-          <button type="button" className="window-button" onClick={() => void windowHandle.minimize()} aria-label="Minimize">
+          <button
+            type="button"
+            className="window-button"
+            onClick={() => void windowHandle.minimize()}
+            aria-label={messages.common.windowControls.minimize}
+          >
             <Minus className="window-icon" strokeWidth={1.2} aria-hidden="true" />
           </button>
           <button
@@ -290,7 +318,11 @@ function SettingsWindow() {
               }
               await syncWindowState();
             })()}
-            aria-label={isWindowMaximized ? "Restore" : "Maximize"}
+            aria-label={
+              isWindowMaximized
+                ? messages.common.windowControls.restore
+                : messages.common.windowControls.maximize
+            }
           >
             {isWindowMaximized ? (
               <Copy className="window-icon" strokeWidth={1.2} aria-hidden="true" />
@@ -298,7 +330,12 @@ function SettingsWindow() {
               <Square className="window-icon" strokeWidth={1.2} aria-hidden="true" />
             )}
           </button>
-          <button type="button" className="window-button close" onClick={() => void windowHandle.close()} aria-label="Close">
+          <button
+            type="button"
+            className="window-button close"
+            onClick={() => void windowHandle.close()}
+            aria-label={messages.common.windowControls.close}
+          >
             <X className="window-icon close-window-icon" strokeWidth={1.2} aria-hidden="true" />
           </button>
         </div>
@@ -314,41 +351,70 @@ function SettingsWindow() {
               <div className="settings-brand-name">AlwaysMemo</div>
             </div>
             <div className="settings-nav">
-              <button type="button" className={`settings-nav-item ${settingsNav === "appearance" ? "active" : ""}`} onClick={() => jumpToSettingsSection("appearance")}>外観</button>
-              <button type="button" className={`settings-nav-item ${settingsNav === "formatting" ? "active" : ""}`} onClick={() => jumpToSettingsSection("formatting")}>書式設定</button>
-              <button type="button" className={`settings-nav-item ${settingsNav === "features" ? "active" : ""}`} onClick={() => jumpToSettingsSection("features")}>機能</button>
-              <button type="button" className={`settings-nav-item ${settingsNav === "startup" ? "active" : ""}`} onClick={() => jumpToSettingsSection("startup")}>起動時</button>
-              <button type="button" className={`settings-nav-item ${settingsNav === "about" ? "active" : ""}`} onClick={() => jumpToSettingsSection("about")}>情報</button>
+              <button type="button" className={`settings-nav-item ${settingsNav === "appearance" ? "active" : ""}`} onClick={() => jumpToSettingsSection("appearance")}>{messages.settings.navigation.appearance}</button>
+              <button type="button" className={`settings-nav-item ${settingsNav === "formatting" ? "active" : ""}`} onClick={() => jumpToSettingsSection("formatting")}>{messages.settings.navigation.formatting}</button>
+              <button type="button" className={`settings-nav-item ${settingsNav === "features" ? "active" : ""}`} onClick={() => jumpToSettingsSection("features")}>{messages.settings.navigation.features}</button>
+              <button type="button" className={`settings-nav-item ${settingsNav === "startup" ? "active" : ""}`} onClick={() => jumpToSettingsSection("startup")}>{messages.settings.navigation.startup}</button>
+              <button type="button" className={`settings-nav-item ${settingsNav === "about" ? "active" : ""}`} onClick={() => jumpToSettingsSection("about")}>{messages.settings.navigation.about}</button>
             </div>
           </aside>
 
           <div className="settings-content" ref={settingsContentRef}>
             <div className="settings-sections">
               <section id="settings-appearance" className="settings-block">
-                <h2>外観</h2>
-                <p className="settings-desc">メモ画面の見た目を調整します。</p>
+                <h2>{messages.settings.appearance.title}</h2>
+                <p className="settings-desc">{messages.settings.appearance.description}</p>
+                <div className="settings-card">
+                  <div className="settings-field-row">
+                    <div>
+                      <strong>{messages.settings.appearance.languageLabel}</strong>
+                      <small>{messages.settings.appearance.languageDescription}</small>
+                    </div>
+                    <select
+                      value={snapshot.languagePreference}
+                      onChange={(event) =>
+                        void sendPatch({
+                          languagePreference: event.target.value as LanguagePreference,
+                        })
+                      }
+                    >
+                      <option value="system">{messages.common.languageOptions.system}</option>
+                      <option value="ja">{messages.common.languageOptions.ja}</option>
+                      <option value="en">{messages.common.languageOptions.en}</option>
+                    </select>
+                  </div>
+                  <div className="settings-field-row">
+                    <div>
+                      <strong>{messages.settings.appearance.themeLabel}</strong>
+                      <small>{messages.settings.appearance.themeDescription}</small>
+                    </div>
+                  </div>
+                </div>
                 <div className="theme-options">
                   <button type="button" className={`theme-card ${snapshot.themeMode === "light" ? "active" : ""}`} onClick={() => void sendPatch({ themeMode: "light" })}>
                     <span className="theme-icon"><Sun size={18} strokeWidth={1.8} aria-hidden="true" /></span>
-                    <span>ライト</span>
+                    <span>{messages.settings.appearance.themeLight}</span>
                   </button>
                   <button type="button" className={`theme-card ${snapshot.themeMode === "dark" ? "active" : ""}`} onClick={() => void sendPatch({ themeMode: "dark" })}>
                     <span className="theme-icon"><Moon size={18} strokeWidth={1.8} aria-hidden="true" /></span>
-                    <span>ダーク</span>
+                    <span>{messages.settings.appearance.themeDark}</span>
                   </button>
                   <button type="button" className={`theme-card ${snapshot.themeMode === "system" ? "active" : ""}`} onClick={() => void sendPatch({ themeMode: "system" })}>
                     <span className="theme-icon"><Monitor size={18} strokeWidth={1.8} aria-hidden="true" /></span>
-                    <span>システム</span>
+                    <span>{messages.settings.appearance.themeSystem}</span>
                   </button>
                 </div>
               </section>
 
               <section id="settings-formatting" className="settings-block">
-                <h2>書式設定</h2>
-                <p className="settings-desc">テキストの表示や構造を調整します。</p>
+                <h2>{messages.settings.formatting.title}</h2>
+                <p className="settings-desc">{messages.settings.formatting.description}</p>
                 <div className="settings-card">
                   <div className="settings-field-row">
-                    <div><strong>文字サイズ</strong><small>読みやすさに合わせて調整します</small></div>
+                    <div>
+                      <strong>{messages.settings.formatting.fontSizeLabel}</strong>
+                      <small>{messages.settings.formatting.fontSizeDescription}</small>
+                    </div>
                     <label className="settings-number-wrap">
                       <input
                         className="settings-number-input"
@@ -374,17 +440,23 @@ function SettingsWindow() {
                     </label>
                   </div>
                   <div className="settings-field-row">
-                    <div><strong>行間</strong><small>行どうしの間隔を調整します</small></div>
+                    <div>
+                      <strong>{messages.settings.formatting.lineSpacingLabel}</strong>
+                      <small>{messages.settings.formatting.lineSpacingDescription}</small>
+                    </div>
                     <select
                       value={snapshot.lineSpacing}
                       onChange={(event) => void sendPatch({ lineSpacing: event.target.value as LineSpacing })}
                     >
-                      <option value="standard">標準</option>
-                      <option value="relaxed">広い</option>
+                      <option value="standard">{messages.settings.formatting.lineSpacingStandard}</option>
+                      <option value="relaxed">{messages.settings.formatting.lineSpacingRelaxed}</option>
                     </select>
                   </div>
                   <div className="settings-field-row switch">
-                    <div><strong>折り返し</strong><small>長い行を自動で折り返します</small></div>
+                    <div>
+                      <strong>{messages.settings.formatting.wrapLabel}</strong>
+                      <small>{messages.settings.formatting.wrapDescription}</small>
+                    </div>
                     <label className="modern-switch">
                       <input
                         type="checkbox"
@@ -405,18 +477,21 @@ function SettingsWindow() {
                     data-line-spacing={snapshot.lineSpacing}
                     style={{ fontSize: `${previewFontSizePx}px`, lineHeight: previewLineHeight }}
                   >
-                    <p className="settings-preview-title">プレビュー:</p>
-                    <p className="settings-preview-line">alwaysmemoの表示サンプルです。</p>
-                    <p className="settings-preview-line">この文章は折り返し設定の確認用に、少し長めのテキストを表示しています。</p>
+                    <p className="settings-preview-title">{messages.settings.formatting.previewTitle}</p>
+                    <p className="settings-preview-line">{messages.settings.formatting.previewLine1}</p>
+                    <p className="settings-preview-line">{messages.settings.formatting.previewLine2}</p>
                   </div>
                 </div>
               </section>
 
               <section id="settings-features" className="settings-block">
-                <h2>機能</h2>
-                <p className="settings-desc">作業効率を高める機能を設定します。</p>
+                <h2>{messages.settings.features.title}</h2>
+                <p className="settings-desc">{messages.settings.features.description}</p>
                 <div className="feature-row">
-                  <div><strong>常に手前に表示</strong><small>他のアプリより前面に表示します</small></div>
+                  <div>
+                    <strong>{messages.settings.features.alwaysOnTopLabel}</strong>
+                    <small>{messages.settings.features.alwaysOnTopDescription}</small>
+                  </div>
                   <label className="modern-switch">
                     <input
                       type="checkbox"
@@ -432,7 +507,10 @@ function SettingsWindow() {
                   </label>
                 </div>
                 <div className="feature-row">
-                  <div><strong>グローバルショートカット</strong><small>OS 全体から操作を呼び出せます</small></div>
+                  <div>
+                    <strong>{messages.settings.features.globalShortcutsLabel}</strong>
+                    <small>{messages.settings.features.globalShortcutsDescription}</small>
+                  </div>
                   <label className="modern-switch">
                     <input
                       type="checkbox"
@@ -450,29 +528,29 @@ function SettingsWindow() {
               </section>
 
               <section id="settings-startup" className="settings-block">
-                <h2>起動時</h2>
-                <p className="settings-desc">起動時の動作を設定します。</p>
+                <h2>{messages.settings.startup.title}</h2>
+                <p className="settings-desc">{messages.settings.startup.description}</p>
                 <div className="startup-grid">
                   <div className="startup-card">
-                    <strong>セッション</strong>
+                    <strong>{messages.settings.startup.sessionLabel}</strong>
                     <label>
                       <input type="radio" name="session" checked={snapshot.sessionBehavior === "restore"} onChange={() => void sendPatch({ sessionBehavior: "restore" })} />
-                      前回の状態を復元
+                      {messages.settings.startup.restoreSession}
                     </label>
                     <label>
                       <input type="radio" name="session" checked={snapshot.sessionBehavior === "new"} onChange={() => void sendPatch({ sessionBehavior: "new" })} />
-                      常に新規で開始
+                      {messages.settings.startup.startNewSession}
                     </label>
                   </div>
                   <div className="startup-card">
-                    <strong>ファイルの開き方</strong>
+                    <strong>{messages.settings.startup.fileOpenLabel}</strong>
                     <label>
                       <input type="radio" name="open" checked={snapshot.fileOpenBehavior === "existing"} onChange={() => void sendPatch({ fileOpenBehavior: "existing" })} />
-                      既存ウィンドウに追加
+                      {messages.settings.startup.openInExistingWindow}
                     </label>
                     <label>
                       <input type="radio" name="open" checked={snapshot.fileOpenBehavior === "new_window"} onChange={() => void sendPatch({ fileOpenBehavior: "new_window" })} />
-                      新しいウィンドウで開く
+                      {messages.settings.startup.openInNewWindow}
                     </label>
                   </div>
                 </div>
@@ -481,13 +559,13 @@ function SettingsWindow() {
               <section id="settings-about" className="settings-about-card">
                 <div className="about-logo">🗒</div>
                 <h3>AlwaysMemo</h3>
-                <p>作業を中断せず、必要なメモをすぐ残せるツールです。</p>
+                <p>{messages.settings.about.description}</p>
                 <div className="about-meta">
-                  <span>バージョン 0.1</span>
-                  <span>設定ウィンドウ</span>
-                  <span>MIT ライセンス</span>
+                  <span>{messages.settings.about.version("0.1")}</span>
+                  <span>{messages.settings.about.settingsWindow}</span>
+                  <span>{messages.settings.about.license}</span>
                 </div>
-                <div className="about-links" aria-label="AlwaysMemo の関連ページ">
+                <div className="about-links" aria-label={messages.settings.about.linksLabel}>
                   <button
                     type="button"
                     className="about-link-button"
@@ -495,7 +573,7 @@ function SettingsWindow() {
                       void openExternalPage(HELP_URL);
                     }}
                   >
-                    <span>ヘルプ</span>
+                    <span>{messages.settings.about.help}</span>
                     <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
                   </button>
                   <button
@@ -505,7 +583,7 @@ function SettingsWindow() {
                       void openExternalPage(TERMS_URL);
                     }}
                   >
-                    <span>利用規約</span>
+                    <span>{messages.settings.about.terms}</span>
                     <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
                   </button>
                   <button
@@ -515,7 +593,7 @@ function SettingsWindow() {
                       void openExternalPage(PRIVACY_URL);
                     }}
                   >
-                    <span>プライバシー</span>
+                    <span>{messages.settings.about.privacy}</span>
                     <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
                   </button>
                 </div>

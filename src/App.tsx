@@ -56,6 +56,11 @@ import {
   type SettingsRequestPayload,
   type SettingsSnapshot as BridgeSettingsSnapshot,
 } from "./lib/settingsBridge";
+import {
+  isUntitledTitle,
+  useMessages,
+  type LanguagePreference,
+} from "./lib/i18n";
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 300;
@@ -74,20 +79,6 @@ type Tab = {
   content: string;
   filePath?: string | null;
 };
-
-const DEFAULT_TITLE_REGEX = /^タイトルなし$/;
-
-const MINI_HELP_SHORTCUTS = [
-  { keys: ["Ctrl", "Alt", "T"], label: "最前面表示の切り替え" },
-  { groups: [["Ctrl", "Alt"], ["←", "↑", "→", "↓"]], label: "画面を移動" },
-  { keys: ["Ctrl", "N"], label: "新しいメモ" },
-  { keys: ["Ctrl", "W"], label: "メモを削除" },
-] as const;
-
-const MINI_HELP_POINTS = [
-  "常に手前で表示できます",
-  "グローバルショートカットを使用可能にしてください",
-] as const;
 
 type SnapPosition = "left" | "right" | "top" | "bottom" | null;
 type SessionBehavior = "restore" | "new";
@@ -108,6 +99,7 @@ type PersistedState = {
   editorFontSizePx?: number;
   lineSpacing?: LineSpacing;
   themeMode?: ThemeMode;
+  languagePreference?: LanguagePreference;
 };
 
 type GlobalShortcutSyncMessage = {
@@ -158,8 +150,10 @@ function App() {
   const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(true);
   const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
   const [, setStatus] = useState<string | null>(null);
+  const [languagePreference, setLanguagePreference] = useState<LanguagePreference>("system");
+  const { messages } = useMessages(languagePreference);
   const [tabs, setTabs] = useState<Tab[]>([
-    { id: "initial", title: "タイトルなし", content: "" },
+    { id: "initial", title: messages.app.untitledTab, content: "" },
   ]);
   const [activeTabId, setActiveTabId] = useState<string>("initial");
   const [snap, setSnap] = useState<SnapPosition>(null);
@@ -226,6 +220,7 @@ function App() {
     themeMode: "system",
     sessionBehavior: "restore",
     fileOpenBehavior: "existing",
+    languagePreference: "system",
   });
   const settingsReadyRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -532,6 +527,7 @@ function App() {
         editorFontSizePx,
         lineSpacing,
         themeMode,
+        languagePreference,
       };
       window.localStorage.setItem(storageKey, JSON.stringify(state));
     },
@@ -540,6 +536,7 @@ function App() {
       alwaysOnTop,
       editorFontSizePx,
       fileOpenBehavior,
+      languagePreference,
       lineSpacing,
       sessionBehavior,
       showStatusBar,
@@ -559,7 +556,7 @@ function App() {
     ) => {
       setUseGlobalShortcuts(enabled);
       if (reason === "auto-multi-window" && !enabled) {
-        setStatus("複数ウィンドウのためグローバルショートカットをオフにしました");
+        setStatus(messages.app.statuses.disabledShortcutsMultiWindow);
       }
       if (options?.broadcast === false) return;
       try {
@@ -573,7 +570,7 @@ function App() {
         // Ignore storage sync failures; local state already changed.
       }
     },
-    [],
+    [messages.app.statuses.disabledShortcutsMultiWindow],
   );
 
   const ensureGlobalShortcutsSingleWindow = useCallback(async () => {
@@ -612,7 +609,7 @@ function App() {
     const defaultPath = withExt;
     let resolvedPath: string | null = null;
     let dialogFailed = false;
-    const filters = [{ name: "Text", extensions: ["txt", "md", "markdown"] }];
+    const filters = [{ name: messages.app.textFileFilter, extensions: ["txt", "md", "markdown"] }];
     try {
       const picked = await save({
         defaultPath,
@@ -635,7 +632,7 @@ function App() {
     }
     if (!resolvedPath) return null;
     return ensureTextFileExtension(resolvedPath);
-  }, []);
+  }, [messages.app.textFileFilter]);
 
   const pathsKey = useMemo(() => `${storageKey}-paths`, [storageKey]);
   const getPathMap = useCallback((): Record<string, string> => {
@@ -696,7 +693,7 @@ function App() {
           height: size.height,
           decorations: false,
           resizable: true,
-          title: "alwaysmemo",
+          title: messages.app.windowTitles.main,
         });
         newWindow.once("tauri://created", async () => {
           try {
@@ -711,13 +708,13 @@ function App() {
         });
         newWindow.once("tauri://error", (error) => {
           console.error("Failed to create new window", error);
-          setStatus("Failed to open new window");
+          setStatus(messages.app.statuses.failedOpenNewWindow);
         });
         closeMenus();
         return;
       }
       const id = crypto.randomUUID();
-      const title = getFileNameFromPath(opened.path) || `メモ ${tabs.length + 1}`;
+      const title = getFileNameFromPath(opened.path) || messages.app.numberedMemo(tabs.length + 1);
       const content = textToHtml(opened.contents);
       const pathMap = getPathMap();
       setPathMap({ ...pathMap, [id]: opened.path });
@@ -732,24 +729,39 @@ function App() {
         return next;
       });
       setActiveTabId(id);
-      setStatus(`Opened ${title}`);
+      setStatus(messages.app.statuses.opened(title));
       closeMenus();
     } catch (error) {
       console.error(error);
-      setStatus("Failed to open file");
+      setStatus(messages.app.statuses.failedOpenFile);
     }
-  }, [alwaysOnTop, closeMenus, fileOpenBehavior, getPathMap, persistState, setPathMap, tabs, textToHtml, windowHandle]);
+  }, [
+    alwaysOnTop,
+    closeMenus,
+    fileOpenBehavior,
+    getPathMap,
+    messages.app.numberedMemo,
+    messages.app.statuses,
+    messages.app.windowTitles.main,
+    persistState,
+    setPathMap,
+    tabs,
+    textToHtml,
+    windowHandle,
+  ]);
 
   const saveTabAs = useCallback(async (tab: Tab) => {
     try {
-      setStatus("Opening save dialog...");
-      const suggested = tab.title.trim() || "memo";
+      setStatus(messages.app.statuses.openingSaveDialog);
+      const suggested = isUntitledTitle(tab.title)
+        ? messages.app.defaultSaveName
+        : (tab.title.trim() || messages.app.defaultSaveName);
       const resolvedPath = await pickSavePath(suggested);
       if (!resolvedPath) {
-        setStatus("Save dialog returned no path");
+        setStatus(messages.app.statuses.saveDialogReturnedNoPath);
         return false;
       }
-      setStatus(`Saving to ${resolvedPath}...`);
+      setStatus(messages.app.statuses.savingTo(resolvedPath));
       await invoke("write_text_file", {
         path: resolvedPath,
         contents: htmlToText(tab.content),
@@ -771,12 +783,12 @@ function App() {
         [tab.id]: { title: nextTitle, content: tab.content },
       };
       setSavedVersion((prev) => prev + 1);
-      setStatus(`Saved ${nextTitle}`);
+      setStatus(messages.app.statuses.saved(nextTitle));
       closeMenus();
       return true;
     } catch (error) {
       console.error(error);
-      setStatus(`Failed to save file: ${String(error)}`);
+      setStatus(messages.app.statuses.failedSaveFile(String(error)));
       return false;
     }
   }, [
@@ -784,6 +796,8 @@ function App() {
     getFileNameFromPath,
     htmlToText,
     getPathMap,
+    messages.app.defaultSaveName,
+    messages.app.statuses,
     pickSavePath,
     persistState,
     setPathMap,
@@ -804,7 +818,7 @@ function App() {
       return await saveTabAs(tab);
     }
     try {
-      setStatus(`Saving to ${resolvedPath}...`);
+      setStatus(messages.app.statuses.savingTo(resolvedPath));
       await invoke("write_text_file", {
         path: resolvedPath,
         contents: htmlToText(tab.content),
@@ -825,18 +839,19 @@ function App() {
         persistState(prev);
         return prev;
       });
-      setStatus(`Saved ${tab.title}`);
+      setStatus(messages.app.statuses.saved(tab.title));
       closeMenus();
       return true;
     } catch (error) {
       console.error(error);
-      setStatus(`Failed to save file: ${String(error)}`);
+      setStatus(messages.app.statuses.failedSaveFile(String(error)));
       return false;
     }
   }, [
     closeMenus,
     htmlToText,
     getPathMap,
+    messages.app.statuses,
     persistState,
     saveTabAs,
     setPathMap,
@@ -850,7 +865,7 @@ function App() {
   const saveAllTabs = useCallback(async () => {
     const tabsWithPath = tabs.filter((tab) => tab.filePath);
     if (tabsWithPath.length === 0) {
-      setStatus("No saved files to update");
+      setStatus(messages.app.statuses.noSavedFilesToUpdate);
       closeMenus();
       return;
     }
@@ -871,13 +886,13 @@ function App() {
       };
       setSavedVersion((prev) => prev + 1);
       persistState(tabs);
-      setStatus("Saved all");
+      setStatus(messages.app.statuses.savedAll);
       closeMenus();
     } catch (error) {
       console.error(error);
-      setStatus("Failed to save all");
+      setStatus(messages.app.statuses.failedSaveAll);
     }
-  }, [closeMenus, htmlToText, persistState, tabs]);
+  }, [closeMenus, htmlToText, messages.app.statuses, persistState, tabs]);
 
   const openNewWindow = useCallback(async () => {
     try {
@@ -890,7 +905,7 @@ function App() {
         height: size.height,
         decorations: false,
         resizable: true,
-        title: "alwaysmemo",
+        title: messages.app.windowTitles.main,
       });
       newWindow.once("tauri://created", async () => {
         try {
@@ -905,14 +920,20 @@ function App() {
       });
       newWindow.once("tauri://error", (error) => {
         console.error("Failed to create new window", error);
-        setStatus("Failed to open new window");
+        setStatus(messages.app.statuses.failedOpenNewWindow);
       });
       closeMenus();
     } catch (error) {
       console.error(error);
-      setStatus("Failed to open new window");
+      setStatus(messages.app.statuses.failedOpenNewWindow);
     }
-  }, [alwaysOnTop, closeMenus, windowHandle]);
+  }, [
+    alwaysOnTop,
+    closeMenus,
+    messages.app.statuses.failedOpenNewWindow,
+    messages.app.windowTitles.main,
+    windowHandle,
+  ]);
 
   useEffect(() => {
     const syncFromStorage = (event: StorageEvent) => {
@@ -948,13 +969,17 @@ function App() {
       try {
         const confirmed = await invoke<boolean>("set_always_on_top", { value });
         setAlwaysOnTopState(confirmed);
-        setStatus(confirmed ? "Always on top enabled" : "Always on top disabled");
+        setStatus(
+          confirmed
+            ? messages.app.statuses.alwaysOnTopEnabled
+            : messages.app.statuses.alwaysOnTopDisabled,
+        );
       } catch (error) {
         console.error(error);
-        setStatus("Failed to set always on top");
+        setStatus(messages.app.statuses.failedSetAlwaysOnTop);
       }
     },
-    [],
+    [messages.app.statuses],
   );
 
   const settingsSnapshot = useMemo<BridgeSettingsSnapshot>(() => ({
@@ -967,10 +992,12 @@ function App() {
     themeMode,
     sessionBehavior,
     fileOpenBehavior,
+    languagePreference,
   }), [
     alwaysOnTop,
     editorFontSizePx,
     fileOpenBehavior,
+    languagePreference,
     lineSpacing,
     sessionBehavior,
     showStatusBar,
@@ -1027,6 +1054,10 @@ function App() {
       setFileOpenBehavior(patch.fileOpenBehavior);
       nextSnapshot = { ...nextSnapshot, fileOpenBehavior: patch.fileOpenBehavior };
     }
+    if (patch.languagePreference !== undefined) {
+      setLanguagePreference(patch.languagePreference);
+      nextSnapshot = { ...nextSnapshot, languagePreference: patch.languagePreference };
+    }
     if (patch.alwaysOnTop !== undefined) {
       await setAlwaysOnTop(patch.alwaysOnTop);
       nextSnapshot = { ...nextSnapshot, alwaysOnTop: patch.alwaysOnTop };
@@ -1073,7 +1104,7 @@ function App() {
       minHeight: 620,
       decorations: false,
       resizable: true,
-      title: "AlwaysMemo Settings",
+      title: messages.app.windowTitles.settings,
     });
 
     settingsWindow.once("tauri://created", async () => {
@@ -1088,12 +1119,14 @@ function App() {
 
     settingsWindow.once("tauri://error", (error) => {
       console.error("Failed to create settings window", error);
-      setStatus("Failed to open settings window");
+      setStatus(messages.app.statuses.failedOpenSettingsWindow);
     });
   }, [
     closeMenus,
     currentWindowLabel,
     emitSettingsSnapshot,
+    messages.app.statuses.failedOpenSettingsWindow,
+    messages.app.windowTitles.settings,
     settingsWindowLabel,
   ]);
 
@@ -1103,9 +1136,9 @@ function App() {
       setHelpPanelOpen(false);
     } catch (error) {
       console.error("Failed to open help URL", error);
-      setStatus("詳細ヘルプを開けませんでした");
+      setStatus(messages.app.statuses.failedOpenDetailedHelp);
     }
-  }, []);
+  }, [messages.app.statuses.failedOpenDetailedHelp]);
 
   useEffect(() => {
     let unlistenRequest: (() => void) | undefined;
@@ -1156,66 +1189,70 @@ function App() {
     try {
       const next = await invoke<boolean>("toggle_always_on_top");
       setAlwaysOnTopState(next);
-      setStatus(next ? "Always on top enabled" : "Always on top disabled");
+      setStatus(
+        next
+          ? messages.app.statuses.alwaysOnTopEnabled
+          : messages.app.statuses.alwaysOnTopDisabled,
+      );
     } catch (error) {
       console.error(error);
-      setStatus("Failed to toggle always on top");
+      setStatus(messages.app.statuses.failedToggleAlwaysOnTop);
     }
-  }, []);
+  }, [messages.app.statuses]);
 
   const snapLeft = useCallback(async () => {
     try {
       await invoke("snap_left");
       setSnap("left");
-      setStatus("Snapped to top-left (hotkey)");
+      setStatus(messages.app.statuses.snappedLeft);
     } catch (error) {
       console.error(error);
-      setStatus("Failed to snap left");
+      setStatus(messages.app.statuses.failedSnapLeft);
     }
-  }, []);
+  }, [messages.app.statuses.failedSnapLeft, messages.app.statuses.snappedLeft]);
 
   const snapRight = useCallback(async () => {
     try {
       await invoke("snap_right");
       setSnap("right");
-      setStatus("Snapped to top-right (hotkey)");
+      setStatus(messages.app.statuses.snappedRight);
     } catch (error) {
       console.error(error);
-      setStatus("Failed to snap right");
+      setStatus(messages.app.statuses.failedSnapRight);
     }
-  }, []);
+  }, [messages.app.statuses.failedSnapRight, messages.app.statuses.snappedRight]);
 
   const snapTop = useCallback(async () => {
     try {
       await invoke("snap_top");
       setSnap("top");
-      setStatus("Snapped to top edge (hotkey)");
+      setStatus(messages.app.statuses.snappedTop);
     } catch (error) {
       console.error(error);
-      setStatus("Failed to snap top");
+      setStatus(messages.app.statuses.failedSnapTop);
     }
-  }, []);
+  }, [messages.app.statuses.failedSnapTop, messages.app.statuses.snappedTop]);
 
   const snapBottom = useCallback(async () => {
     try {
       await invoke("snap_bottom");
       setSnap("bottom");
-      setStatus("Snapped to bottom edge (hotkey)");
+      setStatus(messages.app.statuses.snappedBottom);
     } catch (error) {
       console.error(error);
-      setStatus("Failed to snap bottom");
+      setStatus(messages.app.statuses.failedSnapBottom);
     }
-  }, []);
+  }, [messages.app.statuses.failedSnapBottom, messages.app.statuses.snappedBottom]);
 
   const resizeToMinimum = useCallback(async () => {
     try {
       await windowHandle.setSize(new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT));
-      setStatus("Hotkey: resize to minimum");
+      setStatus(messages.app.statuses.resizedMinimum);
     } catch (error) {
       console.error(error);
-      setStatus("Failed to resize to minimum");
+      setStatus(messages.app.statuses.failedResizeMinimum);
     }
-  }, [windowHandle]);
+  }, [messages.app.statuses.failedResizeMinimum, messages.app.statuses.resizedMinimum, windowHandle]);
 
   const resizeToFitContent = useCallback(async () => {
     const editor = editorRef.current;
@@ -1272,12 +1309,12 @@ function App() {
       await windowHandle.setSize(
         new LogicalSize(Math.min(nextWidth, maxWidth), Math.min(nextHeight, maxHeight)),
       );
-      setStatus("Hotkey: resize to fit content");
+      setStatus(messages.app.statuses.resizedFitContent);
     } catch (error) {
       console.error(error);
-      setStatus("Failed to resize to fit content");
+      setStatus(messages.app.statuses.failedResizeFitContent);
     }
-  }, [windowHandle]);
+  }, [messages.app.statuses.failedResizeFitContent, messages.app.statuses.resizedFitContent, windowHandle]);
 
   useEffect(() => {
     const initState = async () => {
@@ -1300,6 +1337,7 @@ function App() {
           const nextEditorFontSizePx = parsed.editorFontSizePx ?? 14;
           const nextLineSpacing = parsed.lineSpacing ?? "standard";
           const nextThemeMode = parsed.themeMode ?? "system";
+          const nextLanguagePreference = parsed.languagePreference ?? "system";
           const nextShowStatusBar = parsed.showStatusBar ?? true;
           const nextWrapAtRightEdge = parsed.wrapAtRightEdge ?? true;
           setSessionBehavior(nextSessionBehavior);
@@ -1307,13 +1345,14 @@ function App() {
           setEditorFontSizePx(nextEditorFontSizePx);
           setLineSpacing(nextLineSpacing);
           setThemeMode(nextThemeMode);
+          setLanguagePreference(nextLanguagePreference);
           setShowStatusBar(nextShowStatusBar);
           setWrapAtRightEdge(nextWrapAtRightEdge);
           const pathMap = getPathMap();
           const shouldRestoreTabs = nextSessionBehavior === "restore";
           const restoredTabs = ((shouldRestoreTabs && parsed.tabs.length)
             ? parsed.tabs
-            : [{ id: "initial", title: "タイトルなし", content: "" }]
+            : [{ id: "initial", title: messages.app.untitledTab, content: "" }]
           ).map((tab) => ({
             ...tab,
             content: normalizeHtml(tab.content),
@@ -1352,6 +1391,7 @@ function App() {
           setEditorFontSizePx(14);
           setLineSpacing("standard");
           setThemeMode("system");
+          setLanguagePreference("system");
           setShowStatusBar(true);
           setWrapAtRightEdge(true);
           const nextAlwaysOnTop = forceAlwaysOnTopDefined
@@ -1362,7 +1402,7 @@ function App() {
             await invoke("set_always_on_top", { value: true });
           }
           savedTabsRef.current = {
-            initial: { title: "タイトルなし", content: "" },
+            initial: { title: messages.app.untitledTab, content: "" },
           };
         }
         if (openPathParam) {
@@ -1374,7 +1414,7 @@ function App() {
             );
             if (opened) {
               const id = crypto.randomUUID();
-              const title = getFileNameFromPath(opened.path) || "タイトルなし";
+              const title = getFileNameFromPath(opened.path) || messages.app.untitledTab;
               const content = textToHtml(opened.contents);
               const pathMap = getPathMap();
               setPathMap({ ...pathMap, [id]: opened.path });
@@ -1396,7 +1436,7 @@ function App() {
         }
       } catch (error) {
         console.error(error);
-        setStatus("Failed to read always on top state");
+        setStatus(messages.app.statuses.failedReadAlwaysOnTopState);
       } finally {
         settingsReadyRef.current = true;
       }
@@ -1763,7 +1803,7 @@ function App() {
 
   const addTab = () => {
     const id = crypto.randomUUID();
-    const newTab: Tab = { id, title: "タイトルなし", content: "" };
+    const newTab: Tab = { id, title: messages.app.untitledTab, content: "" };
     savedTabsRef.current = {
       ...savedTabsRef.current,
       [id]: { title: newTab.title, content: newTab.content },
@@ -1782,7 +1822,7 @@ function App() {
       tabHistoryRef.current = tabHistoryRef.current.filter((tabId) => tabId !== id);
       const nextTabs = prev.filter((t) => t.id !== id);
       if (nextTabs.length === 0) {
-        const fallback: Tab = { id: "initial", title: "タイトルなし", content: "" };
+        const fallback: Tab = { id: "initial", title: messages.app.untitledTab, content: "" };
         setActiveTabId(fallback.id);
         return [fallback];
       }
@@ -1796,7 +1836,7 @@ function App() {
       }
       return nextTabs;
     });
-  }, [pushRecentClosedFile]);
+  }, [messages.app.untitledTab, pushRecentClosedFile]);
 
   const closeTabWithAnimation = useCallback((id: string) => {
     if (tabs.length === 1 && tabs[0]?.id === id) {
@@ -1885,16 +1925,21 @@ function App() {
         document.execCommand("insertText", false, text);
       } catch (error) {
         console.error("clipboard read failed", error);
-        setStatus("Clipboard access unavailable");
+        setStatus(messages.app.statuses.clipboardUnavailable);
       }
     } else {
-      setStatus("Clipboard access unavailable");
+      setStatus(messages.app.statuses.clipboardUnavailable);
     }
     window.requestAnimationFrame(() => {
       updateContent(editor.innerHTML);
       updateCursorIndex();
     });
-  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
+  }, [
+    messages.app.statuses.clipboardUnavailable,
+    restoreEditorSelection,
+    updateContent,
+    updateCursorIndex,
+  ]);
 
   const handleEditorPaste = useCallback((event: ReactClipboardEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -2392,31 +2437,31 @@ function App() {
       switch (event.code) {
         case "KeyT": {
           event.preventDefault();
-          setStatus("Hotkey: toggle always on top");
+          setStatus(messages.app.statuses.hotkeyToggleAlwaysOnTop);
           void toggleAlwaysOnTop();
           break;
         }
         case "ArrowLeft": {
           event.preventDefault();
-          setStatus("Hotkey: snap left");
+          setStatus(messages.app.statuses.hotkeySnapLeft);
           void snapLeft();
           break;
         }
         case "ArrowRight": {
           event.preventDefault();
-          setStatus("Hotkey: snap right");
+          setStatus(messages.app.statuses.hotkeySnapRight);
           void snapRight();
           break;
         }
         case "ArrowUp": {
           event.preventDefault();
-          setStatus("Hotkey: snap top");
+          setStatus(messages.app.statuses.hotkeySnapTop);
           void snapTop();
           break;
         }
         case "ArrowDown": {
           event.preventDefault();
-          setStatus("Hotkey: snap bottom");
+          setStatus(messages.app.statuses.hotkeySnapBottom);
           void snapBottom();
           break;
         }
@@ -2450,6 +2495,7 @@ function App() {
     snapLeft,
     snapRight,
     snapTop,
+    messages.app.statuses,
     toggleAlwaysOnTop,
   ]);
 
@@ -2471,11 +2517,11 @@ function App() {
           await unregisterAll();
           await attemptRegister();
         } else {
-          setStatus(`Global shortcut error: ${message}`);
+          setStatus(messages.app.statuses.globalShortcutError(message));
           throw error;
         }
       }
-      setStatus("Global shortcuts active");
+      setStatus(messages.app.statuses.globalShortcutsActive);
     };
 
     const configure = async () => {
@@ -2485,11 +2531,11 @@ function App() {
           await registerGlobalShortcuts();
         } else {
           await unregisterAll();
-          setStatus("Local shortcuts active (window focused)");
+          setStatus(messages.app.statuses.localShortcutsActive);
         }
       } catch (error) {
         console.error(error);
-        setStatus("Failed to configure shortcuts");
+        setStatus(messages.app.statuses.failedConfigureShortcuts);
       }
     };
 
@@ -2500,7 +2546,13 @@ function App() {
         console.error("Failed to unregister shortcuts", error);
       });
     };
-  }, [ensureGlobalShortcutsSingleWindow, setGlobalShortcutsPreference, shortcutActions, useGlobalShortcuts]);
+  }, [
+    ensureGlobalShortcutsSingleWindow,
+    messages.app.statuses,
+    setGlobalShortcutsPreference,
+    shortcutActions,
+    useGlobalShortcuts,
+  ]);
 
   const handleTopTabsWheel = useCallback((event: WheelEvent) => {
     // While pointer is on the top bar, block vertical page/editor scrolling.
@@ -2554,15 +2606,15 @@ function App() {
   }, []);
 
   const getTabLabel = (tab: Tab) => {
-    if (!DEFAULT_TITLE_REGEX.test(tab.title)) return tab.title;
+    if (!isUntitledTitle(tab.title)) return tab.title;
     const trimmed = htmlToText(tab.content).trimStart();
-    if (!trimmed) return tab.title;
+    if (!trimmed) return messages.app.untitledTab;
     const firstLine = trimmed.split(/\r?\n/)[0] ?? "";
     const maxLength = 20;
     if (firstLine.length > maxLength) {
       return `${firstLine.slice(0, maxLength)}...`;
     }
-    return firstLine || tab.title;
+    return firstLine || messages.app.untitledTab;
   };
 
   return (
@@ -2596,7 +2648,10 @@ function App() {
                     className={`tab ${tab.id === activeTabId ? "active" : ""} ${draggedTabId === tab.id ? "dragging" : ""} ${closingTabIds.includes(tab.id) ? "closing" : ""}`}
                     onClick={() => setActiveTabId(tab.id)}
                     onDoubleClick={() => {
-                      const next = window.prompt("タブ名を変更", tab.title);
+                      const next = window.prompt(
+                        messages.app.renameTabPrompt,
+                        isUntitledTitle(tab.title) ? messages.app.untitledTab : tab.title,
+                      );
                       if (next?.trim()) renameTab(tab.id, next.trim());
                     }}
                     onPointerDown={(event) => {
@@ -2621,7 +2676,11 @@ function App() {
                         if (closingTabIds.includes(tab.id)) return;
                         void requestRemoveTab(tab.id);
                       }}
-                      aria-label={isTabDirty(tab) ? "Unsaved" : "Close"}
+                      aria-label={
+                        isTabDirty(tab)
+                          ? messages.app.tabCloseAria.unsaved
+                          : messages.app.tabCloseAria.close
+                      }
                     >
                       {isTabDirty(tab) && hoveredTabCloseId !== tab.id ? (
                         <span className="tab-close-icon dirty-indicator" aria-hidden="true">●</span>
@@ -2638,7 +2697,7 @@ function App() {
             <button
               className="add-tab"
               onClick={addTab}
-              title="新規タブ"
+              title={messages.app.newTabButtonTitle}
             >
               <Plus size={16} strokeWidth={1.8} aria-hidden="true" />
             </button>
@@ -2652,7 +2711,7 @@ function App() {
               type="button"
               className="window-button"
               onClick={minimizeWindow}
-              aria-label="最小化"
+              aria-label={messages.common.windowControls.minimize}
             >
               <Minus className="window-icon" strokeWidth={1.2} aria-hidden="true" />
             </button>
@@ -2660,7 +2719,11 @@ function App() {
               type="button"
               className="window-button"
               onClick={toggleMaximizeWindow}
-              aria-label={isWindowMaximized ? "元に戻す" : "最大化"}
+              aria-label={
+                isWindowMaximized
+                  ? messages.common.windowControls.restore
+                  : messages.common.windowControls.maximize
+              }
             >
               {isWindowMaximized ? (
                 <Copy className="window-icon" strokeWidth={1.2} aria-hidden="true" />
@@ -2672,7 +2735,7 @@ function App() {
               type="button"
               className="window-button close"
               onClick={closeWindow}
-              aria-label="閉じる"
+              aria-label={messages.common.windowControls.close}
             >
               <X className="window-icon close-window-icon" strokeWidth={1.2} aria-hidden="true" />
             </button>
@@ -2687,7 +2750,7 @@ function App() {
                   className={`menu-button file-menu-button ${openMenu === "file" ? "active" : ""}`}
                   onClick={() => setOpenMenu((prev) => (prev === "file" ? null : "file"))}
                 >
-                  ファイル
+                  {messages.app.menu.file}
                 </button>
                 {openMenu === "file" ? (
                   <div
@@ -2697,29 +2760,29 @@ function App() {
                     onMouseDown={(event) => event.stopPropagation()}
                   >
                     <button type="button" className="menu-item" onClick={() => { addTab(); closeMenus(); }}>
-                      <span>新しいタブ</span>
+                      <span>{messages.app.menu.newTab}</span>
                       <span className="menu-shortcut">Ctrl+N</span>
                     </button>
                     <button type="button" className="menu-item" onClick={() => { closeMenus(); void openNewWindow(); }}>
-                      <span>新しいウィンドウ</span>
+                      <span>{messages.app.menu.newWindow}</span>
                       <span className="menu-shortcut">Ctrl+Shift+N</span>
                     </button>
                     <div className="menu-divider" />
                     <button type="button" className="menu-item" onClick={() => { closeMenus(); void openFilePicker(); }}>
-                      <span>開く</span>
+                      <span>{messages.app.menu.open}</span>
                       <span className="menu-shortcut">Ctrl+O</span>
                     </button>
                     <div className="menu-divider" />
                     <button type="button" className="menu-item" onClick={() => { closeMenus(); void saveActiveTab(); }}>
-                      <span>保存</span>
+                      <span>{messages.app.menu.save}</span>
                       <span className="menu-shortcut">Ctrl+S</span>
                     </button>
                     <button type="button" className="menu-item" onClick={() => { closeMenus(); void saveActiveTabAs(); }}>
-                      <span>名前を付けて保存</span>
+                      <span>{messages.app.menu.saveAs}</span>
                       <span className="menu-shortcut">Ctrl+Shift+S</span>
                     </button>
                     <button type="button" className="menu-item" onClick={() => { closeMenus(); void saveAllTabs(); }}>
-                      <span>すべて保存</span>
+                      <span>{messages.app.menu.saveAll}</span>
                       <span className="menu-shortcut">Ctrl+Alt+S</span>
                     </button>
                     <div className="menu-divider" />
@@ -2730,7 +2793,7 @@ function App() {
                         void setAlwaysOnTop(!alwaysOnTop);
                       }}
                     >
-                      <span>常に手前に表示</span>
+                      <span>{messages.app.menu.alwaysOnTop}</span>
                       <span className={`menu-toggle ${alwaysOnTop ? "on" : ""}`} aria-hidden="true" />
                     </button>
                     <button
@@ -2747,20 +2810,20 @@ function App() {
                         })();
                       }}
                     >
-                      <span>グローバルショートカット</span>
+                      <span>{messages.app.menu.globalShortcuts}</span>
                       <span className={`menu-toggle ${useGlobalShortcuts ? "on" : ""}`} aria-hidden="true" />
                     </button>
                     <div className="menu-divider" />
                     <button type="button" className="menu-item" onClick={() => { closeActiveTab(); closeMenus(); }}>
-                      <span>タブを閉じる</span>
+                      <span>{messages.app.menu.closeTab}</span>
                       <span className="menu-shortcut">Ctrl+W</span>
                     </button>
                     <button type="button" className="menu-item" onClick={() => { closeMenus(); void closeWindow(); }}>
-                      <span>ウィンドウを閉じる</span>
+                      <span>{messages.app.menu.closeWindow}</span>
                       <span className="menu-shortcut">Ctrl+Shift+W</span>
                     </button>
                     <button type="button" className="menu-item" onClick={() => { closeMenus(); void closeWindow(); }}>
-                      <span>終了</span>
+                      <span>{messages.app.menu.exit}</span>
                     </button>
                   </div>
                 ) : null}
@@ -2771,7 +2834,7 @@ function App() {
                   className={`menu-button ${openMenu === "edit" ? "active" : ""}`}
                   onClick={() => setOpenMenu((prev) => (prev === "edit" ? null : "edit"))}
                 >
-                  編集
+                  {messages.app.menu.edit}
                 </button>
                 {openMenu === "edit" ? (
                   <div
@@ -2781,37 +2844,37 @@ function App() {
                     onMouseDown={(event) => event.stopPropagation()}
                   >
                     <button type="button" className="menu-item" onClick={() => { runEditorCommand("undo"); closeMenus(); }}>
-                      <span>元に戻す</span>
+                      <span>{messages.app.menu.undo}</span>
                       <span className="menu-shortcut">Ctrl+Z</span>
                     </button>
                     <button type="button" className="menu-item" onClick={() => { runEditorCommand("cut"); closeMenus(); }}>
-                      <span>切り取り</span>
+                      <span>{messages.app.menu.cut}</span>
                       <span className="menu-shortcut">Ctrl+X</span>
                     </button>
                     <button type="button" className="menu-item" onClick={() => { runEditorCommand("copy"); closeMenus(); }}>
-                      <span>コピー</span>
+                      <span>{messages.app.menu.copy}</span>
                       <span className="menu-shortcut">Ctrl+C</span>
                     </button>
                     <button type="button" className="menu-item" onClick={() => { void pasteFromClipboard(); closeMenus(); }}>
-                      <span>貼り付け</span>
+                      <span>{messages.app.menu.paste}</span>
                       <span className="menu-shortcut">Ctrl+V</span>
                     </button>
                     <div className="menu-divider" />
                     <button type="button" className="menu-item" onClick={() => { focusSearchBox(); closeMenus(); }}>
-                      <span>検索する</span>
+                      <span>{messages.app.menu.find}</span>
                       <span className="menu-shortcut">Ctrl+F</span>
                     </button>
                     <button type="button" className="menu-item" onClick={() => { focusReplaceBox(); closeMenus(); }}>
-                      <span>置換</span>
+                      <span>{messages.app.menu.replace}</span>
                       <span className="menu-shortcut">Ctrl+H</span>
                     </button>
                     <button type="button" className="menu-item" onClick={openGoToLine}>
-                      <span>移動先</span>
+                      <span>{messages.app.menu.goTo}</span>
                       <span className="menu-shortcut">Ctrl+G</span>
                     </button>
                     <div className="menu-divider" />
                     <button type="button" className="menu-item disabled" aria-disabled="true">
-                      <span>フォント</span>
+                      <span>{messages.app.menu.font}</span>
                     </button>
                   </div>
                 ) : null}
@@ -2822,7 +2885,7 @@ function App() {
                   className={`menu-button ${openMenu === "view" ? "active" : ""}`}
                   onClick={() => setOpenMenu((prev) => (prev === "view" ? null : "view"))}
                 >
-                  表示
+                  {messages.app.menu.view}
                 </button>
                 {openMenu === "view" ? (
                   <div
@@ -2832,15 +2895,15 @@ function App() {
                     onMouseDown={(event) => event.stopPropagation()}
                   >
                     <button type="button" className="menu-item" onClick={zoomIn}>
-                      <span>拡大</span>
-                      <span className="menu-shortcut">Ctrl+プラス記号 (+)</span>
+                      <span>{messages.app.menu.zoomIn}</span>
+                      <span className="menu-shortcut">{messages.app.menu.zoomInShortcut}</span>
                     </button>
                     <button type="button" className="menu-item" onClick={zoomOut}>
-                      <span>縮小</span>
-                      <span className="menu-shortcut">Ctrl+マイナス記号 (-)</span>
+                      <span>{messages.app.menu.zoomOut}</span>
+                      <span className="menu-shortcut">{messages.app.menu.zoomOutShortcut}</span>
                     </button>
                     <button type="button" className="menu-item" onClick={resetZoom}>
-                      <span>既定の倍率に戻す</span>
+                      <span>{messages.app.menu.resetZoom}</span>
                       <span className="menu-shortcut">Ctrl+0</span>
                     </button>
                     <button
@@ -2849,7 +2912,7 @@ function App() {
                       onClick={() => setShowStatusBar((prev) => !prev)}
                     >
                       <span className={`menu-check ${showStatusBar ? "on" : ""}`}>✓</span>
-                      <span>ステータスバー</span>
+                      <span>{messages.app.menu.statusBar}</span>
                     </button>
                     <button
                       type="button"
@@ -2857,7 +2920,7 @@ function App() {
                       onClick={() => setWrapAtRightEdge((prev) => !prev)}
                     >
                       <span className={`menu-check ${wrapAtRightEdge ? "on" : ""}`}>✓</span>
-                      <span>右端での折り返し</span>
+                      <span>{messages.app.menu.wrapAtRightEdge}</span>
                     </button>
                   </div>
                 ) : null}
@@ -2873,7 +2936,7 @@ function App() {
                     ref={searchInputRef}
                     type="search"
                     className="search-input"
-                    placeholder="検索"
+                    placeholder={messages.app.search.searchPlaceholder}
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     onKeyDown={(event) => {
@@ -2886,13 +2949,13 @@ function App() {
                     }}
                   />
                   {searchQuery.trim() ? (
-                    <span className="search-count">{searchMatchCount} 件</span>
+                    <span className="search-count">{messages.app.search.count(searchMatchCount)}</span>
                   ) : null}
                   <button
                     type="button"
                     className="search-close"
                     onClick={() => setShowSearchBox(false)}
-                    aria-label="Close search"
+                    aria-label={messages.app.search.close}
                   >
                     <X size={14} strokeWidth={2} aria-hidden="true" />
                   </button>
@@ -2905,7 +2968,7 @@ function App() {
                     ref={replaceInputRef}
                     type="text"
                     className="search-input"
-                    placeholder="置換"
+                    placeholder={messages.app.search.replacePlaceholder}
                     value={replaceQuery}
                     onChange={(event) => setReplaceQuery(event.target.value)}
                     onKeyDown={(event) => {
@@ -2922,14 +2985,14 @@ function App() {
                     className="search-action"
                     onClick={() => replaceMatches("one")}
                   >
-                    置換
+                    {messages.app.search.replace}
                   </button>
                   <button
                     type="button"
                     className="search-action"
                     onClick={() => replaceMatches("all")}
                   >
-                    すべて置換
+                    {messages.app.search.replaceAll}
                   </button>
                 </div>
               </div>
@@ -2940,7 +3003,7 @@ function App() {
                   ref={helpButtonRef}
                   type="button"
                   className={`icon-button ${helpPanelOpen ? "active" : ""}`}
-                  aria-label="ヘルプ"
+                  aria-label={messages.app.help.buttonLabel}
                   aria-expanded={helpPanelOpen}
                   aria-haspopup="dialog"
                   onClick={() => {
@@ -2958,17 +3021,17 @@ function App() {
                     ref={helpHintRef}
                     className="help-hint-bubble"
                     role="note"
-                    aria-label="ヘルプの案内"
+                    aria-label={messages.app.help.hintLabel}
                   >
                     <button
                       type="button"
                       className="help-hint-close"
-                      aria-label="案内を閉じる"
+                      aria-label={messages.app.help.closeHint}
                       onClick={dismissHelpHint}
                     >
                       <X size={12} strokeWidth={2} aria-hidden="true" />
                     </button>
-                    <p>ショートカット一覧や機能の説明はこちらから</p>
+                    <p>{messages.app.help.hintBody}</p>
                   </div>
                 ) : null}
                 {helpPanelOpen ? (
@@ -2977,14 +3040,14 @@ function App() {
                     className="help-panel"
                     role="dialog"
                     aria-modal="false"
-                    aria-label="ミニヘルプ"
+                    aria-label={messages.app.help.panelLabel}
                   >
                     <div className="help-panel-header">
-                      <strong>ヘルプ</strong>
+                      <strong>{messages.app.help.title}</strong>
                       <button
                         type="button"
                         className="help-panel-close"
-                        aria-label="ヘルプを閉じる"
+                        aria-label={messages.app.help.closePanel}
                         onClick={() => {
                           setHelpPanelOpen(false);
                           helpButtonRef.current?.focus();
@@ -2995,9 +3058,9 @@ function App() {
                     </div>
 
                     <section className="help-panel-section" aria-labelledby="mini-help-shortcuts-title">
-                      <h3 id="mini-help-shortcuts-title">よく使う操作</h3>
+                      <h3 id="mini-help-shortcuts-title">{messages.app.help.shortcutsTitle}</h3>
                       <div className="help-shortcuts-list">
-                        {MINI_HELP_SHORTCUTS.map((item) => (
+                        {messages.app.help.shortcuts.map((item) => (
                           <div
                             key={`${"groups" in item ? item.groups.flat().join("-") : item.keys.join("-")}-${item.label}`}
                             className="help-shortcut-row"
@@ -3034,9 +3097,9 @@ function App() {
                     </section>
 
                     <section className="help-panel-section" aria-labelledby="mini-help-points-title">
-                      <h3 id="mini-help-points-title">AlwaysMemo のポイント</h3>
+                      <h3 id="mini-help-points-title">{messages.app.help.pointsTitle}</h3>
                       <ul className="help-points-list">
-                        {MINI_HELP_POINTS.map((item) => (
+                        {messages.app.help.points.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
                       </ul>
@@ -3049,7 +3112,7 @@ function App() {
                         void openDetailedHelp();
                       }}
                     >
-                      <span>詳しいヘルプを開く</span>
+                      <span>{messages.app.help.openDetailedHelp}</span>
                       <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
                     </button>
                   </div>
@@ -3058,7 +3121,7 @@ function App() {
               <button
                 type="button"
                 className="icon-button"
-                aria-label="Settings"
+                aria-label={messages.app.settingsButtonLabel}
                 onClick={() => {
                   void openSettingsWindow();
                 }}
@@ -3087,7 +3150,7 @@ function App() {
             }}
             contentEditable
             suppressContentEditableWarning
-            data-placeholder="ここにメモを書く"
+            data-placeholder={messages.app.editorPlaceholder}
             onInput={(event) => {
               updateContent(event.currentTarget.innerHTML);
               scheduleCursorIndexUpdate();
@@ -3111,11 +3174,9 @@ function App() {
             aria-labelledby="window-close-title"
             aria-describedby="window-close-desc"
           >
-            <h2 id="window-close-title">確認</h2>
+            <h2 id="window-close-title">{messages.app.dialogs.confirmTitle}</h2>
             <p id="window-close-desc">
-              {dirtyTabCount > 1
-                ? `${dirtyTabCount} 件の未保存メモがあります。保存してから終了しますか？`
-                : "未保存のメモがあります。保存してから終了しますか？"}
+              {messages.app.dialogs.unsavedMemosBeforeExit(dirtyTabCount)}
             </p>
             <div className="delete-choice-actions">
               <button
@@ -3125,7 +3186,7 @@ function App() {
                   void saveAndCloseWindow();
                 }}
               >
-                保存
+                {messages.app.dialogs.save}
               </button>
               <button
                 type="button"
@@ -3134,14 +3195,14 @@ function App() {
                   void discardAndCloseWindow();
                 }}
               >
-                保存しない
+                {messages.app.dialogs.dontSave}
               </button>
               <button
                 type="button"
                 className="delete-choice ghost"
                 onClick={() => setWindowClosePromptOpen(false)}
               >
-                キャンセル
+                {messages.app.dialogs.cancel}
               </button>
             </div>
           </div>
@@ -3156,9 +3217,9 @@ function App() {
             aria-labelledby="delete-choice-title"
             aria-describedby="delete-choice-desc"
           >
-            <h2 id="delete-choice-title">確認</h2>
+            <h2 id="delete-choice-title">{messages.app.dialogs.confirmTitle}</h2>
             <p id="delete-choice-desc">
-              {`${deletePromptTab.filePath ?? deletePromptTab.title} への変更内容を保存しますか？`}
+              {messages.app.dialogs.saveChangesTo(deletePromptTab.filePath ?? deletePromptTab.title)}
             </p>
             <div className="delete-choice-actions">
               <button
@@ -3176,7 +3237,7 @@ function App() {
                   })();
                 }}
               >
-                保存
+                {messages.app.dialogs.save}
               </button>
               <button
                 type="button"
@@ -3186,14 +3247,14 @@ function App() {
                   setDeletePromptTabId(null);
                 }}
               >
-                保存しない
+                {messages.app.dialogs.dontSave}
               </button>
               <button
                 type="button"
                 className="delete-choice ghost"
                 onClick={() => setDeletePromptTabId(null)}
               >
-                キャンセル
+                {messages.app.dialogs.cancel}
               </button>
             </div>
           </div>
@@ -3207,8 +3268,8 @@ function App() {
             aria-modal="true"
             aria-labelledby="goto-line-title"
           >
-            <h2 id="goto-line-title">行に移動</h2>
-            <label htmlFor="goto-line-input">行番号</label>
+            <h2 id="goto-line-title">{messages.app.dialogs.goToLineTitle}</h2>
+            <label htmlFor="goto-line-input">{messages.app.dialogs.lineNumber}</label>
             <input
               ref={goToLineInputRef}
               id="goto-line-input"
@@ -3225,14 +3286,14 @@ function App() {
             />
             <div className="goto-line-actions">
               <button type="button" className="goto-line-button primary" onClick={submitGoToLine}>
-                移動
+                {messages.app.dialogs.move}
               </button>
               <button
                 type="button"
                 className="goto-line-button"
                 onClick={() => setGoToLineOpen(false)}
               >
-                キャンセル
+                {messages.app.dialogs.cancel}
               </button>
             </div>
           </div>
@@ -3241,17 +3302,19 @@ function App() {
 
       {showStatusBar ? (
         <div className="bottom-bar">
-          <span className="bottom-item">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
-          <span className="bottom-item">{activePlainText.length} 文字</span>
+          <span className="bottom-item">
+            {messages.app.statusBar.lineColumn(cursorPosition.line, cursorPosition.column)}
+          </span>
+          <span className="bottom-item">{messages.app.statusBar.characters(activePlainText.length)}</span>
           <span className="bottom-item">{zoomPercentLabel}</span>
-          <span className="bottom-item">UTF-8</span>
+          <span className="bottom-item">{messages.app.statusBar.encoding}</span>
           <span className="bottom-item status-item">
-            <span className="bottom-label">Top: </span>
-            <span className="bottom-value">{alwaysOnTop ? "ON" : "OFF"}</span>
+            <span className="bottom-label">{messages.app.statusBar.alwaysOnTop}: </span>
+            <span className="bottom-value">{alwaysOnTop ? messages.common.on : messages.common.off}</span>
           </span>
           <span className="bottom-item status-item">
-            <span className="bottom-label">Shortcuts: </span>
-            <span className="bottom-value">{useGlobalShortcuts ? "ON" : "OFF"}</span>
+            <span className="bottom-label">{messages.app.statusBar.shortcuts}: </span>
+            <span className="bottom-value">{useGlobalShortcuts ? messages.common.on : messages.common.off}</span>
           </span>
         </div>
       ) : null}
