@@ -36,8 +36,8 @@ function SettingsWindow() {
   }, []);
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null);
   const [settingsNav, setSettingsNav] = useState<
-    "appearance" | "formatting" | "features" | "startup" | "about"
-  >("appearance");
+    "language" | "appearance" | "formatting" | "features" | "startup" | "about"
+  >("language");
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
   const [systemPrefersDark, setSystemPrefersDark] = useState(() =>
     window.matchMedia("(prefers-color-scheme: dark)").matches,
@@ -105,7 +105,7 @@ function SettingsWindow() {
   );
 
   const jumpToSettingsSection = useCallback(
-    (key: "appearance" | "formatting" | "features" | "startup" | "about") => {
+    (key: "language" | "appearance" | "formatting" | "features" | "startup" | "about") => {
       setSettingsNav(key);
       const container = settingsContentRef.current;
       const target = document.getElementById(`settings-${key}`);
@@ -351,6 +351,7 @@ function SettingsWindow() {
               <div className="settings-brand-name">AlwaysMemo</div>
             </div>
             <div className="settings-nav">
+              <button type="button" className={`settings-nav-item ${settingsNav === "language" ? "active" : ""}`} onClick={() => jumpToSettingsSection("language")}>{messages.settings.navigation.language}</button>
               <button type="button" className={`settings-nav-item ${settingsNav === "appearance" ? "active" : ""}`} onClick={() => jumpToSettingsSection("appearance")}>{messages.settings.navigation.appearance}</button>
               <button type="button" className={`settings-nav-item ${settingsNav === "formatting" ? "active" : ""}`} onClick={() => jumpToSettingsSection("formatting")}>{messages.settings.navigation.formatting}</button>
               <button type="button" className={`settings-nav-item ${settingsNav === "features" ? "active" : ""}`} onClick={() => jumpToSettingsSection("features")}>{messages.settings.navigation.features}</button>
@@ -361,14 +362,14 @@ function SettingsWindow() {
 
           <div className="settings-content" ref={settingsContentRef}>
             <div className="settings-sections">
-              <section id="settings-appearance" className="settings-block">
-                <h2>{messages.settings.appearance.title}</h2>
-                <p className="settings-desc">{messages.settings.appearance.description}</p>
+              <section id="settings-language" className="settings-block">
+                <h2>{messages.settings.language.title}</h2>
+                <p className="settings-desc">{messages.settings.language.description}</p>
                 <div className="settings-card">
                   <div className="settings-field-row">
                     <div>
-                      <strong>{messages.settings.appearance.languageLabel}</strong>
-                      <small>{messages.settings.appearance.languageDescription}</small>
+                      <strong>{messages.settings.language.label}</strong>
+                      <small>{messages.settings.language.helper}</small>
                     </div>
                     <select
                       value={snapshot.languagePreference}
@@ -383,13 +384,12 @@ function SettingsWindow() {
                       <option value="en">{messages.common.languageOptions.en}</option>
                     </select>
                   </div>
-                  <div className="settings-field-row">
-                    <div>
-                      <strong>{messages.settings.appearance.themeLabel}</strong>
-                      <small>{messages.settings.appearance.themeDescription}</small>
-                    </div>
-                  </div>
                 </div>
+              </section>
+
+              <section id="settings-appearance" className="settings-block">
+                <h2>{messages.settings.appearance.title}</h2>
+                <p className="settings-desc">{messages.settings.appearance.description}</p>
                 <div className="theme-options">
                   <button type="button" className={`theme-card ${snapshot.themeMode === "light" ? "active" : ""}`} onClick={() => void sendPatch({ themeMode: "light" })}>
                     <span className="theme-icon"><Sun size={18} strokeWidth={1.8} aria-hidden="true" /></span>

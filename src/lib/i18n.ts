@@ -164,24 +164,29 @@ type Messages = {
       failedConfigureShortcuts: string;
     };
   };
-  settings: {
-    loading: string;
-    navigation: {
-      appearance: string;
-      formatting: string;
-      features: string;
-      startup: string;
-      about: string;
-    };
-    appearance: {
-      title: string;
-      description: string;
-      languageLabel: string;
-      languageDescription: string;
-      themeLabel: string;
-      themeDescription: string;
-      themeLight: string;
-      themeDark: string;
+    settings: {
+      loading: string;
+      navigation: {
+        language: string;
+        appearance: string;
+        formatting: string;
+        features: string;
+        startup: string;
+        about: string;
+      };
+      language: {
+        title: string;
+        description: string;
+        label: string;
+        helper: string;
+      };
+      appearance: {
+        title: string;
+        description: string;
+        themeLabel: string;
+        themeDescription: string;
+        themeLight: string;
+        themeDark: string;
       themeSystem: string;
     };
     formatting: {
@@ -394,17 +399,22 @@ const translations: Record<AppLanguage, Messages> = {
     settings: {
       loading: "設定を読み込んでいます...",
       navigation: {
+        language: "言語",
         appearance: "外観",
         formatting: "書式設定",
         features: "機能",
         startup: "起動時",
         about: "情報",
       },
+      language: {
+        title: "言語",
+        description: "アプリの表示言語を切り替えます。",
+        label: "表示言語",
+        helper: "システムを選ぶと OS の表示言語に合わせます",
+      },
       appearance: {
         title: "外観",
         description: "メモ画面の見た目を調整します。",
-        languageLabel: "言語",
-        languageDescription: "初期値は OS の表示言語に従います",
         themeLabel: "テーマ",
         themeDescription: "アプリの配色を切り替えます",
         themeLight: "ライト",
@@ -619,17 +629,22 @@ const translations: Record<AppLanguage, Messages> = {
     settings: {
       loading: "Loading settings...",
       navigation: {
+        language: "Language",
         appearance: "Appearance",
         formatting: "Formatting",
         features: "Features",
         startup: "Startup",
         about: "About",
       },
+      language: {
+        title: "Language",
+        description: "Choose the language used across the app.",
+        label: "Display Language",
+        helper: "Pick System to follow your OS display language",
+      },
       appearance: {
         title: "Appearance",
         description: "Adjust how your memo window looks.",
-        languageLabel: "Language",
-        languageDescription: "Use the OS language by default, or pick one manually",
         themeLabel: "Theme",
         themeDescription: "Choose the app color theme",
         themeLight: "Light",
