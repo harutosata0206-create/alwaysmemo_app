@@ -20,6 +20,7 @@ import {
   LogicalSize,
   PhysicalPosition,
   PhysicalSize,
+  UserAttentionType,
 } from "@tauri-apps/api/window";
 import {
   CircleQuestionMark,
@@ -72,6 +73,7 @@ const TAB_CLOSE_ANIMATION_MS = 140;
 const GEOMETRY_TRACE_WINDOW_MS = 500;
 const HELP_URL = "https://alwaysmemo.pages.dev/help";
 const HELP_HINT_STORAGE_KEY = "alwaysmemo-help-hint-seen";
+const DEFAULT_USE_GLOBAL_SHORTCUTS = true;
 
 type Tab = {
   id: string;
@@ -147,7 +149,7 @@ type GeometryTraceState = {
 };
 
 function App() {
-  const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(true);
+  const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(DEFAULT_USE_GLOBAL_SHORTCUTS);
   const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
   const [, setStatus] = useState<string | null>(null);
   const [languagePreference, setLanguagePreference] = useState<LanguagePreference>("system");
@@ -212,7 +214,7 @@ function App() {
   const geometryTraceRef = useRef<GeometryTraceState | null>(null);
   const settingsSnapshotRef = useRef<BridgeSettingsSnapshot>({
     alwaysOnTop: false,
-    useGlobalShortcuts: true,
+    useGlobalShortcuts: DEFAULT_USE_GLOBAL_SHORTCUTS,
     showStatusBar: true,
     wrapAtRightEdge: true,
     editorFontSizePx: 14,
@@ -572,6 +574,24 @@ function App() {
     },
     [messages.app.statuses.disabledShortcutsMultiWindow],
   );
+
+  const revealAuxWindow = useCallback(async (target: WebviewWindow) => {
+    try {
+      if (await target.isMinimized()) {
+        await target.unminimize();
+      }
+    } catch (error) {
+      console.error("Failed to unminimize auxiliary window", error);
+    }
+
+    try {
+      await target.show();
+      await target.setFocus();
+      await target.requestUserAttention(UserAttentionType.Informational);
+    } catch (error) {
+      console.error("Failed to reveal auxiliary window", error);
+    }
+  }, []);
 
   const ensureGlobalShortcutsSingleWindow = useCallback(async () => {
     try {
@@ -1091,8 +1111,7 @@ function App() {
     const existing = await WebviewWindow.getByLabel(settingsWindowLabel);
     if (existing) {
       await emitSettingsSnapshot(settingsWindowLabel);
-      await existing.show();
-      await existing.setFocus();
+      await revealAuxWindow(existing);
       return;
     }
 
@@ -1110,8 +1129,7 @@ function App() {
     settingsWindow.once("tauri://created", async () => {
       try {
         await emitSettingsSnapshot(settingsWindowLabel);
-        await settingsWindow.show();
-        await settingsWindow.setFocus();
+        await revealAuxWindow(settingsWindow);
       } catch (error) {
         console.error("Failed to focus settings window", error);
       }
@@ -1127,6 +1145,7 @@ function App() {
     emitSettingsSnapshot,
     messages.app.statuses.failedOpenSettingsWindow,
     messages.app.windowTitles.settings,
+    revealAuxWindow,
     settingsWindowLabel,
   ]);
 
@@ -1367,7 +1386,7 @@ function App() {
               ? parsed.activeTabId
               : restoredTabs[0]?.id ?? "initial";
           setActiveTabId(validActive);
-          setUseGlobalShortcuts(parsed.useGlobalShortcuts ?? true);
+          setUseGlobalShortcuts(parsed.useGlobalShortcuts ?? DEFAULT_USE_GLOBAL_SHORTCUTS);
           setSnap(parsed.snap ?? null);
           const nextAlwaysOnTop = forceAlwaysOnTopDefined
             ? forceAlwaysOnTop
@@ -1392,6 +1411,7 @@ function App() {
           setLineSpacing("standard");
           setThemeMode("system");
           setLanguagePreference("system");
+          setUseGlobalShortcuts(DEFAULT_USE_GLOBAL_SHORTCUTS);
           setShowStatusBar(true);
           setWrapAtRightEdge(true);
           const nextAlwaysOnTop = forceAlwaysOnTopDefined
