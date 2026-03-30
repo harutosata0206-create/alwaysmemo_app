@@ -117,6 +117,11 @@ type RecentClosedFile = {
 };
 const MAX_RECENT_CLOSED_FILES = 7;
 
+type OpenedTextFile = {
+  path: string;
+  contents: string;
+};
+
 type WindowStateSnapshot = {
   tauriMaximized: boolean;
   inferredMaximized: boolean;
@@ -225,6 +230,7 @@ function App() {
     languagePreference: "system",
   });
   const settingsReadyRef = useRef(false);
+  const [startupStateReady, setStartupStateReady] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchCount, setSearchMatchCount] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -247,6 +253,13 @@ function App() {
     () => createSettingsWindowLabel(currentWindowLabel),
     [currentWindowLabel],
   );
+  const writeDebugLog = useCallback(async (message: string) => {
+    try {
+      await invoke("write_debug_log", { message });
+    } catch {
+      // Logging should never affect runtime behavior.
+    }
+  }, []);
   const effectiveTheme = useMemo(
     () => (themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : themeMode),
     [systemPrefersDark, themeMode],
@@ -675,6 +688,68 @@ function App() {
     const normalized = path.replace(/\\/g, "/");
     return normalized.split("/").pop() || path;
   };
+
+  const appendOpenedFileTab = useCallback(
+    (opened: OpenedTextFile, options?: { announce?: boolean }) => {
+      const id = crypto.randomUUID();
+      const title = getFileNameFromPath(opened.path) || messages.app.untitledTab;
+      const content = textToHtml(opened.contents);
+      const pathMap = getPathMap();
+      setPathMap({ ...pathMap, [id]: opened.path });
+      savedTabsRef.current = {
+        ...savedTabsRef.current,
+        [id]: { title, content },
+      };
+      setSavedVersion((prev) => prev + 1);
+      setTabs((prev) => {
+        const next = [...prev, { id, title, content, filePath: opened.path }];
+        persistState(next, id);
+        return next;
+      });
+      setActiveTabId(id);
+      if (options?.announce !== false) {
+        setStatus(messages.app.statuses.opened(title));
+      }
+    },
+    [
+      getFileNameFromPath,
+      getPathMap,
+      messages.app.statuses,
+      messages.app.untitledTab,
+      persistState,
+      setPathMap,
+      textToHtml,
+    ],
+  );
+
+  const openFilesByPaths = useCallback(
+    async (paths: string[], options?: { announce?: boolean }) => {
+      void writeDebugLog(`openFilesByPaths:start paths=${JSON.stringify(paths)}`);
+      for (const path of paths) {
+        const opened = await invoke<OpenedTextFile | null>("open_text_file_by_path", {
+          path,
+        });
+        if (!opened) {
+          void writeDebugLog(`openFilesByPaths:missing path=${path}`);
+          continue;
+        }
+        void writeDebugLog(`openFilesByPaths:opened path=${opened.path}`);
+        appendOpenedFileTab(opened, options);
+      }
+    },
+    [appendOpenedFileTab, writeDebugLog],
+  );
+
+  const drainPendingOpenFiles = useCallback(
+    async (options?: { announce?: boolean }) => {
+      const paths = await invoke<string[]>("take_pending_open_files");
+      void writeDebugLog(`drainPendingOpenFiles paths=${JSON.stringify(paths)}`);
+      if (paths.length === 0) return;
+      await openFilesByPaths(paths, options);
+    },
+    [openFilesByPaths, writeDebugLog],
+  );
+
   const isRecentEligiblePath = useCallback((path?: string | null) => {
     if (!path) return false;
     return FILE_PATH_PATTERN.test(path);
@@ -698,7 +773,7 @@ function App() {
 
   const openFilePicker = useCallback(async () => {
     try {
-      const opened = await invoke<{ path: string; contents: string } | null>(
+      const opened = await invoke<OpenedTextFile | null>(
         "open_text_file_dialog",
       );
       if (!opened) return;
@@ -733,40 +808,19 @@ function App() {
         closeMenus();
         return;
       }
-      const id = crypto.randomUUID();
-      const title = getFileNameFromPath(opened.path) || messages.app.numberedMemo(tabs.length + 1);
-      const content = textToHtml(opened.contents);
-      const pathMap = getPathMap();
-      setPathMap({ ...pathMap, [id]: opened.path });
-      savedTabsRef.current = {
-        ...savedTabsRef.current,
-        [id]: { title, content },
-      };
-      setSavedVersion((prev) => prev + 1);
-      setTabs((prev) => {
-        const next = [...prev, { id, title, content, filePath: opened.path }];
-        persistState(next, id);
-        return next;
-      });
-      setActiveTabId(id);
-      setStatus(messages.app.statuses.opened(title));
+      appendOpenedFileTab(opened);
       closeMenus();
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedOpenFile);
     }
   }, [
+    appendOpenedFileTab,
     alwaysOnTop,
     closeMenus,
     fileOpenBehavior,
-    getPathMap,
-    messages.app.numberedMemo,
     messages.app.statuses,
     messages.app.windowTitles.main,
-    persistState,
-    setPathMap,
-    tabs,
-    textToHtml,
     windowHandle,
   ]);
 
@@ -1428,28 +1482,8 @@ function App() {
         if (openPathParam) {
           try {
             const decodedPath = decodeURIComponent(openPathParam);
-            const opened = await invoke<{ path: string; contents: string } | null>(
-              "open_text_file_by_path",
-              { path: decodedPath },
-            );
-            if (opened) {
-              const id = crypto.randomUUID();
-              const title = getFileNameFromPath(opened.path) || messages.app.untitledTab;
-              const content = textToHtml(opened.contents);
-              const pathMap = getPathMap();
-              setPathMap({ ...pathMap, [id]: opened.path });
-              savedTabsRef.current = {
-                ...savedTabsRef.current,
-                [id]: { title, content },
-              };
-              setSavedVersion((prev) => prev + 1);
-              setTabs((prev) => {
-                const next = [...prev, { id, title, content, filePath: opened.path }];
-                persistState(next, id);
-                return next;
-              });
-              setActiveTabId(id);
-            }
+            void writeDebugLog(`initState openPathParam=${decodedPath}`);
+            await openFilesByPaths([decodedPath], { announce: false });
           } catch (error) {
             console.error("Failed to open startup path", error);
           }
@@ -1459,10 +1493,47 @@ function App() {
         setStatus(messages.app.statuses.failedReadAlwaysOnTopState);
       } finally {
         settingsReadyRef.current = true;
+        setStartupStateReady(true);
       }
     };
     void initState();
   }, []);
+
+  useEffect(() => {
+    if (!startupStateReady || currentWindowLabel !== "main") return;
+
+    let cancelled = false;
+    let busy = false;
+
+    const pumpPendingOpenFiles = () => {
+      if (cancelled || busy) return;
+      busy = true;
+      void (async () => {
+        try {
+          await drainPendingOpenFiles();
+        } catch (error) {
+          console.error("Failed to poll pending external file opens", error);
+          setStatus(messages.app.statuses.failedOpenFile);
+        } finally {
+          busy = false;
+        }
+      })();
+    };
+
+    const initialTimer = window.setTimeout(pumpPendingOpenFiles, 500);
+    const intervalId = window.setInterval(pumpPendingOpenFiles, 500);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(initialTimer);
+      window.clearInterval(intervalId);
+    };
+  }, [
+    currentWindowLabel,
+    drainPendingOpenFiles,
+    messages.app.statuses.failedOpenFile,
+    startupStateReady,
+  ]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
