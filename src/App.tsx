@@ -40,8 +40,8 @@ import {
   escapeRegex,
   htmlToText,
   normalizePlainText,
-  nodeToPlainText,
   normalizeHtml,
+  nodeToPlainTextBeforePosition,
   replaceTextInHtml,
   sanitizeEditorHtml,
   sanitizedHtmlToText,
@@ -468,11 +468,9 @@ function App() {
       setCursorPosition({ line: 1, column: 1 });
       return;
     }
-    const preRange = range.cloneRange();
-    preRange.selectNodeContents(editor);
-    preRange.setEnd(range.startContainer, range.startOffset);
-    const fragment = preRange.cloneContents();
-    const normalized = normalizePlainText(nodeToPlainText(fragment));
+    const normalized = normalizePlainText(
+      nodeToPlainTextBeforePosition(editor, range.startContainer, range.startOffset),
+    );
     const lines = normalized.split("\n");
     const currentLine = Math.max(lines.length, 1);
     const currentLineText = lines[lines.length - 1] ?? "";

@@ -158,6 +158,83 @@ export function nodeToPlainText(node: Node): string {
   return text;
 }
 
+function isPlaceholderBreak(node: Node): boolean {
+  if (node.nodeType !== Node.ELEMENT_NODE || (node as Element).tagName !== "BR") {
+    return false;
+  }
+  const parent = node.parentElement;
+  if (!parent || !BLOCK_TEXT_TAGS.has(parent.tagName)) {
+    return false;
+  }
+  return Array.from(parent.childNodes).every(
+    (child) =>
+      child === node ||
+      (child.nodeType === Node.TEXT_NODE && (child.textContent ?? "").length === 0),
+  );
+}
+
+export function nodeToPlainTextBeforePosition(
+  root: Node,
+  container: Node,
+  offset: number,
+): string {
+  const walk = (node: Node): { text: string; hit: boolean } => {
+    if (node === container) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return {
+          text: (node.textContent ?? "").slice(0, offset),
+          hit: true,
+        };
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+        return { text: "", hit: true };
+      }
+      let text = "";
+      for (let index = 0; index < Math.min(offset, node.childNodes.length); index += 1) {
+        const child = node.childNodes[index];
+        if (isPlaceholderBreak(child)) continue;
+        text += nodeToPlainText(child);
+      }
+      return { text, hit: true };
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      return { text: node.textContent ?? "", hit: false };
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+      return { text: "", hit: false };
+    }
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === "BR") {
+      return { text: isPlaceholderBreak(node) ? "" : "\n", hit: false };
+    }
+
+    let text = "";
+    for (const child of Array.from(node.childNodes)) {
+      const result = walk(child);
+      text += result.text;
+      if (result.hit) {
+        return { text, hit: true };
+      }
+    }
+
+    if (
+      node.nodeType === Node.ELEMENT_NODE &&
+      BLOCK_TEXT_TAGS.has((node as Element).tagName) &&
+      !text.endsWith("\n")
+    ) {
+      text += "\n";
+    }
+
+    return { text, hit: false };
+  };
+
+  if (!root.contains(container)) {
+    return "";
+  }
+
+  return walk(root).text;
+}
+
 export function textToHtml(text: string): string {
   const normalizedText = normalizePlainText(text);
   const div = document.createElement("div");
