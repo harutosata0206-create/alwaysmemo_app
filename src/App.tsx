@@ -39,6 +39,7 @@ import {
   ensureTextFileExtension,
   escapeRegex,
   htmlToText,
+  normalizePlainText,
   nodeToPlainText,
   normalizeHtml,
   replaceTextInHtml,
@@ -471,25 +472,13 @@ function App() {
     preRange.selectNodeContents(editor);
     preRange.setEnd(range.startContainer, range.startOffset);
     const fragment = preRange.cloneContents();
-    const beforeText = nodeToPlainText(fragment)
-      .replace(/\u00a0/g, " ")
-      .replace(/\r\n/g, "\n");
-    const normalized = beforeText.replace(/\r\n/g, "\n");
+    const normalized = normalizePlainText(nodeToPlainText(fragment));
     const lines = normalized.split("\n");
     const currentLine = Math.max(lines.length, 1);
-    const editorText = (editor.innerText ?? "").replace(/\u00a0/g, " ").replace(/\r\n/g, "\n");
-    const editorLines = editorText.split("\n");
-    const charsBeforeCurrentLine = editorLines
-      .slice(0, Math.max(0, currentLine - 1))
-      .reduce((total, lineText) => total + lineText.length, 0);
-    const caretCharsNoBreak = preRange
-      .toString()
-      .replace(/\u00a0/g, " ")
-      .replace(/\r\n/g, "\n")
-      .replace(/\n/g, "").length;
+    const currentLineText = lines[lines.length - 1] ?? "";
     setCursorPosition({
       line: currentLine,
-      column: Math.max(1, caretCharsNoBreak - charsBeforeCurrentLine + 1),
+      column: Math.max(1, Array.from(currentLineText).length + 1),
     });
   }, []);
 
@@ -2012,7 +2001,7 @@ function App() {
     restoreEditorSelection();
     if (navigator.clipboard?.readText) {
       try {
-        const text = await navigator.clipboard.readText();
+        const text = normalizePlainText(await navigator.clipboard.readText());
         document.execCommand("insertText", false, text);
       } catch (error) {
         console.error("clipboard read failed", error);
@@ -2027,6 +2016,7 @@ function App() {
     });
   }, [
     messages.app.statuses.clipboardUnavailable,
+    normalizePlainText,
     restoreEditorSelection,
     updateContent,
     updateCursorIndex,
@@ -2035,7 +2025,7 @@ function App() {
   const handleEditorPaste = useCallback((event: ReactClipboardEvent<HTMLDivElement>) => {
     event.preventDefault();
     restoreEditorSelection();
-    const text = event.clipboardData.getData("text/plain");
+    const text = normalizePlainText(event.clipboardData.getData("text/plain"));
     document.execCommand("insertText", false, text);
     window.requestAnimationFrame(() => {
       const editor = editorRef.current;
@@ -2049,7 +2039,7 @@ function App() {
     // Dropped rich HTML/files bypass paste sanitization, so accept plain text only.
     event.preventDefault();
     restoreEditorSelection();
-    const text = event.dataTransfer.getData("text/plain");
+    const text = normalizePlainText(event.dataTransfer.getData("text/plain"));
     if (!text) return;
     document.execCommand("insertText", false, text);
     window.requestAnimationFrame(() => {

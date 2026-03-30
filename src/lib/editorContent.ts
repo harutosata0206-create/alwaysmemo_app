@@ -45,6 +45,13 @@ export function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+export function normalizePlainText(text: string): string {
+  return text
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\u2028\u2029]/g, "\n")
+    .replace(/\u00a0/g, " ");
+}
+
 export function ensureTextFileExtension(path: string, fallbackExtension = ".txt"): string {
   const trimmed = path.trim();
   if (!trimmed) return fallbackExtension;
@@ -152,8 +159,9 @@ export function nodeToPlainText(node: Node): string {
 }
 
 export function textToHtml(text: string): string {
+  const normalizedText = normalizePlainText(text);
   const div = document.createElement("div");
-  div.textContent = text;
+  div.textContent = normalizedText;
   return div.innerHTML.replace(/\n/g, "<br>");
 }
 
@@ -165,7 +173,7 @@ export function normalizeHtml(content: string): string {
 export function sanitizedHtmlToText(html: string): string {
   const div = document.createElement("div");
   div.innerHTML = html;
-  return nodeToPlainText(div).replace(/\u00a0/g, " ");
+  return normalizePlainText(nodeToPlainText(div));
 }
 
 export function htmlToText(html: string): string {
