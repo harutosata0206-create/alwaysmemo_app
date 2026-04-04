@@ -382,6 +382,8 @@ function SettingsWindow() {
                       <option value="system">{messages.common.languageOptions.system}</option>
                       <option value="ja">{messages.common.languageOptions.ja}</option>
                       <option value="en">{messages.common.languageOptions.en}</option>
+                      <option value="es">{messages.common.languageOptions.es}</option>
+                      <option value="pt-BR">{messages.common.languageOptions["pt-BR"]}</option>
                     </select>
                   </div>
                 </div>

@@ -144,6 +144,14 @@ export function nodeToPlainText(node: Node): string {
 
   let text = "";
   node.childNodes.forEach((child) => {
+    if (
+      child.nodeType === Node.ELEMENT_NODE &&
+      BLOCK_TEXT_TAGS.has((child as Element).tagName) &&
+      text.length > 0 &&
+      !text.endsWith("\n")
+    ) {
+      text += "\n";
+    }
     text += nodeToPlainText(child);
   });
 
@@ -173,6 +181,15 @@ function isPlaceholderBreak(node: Node): boolean {
   );
 }
 
+function shouldInsertBlockBoundaryLineBreak(nextChild: Node, currentText: string): boolean {
+  return (
+    nextChild.nodeType === Node.ELEMENT_NODE &&
+    BLOCK_TEXT_TAGS.has((nextChild as Element).tagName) &&
+    currentText.length > 0 &&
+    !currentText.endsWith("\n")
+  );
+}
+
 export function nodeToPlainTextBeforePosition(
   root: Node,
   container: Node,
@@ -192,6 +209,9 @@ export function nodeToPlainTextBeforePosition(
       let text = "";
       for (let index = 0; index < Math.min(offset, node.childNodes.length); index += 1) {
         const child = node.childNodes[index];
+        if (shouldInsertBlockBoundaryLineBreak(child, text)) {
+          text += "\n";
+        }
         if (isPlaceholderBreak(child)) continue;
         text += nodeToPlainText(child);
       }
@@ -210,6 +230,9 @@ export function nodeToPlainTextBeforePosition(
 
     let text = "";
     for (const child of Array.from(node.childNodes)) {
+      if (shouldInsertBlockBoundaryLineBreak(child, text)) {
+        text += "\n";
+      }
       const result = walk(child);
       text += result.text;
       if (result.hit) {
