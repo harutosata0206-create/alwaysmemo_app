@@ -15,11 +15,8 @@ import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
-  currentMonitor,
   getCurrentWindow,
   LogicalSize,
-  PhysicalPosition,
-  PhysicalSize,
   UserAttentionType,
 } from "@tauri-apps/api/window";
 import {
@@ -43,10 +40,9 @@ import {
   normalizeHtml,
   nodeToPlainTextBeforePosition,
   replaceTextInHtml,
-  sanitizeEditorHtml,
-  sanitizedHtmlToText,
-  stripSearchHighlights,
+  stripTrustedSearchHighlights,
   textToHtml,
+  trustedHtmlToText,
 } from "./lib/editorContent";
 import {
   SETTINGS_REQUEST_EVENT,
@@ -70,8 +66,8 @@ const MIN_WINDOW_HEIGHT = 200;
 const STATE_PERSIST_DEBOUNCE_MS = 300;
 const STORAGE_KEY = "alwaysmemo-state";
 const GLOBAL_SHORTCUT_SYNC_KEY = "alwaysmemo-global-shortcut-sync";
+const PENDING_OPEN_FILES_EVENT = "alwaysmemo:pending-open-files";
 const TAB_CLOSE_ANIMATION_MS = 140;
-const GEOMETRY_TRACE_WINDOW_MS = 500;
 const HELP_URL = "https://alwaysmemo.pages.dev/help";
 const HELP_HINT_STORAGE_KEY = "alwaysmemo-help-hint-seen";
 const DEFAULT_USE_GLOBAL_SHORTCUTS = true;
@@ -121,37 +117,6 @@ const MAX_RECENT_CLOSED_FILES = 7;
 type OpenedTextFile = {
   path: string;
   contents: string;
-};
-
-type WindowStateSnapshot = {
-  tauriMaximized: boolean;
-  inferredMaximized: boolean;
-  effectiveMaximized: boolean;
-  fullscreen: boolean;
-  size: PhysicalSize;
-  innerSize: PhysicalSize;
-  position: PhysicalPosition;
-  innerPosition: PhysicalPosition;
-  frameSize: PhysicalSize;
-  frameInsets: {
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-  };
-  workArea:
-    | {
-        position: PhysicalPosition;
-        size: PhysicalSize;
-      }
-    | null;
-};
-
-type GeometryTraceState = {
-  activeUntil: number;
-  startedAt: number;
-  reason: string;
-  seq: number;
 };
 
 function App() {
@@ -217,7 +182,6 @@ function App() {
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
   const tabCloseTimerRef = useRef<Record<string, number>>({});
   const windowStateSyncTimerRef = useRef<number | null>(null);
-  const geometryTraceRef = useRef<GeometryTraceState | null>(null);
   const settingsSnapshotRef = useRef<BridgeSettingsSnapshot>({
     alwaysOnTop: false,
     useGlobalShortcuts: DEFAULT_USE_GLOBAL_SHORTCUTS,
@@ -254,169 +218,28 @@ function App() {
     () => createSettingsWindowLabel(currentWindowLabel),
     [currentWindowLabel],
   );
-  const writeDebugLog = useCallback(async (message: string) => {
-    try {
-      await invoke("write_debug_log", { message });
-    } catch {
-      // Logging should never affect runtime behavior.
-    }
-  }, []);
   const effectiveTheme = useMemo(
     () => (themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : themeMode),
     [systemPrefersDark, themeMode],
   );
-
-  const pushWindowDebug = useCallback(
-    (event: string, detail: Record<string, unknown>) => {
-      void event;
-      void detail;
-    },
-    [],
-  );
-
-  const formatSize = useCallback((size: { width: number; height: number }) => (
-    `${Math.round(size.width)}x${Math.round(size.height)}`
-  ), []);
-
-  const formatPosition = useCallback((position: { x: number; y: number }) => (
-    `${Math.round(position.x)},${Math.round(position.y)}`
-  ), []);
-
-  const readWindowStateSnapshot = useCallback(async (): Promise<WindowStateSnapshot> => {
-    const [tauriMaximized, fullscreen, size, innerSize, position, innerPosition, monitor] = await Promise.all([
-      windowHandle.isMaximized(),
-      windowHandle.isFullscreen(),
-      windowHandle.outerSize(),
-      windowHandle.innerSize(),
-      windowHandle.outerPosition(),
-      windowHandle.innerPosition(),
-      currentMonitor(),
-    ]);
-    const workArea = monitor?.workArea
-      ? {
-          position: new PhysicalPosition(monitor.workArea.position),
-          size: new PhysicalSize(monitor.workArea.size),
-        }
-      : null;
-    const scaleFactor = monitor?.scaleFactor ?? window.devicePixelRatio ?? 1;
-    const threshold = Math.max(4, Math.round(scaleFactor * 4));
-    const frameInsets = {
-      left: Math.max(0, innerPosition.x - position.x),
-      top: Math.max(0, innerPosition.y - position.y),
-      right: Math.max(0, size.width - innerSize.width - Math.max(0, innerPosition.x - position.x)),
-      bottom: Math.max(0, size.height - innerSize.height - Math.max(0, innerPosition.y - position.y)),
-    };
-    const outerMatchesWorkArea =
-      workArea !== null &&
-      Math.abs(position.x - workArea.position.x) <= threshold &&
-      Math.abs(position.y - workArea.position.y) <= threshold &&
-      Math.abs(size.width - workArea.size.width) <= threshold &&
-      Math.abs(size.height - workArea.size.height) <= threshold;
-    const innerMatchesWorkArea =
-      workArea !== null &&
-      Math.abs(innerPosition.x - workArea.position.x) <= threshold &&
-      Math.abs(innerPosition.y - workArea.position.y) <= threshold &&
-      Math.abs(innerSize.width - workArea.size.width) <= threshold &&
-      Math.abs(innerSize.height - workArea.size.height) <= threshold;
-    const inferredMaximized = outerMatchesWorkArea || innerMatchesWorkArea;
-
-    return {
-      tauriMaximized,
-      inferredMaximized,
-      effectiveMaximized: tauriMaximized || inferredMaximized,
-      fullscreen,
-      size: new PhysicalSize(size),
-      innerSize: new PhysicalSize(innerSize),
-      position: new PhysicalPosition(position),
-      innerPosition: new PhysicalPosition(innerPosition),
-      frameSize: new PhysicalSize({
-        width: Math.max(0, size.width - innerSize.width),
-        height: Math.max(0, size.height - innerSize.height),
-      }),
-      frameInsets,
-      workArea,
-    };
-  }, [windowHandle]);
-
-  const beginGeometryTrace = useCallback((reason: string) => {
-    const startedAt = performance.now();
-    geometryTraceRef.current = {
-      activeUntil: startedAt + GEOMETRY_TRACE_WINDOW_MS,
-      startedAt,
-      reason,
-      seq: 0,
-    };
-    console.info("[geometry-trace] start", {
-      reason,
-      windowMs: GEOMETRY_TRACE_WINDOW_MS,
-    });
-  }, []);
-
-  const traceGeometry = useCallback(async (event: string, detail: Record<string, unknown> = {}) => {
-    const trace = geometryTraceRef.current;
-    if (!trace) return;
-    const now = performance.now();
-    if (now > trace.activeUntil) return;
-    trace.seq += 1;
-    const seq = trace.seq;
+  const syncWindowMaximizedState = useCallback(async () => {
     try {
-      const snapshot = await readWindowStateSnapshot();
-      console.info(`[geometry-trace #${seq}] ${event}`, {
-        t: Math.round(now - trace.startedAt),
-        reason: trace.reason,
-        ...detail,
-        tauriMaximized: snapshot.tauriMaximized,
-        inferredMaximized: snapshot.inferredMaximized,
-        effectiveMaximized: snapshot.effectiveMaximized,
-        outer: formatSize(snapshot.size),
-        inner: formatSize(snapshot.innerSize),
-        pos: formatPosition(snapshot.position),
-        innerPos: formatPosition(snapshot.innerPosition),
-      });
-    } catch (error) {
-      console.info(`[geometry-trace #${seq}] ${event}`, {
-        t: Math.round(now - trace.startedAt),
-        reason: trace.reason,
-        ...detail,
-        snapshotError: String(error),
-      });
-    }
-  }, [formatPosition, formatSize, readWindowStateSnapshot]);
-
-  const syncWindowMaximizedState = useCallback(async (source = "sync") => {
-    try {
-      const snapshot = await readWindowStateSnapshot();
-      setIsWindowMaximized(snapshot.tauriMaximized);
-      pushWindowDebug(source, {
-        max: snapshot.tauriMaximized,
-        tauri: snapshot.tauriMaximized,
-        inferred: snapshot.inferredMaximized,
-        effective: snapshot.effectiveMaximized,
-        fullscreen: snapshot.fullscreen,
-        outer: `${snapshot.size.width}x${snapshot.size.height}`,
-        inner: `${snapshot.innerSize.width}x${snapshot.innerSize.height}`,
-        frame: `${snapshot.frameSize.width}x${snapshot.frameSize.height}`,
-        insets: `${snapshot.frameInsets.left},${snapshot.frameInsets.top},${snapshot.frameInsets.right},${snapshot.frameInsets.bottom}`,
-        pos: `${snapshot.position.x},${snapshot.position.y}`,
-        innerPos: `${snapshot.innerPosition.x},${snapshot.innerPosition.y}`,
-        workArea: snapshot.workArea
-          ? `${snapshot.workArea.position.x},${snapshot.workArea.position.y} ${snapshot.workArea.size.width}x${snapshot.workArea.size.height}`
-          : "n/a",
-      });
-      return snapshot;
+      const maximized = await windowHandle.isMaximized();
+      setIsWindowMaximized(maximized);
+      return maximized;
     } catch (error) {
       console.error("Failed to sync maximized state", error);
       return null;
     }
-  }, [pushWindowDebug, readWindowStateSnapshot]);
+  }, [windowHandle]);
 
-  const scheduleWindowMaximizedSync = useCallback((source = "sync", delay = 120) => {
+  const scheduleWindowMaximizedSync = useCallback((delay = 120) => {
     if (windowStateSyncTimerRef.current !== null) {
       window.clearTimeout(windowStateSyncTimerRef.current);
     }
     windowStateSyncTimerRef.current = window.setTimeout(() => {
       windowStateSyncTimerRef.current = null;
-      void syncWindowMaximizedState(source);
+      void syncWindowMaximizedState();
     }, delay);
   }, [syncWindowMaximizedState]);
 
@@ -430,8 +253,7 @@ function App() {
     tabHistoryRef.current = [...tabHistoryRef.current.filter((id) => id !== activeTabId), activeTabId].slice(-100);
   }, [activeTabId]);
   const activeHtml = activeTab?.content ?? "";
-  const sanitizedActiveHtml = useMemo(() => sanitizeEditorHtml(activeHtml), [activeHtml]);
-  const activePlainText = useMemo(() => sanitizedHtmlToText(sanitizedActiveHtml), [sanitizedActiveHtml]);
+  const activePlainText = useMemo(() => trustedHtmlToText(activeHtml), [activeHtml]);
   const storageKey = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     const instance = params.get("instance");
@@ -449,10 +271,8 @@ function App() {
   );
 
   const applyEditorHtml = useCallback((editor: HTMLDivElement, html: string) => {
-    // Last-line defense before HTML reaches the live DOM.
-    const safeHtml = sanitizeEditorHtml(html);
-    if (editor.innerHTML !== safeHtml) {
-      editor.innerHTML = safeHtml;
+    if (editor.innerHTML !== html) {
+      editor.innerHTML = html;
     }
   }, []);
 
@@ -711,30 +531,27 @@ function App() {
 
   const openFilesByPaths = useCallback(
     async (paths: string[], options?: { announce?: boolean }) => {
-      void writeDebugLog(`openFilesByPaths:start paths=${JSON.stringify(paths)}`);
+      if (paths.length === 0) return;
       for (const path of paths) {
         const opened = await invoke<OpenedTextFile | null>("open_text_file_by_path", {
           path,
         });
         if (!opened) {
-          void writeDebugLog(`openFilesByPaths:missing path=${path}`);
           continue;
         }
-        void writeDebugLog(`openFilesByPaths:opened path=${opened.path}`);
         appendOpenedFileTab(opened, options);
       }
     },
-    [appendOpenedFileTab, writeDebugLog],
+    [appendOpenedFileTab],
   );
 
   const drainPendingOpenFiles = useCallback(
     async (options?: { announce?: boolean }) => {
       const paths = await invoke<string[]>("take_pending_open_files");
-      void writeDebugLog(`drainPendingOpenFiles paths=${JSON.stringify(paths)}`);
       if (paths.length === 0) return;
       await openFilesByPaths(paths, options);
     },
-    [openFilesByPaths, writeDebugLog],
+    [openFilesByPaths],
   );
 
   const isRecentEligiblePath = useCallback((path?: string | null) => {
@@ -1469,7 +1286,6 @@ function App() {
         if (openPathParam) {
           try {
             const decodedPath = decodeURIComponent(openPathParam);
-            void writeDebugLog(`initState openPathParam=${decodedPath}`);
             await openFilesByPaths([decodedPath], { announce: false });
           } catch (error) {
             console.error("Failed to open startup path", error);
@@ -1491,32 +1307,49 @@ function App() {
 
     let cancelled = false;
     let busy = false;
+    let rerunRequested = false;
+    let unlistenPendingOpen: (() => void) | undefined;
 
     const pumpPendingOpenFiles = () => {
-      if (cancelled || busy) return;
+      if (cancelled) return;
+      if (busy) {
+        rerunRequested = true;
+        return;
+      }
       busy = true;
       void (async () => {
         try {
           await drainPendingOpenFiles();
         } catch (error) {
-          console.error("Failed to poll pending external file opens", error);
+          console.error("Failed to drain pending external file opens", error);
           setStatus(messages.app.statuses.failedOpenFile);
         } finally {
           busy = false;
+          if (rerunRequested && !cancelled) {
+            rerunRequested = false;
+            pumpPendingOpenFiles();
+          }
         }
       })();
     };
 
-    const initialTimer = window.setTimeout(pumpPendingOpenFiles, 500);
-    const intervalId = window.setInterval(pumpPendingOpenFiles, 500);
+    void currentWebviewWindow.listen(PENDING_OPEN_FILES_EVENT, () => {
+      pumpPendingOpenFiles();
+    }).then((cleanup) => {
+      unlistenPendingOpen = cleanup;
+      pumpPendingOpenFiles();
+    }).catch((error) => {
+      console.error("Failed to listen for pending open files", error);
+      setStatus(messages.app.statuses.failedOpenFile);
+    });
 
     return () => {
       cancelled = true;
-      window.clearTimeout(initialTimer);
-      window.clearInterval(intervalId);
+      unlistenPendingOpen?.();
     };
   }, [
     currentWindowLabel,
+    currentWebviewWindow,
     drainPendingOpenFiles,
     messages.app.statuses.failedOpenFile,
     startupStateReady,
@@ -1975,12 +1808,13 @@ function App() {
 
   const updateContent = useCallback((content: string) => {
     if (!activeTab) return;
-    // contentEditable 由来のHTMLは state 保存前に必ず sanitize する。
-    const clean = sanitizeEditorHtml(stripSearchHighlights(content));
+    // Live editor DOM stays on a trusted path; strip transient search markup before persisting.
+    const clean = stripTrustedSearchHighlights(content);
+    if (clean === activeTab.content) return;
     setTabs((prev) =>
       prev.map((t) => (t.id === activeTab.id ? { ...t, content: clean } : t)),
     );
-  }, [activeTab, stripSearchHighlights]);
+  }, [activeTab]);
 
   const runEditorCommand = useCallback((command: string) => {
     const editor = editorRef.current;
@@ -2172,10 +2006,10 @@ function App() {
       const trimmed = query.trim();
       if (!trimmed) {
         setSearchMatchCount(0);
-        applyEditorHtml(editor, sanitizedActiveHtml);
+        applyEditorHtml(editor, activeHtml);
         return;
       }
-      const baseHtml = stripSearchHighlights(sanitizedActiveHtml);
+      const baseHtml = stripTrustedSearchHighlights(activeHtml);
       const container = document.createElement("div");
       container.innerHTML = baseHtml;
       const regex = new RegExp(escapeRegex(trimmed), "gi");
@@ -2224,18 +2058,18 @@ function App() {
         (firstHit as HTMLElement).scrollIntoView({ block: "center" });
       }
     },
-    [applyEditorHtml, sanitizedActiveHtml, stripSearchHighlights],
+    [activeHtml, applyEditorHtml],
   );
 
   const replaceMatches = useCallback(
     (mode: "one" | "all") => {
       const trimmed = searchQuery.trim();
       if (!trimmed || !activeTab) return;
-      const nextHtml = replaceTextInHtml(sanitizedActiveHtml, trimmed, replaceQuery, mode);
+      const nextHtml = replaceTextInHtml(activeHtml, trimmed, replaceQuery, mode);
       updateContent(nextHtml);
       window.requestAnimationFrame(() => applySearchHighlights(trimmed));
     },
-    [activeTab, applySearchHighlights, replaceQuery, sanitizedActiveHtml, searchQuery, updateContent],
+    [activeHtml, activeTab, applySearchHighlights, replaceQuery, searchQuery, updateContent],
   );
 
   useEffect(() => {
@@ -2246,8 +2080,8 @@ function App() {
       return;
     }
     setSearchMatchCount(0);
-    applyEditorHtml(editor, sanitizedActiveHtml);
-  }, [activeTabId, applyEditorHtml, applySearchHighlights, sanitizedActiveHtml, searchQuery, showSearchBox]);
+    applyEditorHtml(editor, activeHtml);
+  }, [activeHtml, activeTabId, applyEditorHtml, applySearchHighlights, searchQuery, showSearchBox]);
 
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
@@ -2280,35 +2114,26 @@ function App() {
   };
 
   const toggleMaximizeWindow = useCallback(async () => {
-    const before = await syncWindowMaximizedState("toggle-before");
-    const traceReason = before?.tauriMaximized ? "native-unmaximize" : "native-maximize";
-    beginGeometryTrace(traceReason);
+    const wasMaximized = await syncWindowMaximizedState();
+    if (wasMaximized === null) return;
     try {
-      void traceGeometry("maximize-button:before-api", {
-        from: before?.tauriMaximized ? "maximized" : "normal",
-      });
-      if (before?.tauriMaximized) {
+      if (wasMaximized) {
         await windowHandle.unmaximize();
-        pushWindowDebug("native-unmaximize", {});
       } else {
         await windowHandle.maximize();
-        pushWindowDebug("native-maximize", {});
       }
-      void traceGeometry("maximize-button:after-api");
     } catch (error) {
       console.error("Failed to toggle maximize", error);
-      pushWindowDebug("toggle-failed", { error: String(error) });
-      void traceGeometry("maximize-button:api-failed", { error: String(error) });
       return;
     }
 
     void window.setTimeout(() => {
-      void syncWindowMaximizedState("toggle-after-60ms");
+      void syncWindowMaximizedState();
     }, 60);
     void window.setTimeout(() => {
-      void syncWindowMaximizedState("toggle-after-180ms");
+      void syncWindowMaximizedState();
     }, 180);
-  }, [beginGeometryTrace, pushWindowDebug, syncWindowMaximizedState, traceGeometry, windowHandle]);
+  }, [syncWindowMaximizedState, windowHandle]);
 
   const handleWindowDragStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
@@ -2318,9 +2143,8 @@ function App() {
     }
     void windowHandle.startDragging().catch((error) => {
       console.error("Failed to start dragging window", error);
-      pushWindowDebug("drag-region-failed", { error: String(error) });
     });
-  }, [pushWindowDebug, toggleMaximizeWindow, windowHandle]);
+  }, [toggleMaximizeWindow, windowHandle]);
 
   const closeWindow = useCallback(async () => {
     if (allowImmediateCloseRef.current) {
@@ -2392,18 +2216,16 @@ function App() {
   useEffect(() => {
     let unlistenResize: (() => void) | undefined;
     let unlistenMove: (() => void) | undefined;
-    void syncWindowMaximizedState("mount");
+    void syncWindowMaximizedState();
     void windowHandle.onResized(() => {
-      void traceGeometry("onResized");
-      scheduleWindowMaximizedSync("resized");
+      scheduleWindowMaximizedSync();
     }).then((cleanup) => {
       unlistenResize = cleanup;
     }).catch((error) => {
       console.error("Failed to listen for resize", error);
     });
     void windowHandle.onMoved(() => {
-      void traceGeometry("onMoved");
-      scheduleWindowMaximizedSync("moved");
+      scheduleWindowMaximizedSync();
     }).then((cleanup) => {
       unlistenMove = cleanup;
     }).catch((error) => {
@@ -2416,7 +2238,7 @@ function App() {
       unlistenResize?.();
       unlistenMove?.();
     };
-  }, [scheduleWindowMaximizedSync, syncWindowMaximizedState, traceGeometry, windowHandle]);
+  }, [scheduleWindowMaximizedSync, syncWindowMaximizedState, windowHandle]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -2686,7 +2508,7 @@ function App() {
 
   const getTabLabel = (tab: Tab) => {
     if (!isUntitledTitle(tab.title)) return tab.title;
-    const trimmed = htmlToText(tab.content).trimStart();
+    const trimmed = trustedHtmlToText(tab.content).trimStart();
     if (!trimmed) return messages.app.untitledTab;
     const firstLine = trimmed.split(/\r?\n/)[0] ?? "";
     const maxLength = 20;

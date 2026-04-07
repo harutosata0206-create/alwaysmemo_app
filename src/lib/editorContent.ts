@@ -80,6 +80,18 @@ export function sanitizeEditorHtml(html: string): string {
   return container.innerHTML;
 }
 
+function unwrapSearchHighlightMarks(root: ParentNode): void {
+  root.querySelectorAll("mark.search-hit").forEach((mark) => {
+    const parent = mark.parentNode;
+    if (!parent) return;
+    while (mark.firstChild) {
+      parent.insertBefore(mark.firstChild, mark);
+    }
+    parent.removeChild(mark);
+    parent.normalize();
+  });
+}
+
 export function replaceTextInHtml(
   html: string,
   query: string,
@@ -276,21 +288,27 @@ export function sanitizedHtmlToText(html: string): string {
   return normalizePlainText(nodeToPlainText(div));
 }
 
+export function trustedHtmlToText(html: string): string {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  unwrapSearchHighlightMarks(div);
+  return normalizePlainText(nodeToPlainText(div));
+}
+
 export function htmlToText(html: string): string {
-  return sanitizedHtmlToText(sanitizeEditorHtml(html));
+  return trustedHtmlToText(sanitizeEditorHtml(html));
+}
+
+export function stripTrustedSearchHighlights(html: string): string {
+  const container = document.createElement("div");
+  container.innerHTML = html;
+  unwrapSearchHighlightMarks(container);
+  return container.innerHTML;
 }
 
 export function stripSearchHighlights(html: string): string {
   const container = document.createElement("div");
   container.innerHTML = sanitizeEditorHtml(html);
-  container.querySelectorAll("mark.search-hit").forEach((mark) => {
-    const parent = mark.parentNode;
-    if (!parent) return;
-    while (mark.firstChild) {
-      parent.insertBefore(mark.firstChild, mark);
-    }
-    parent.removeChild(mark);
-    parent.normalize();
-  });
+  unwrapSearchHighlightMarks(container);
   return sanitizeEditorHtml(container.innerHTML);
 }
