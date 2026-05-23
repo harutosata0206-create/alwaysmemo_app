@@ -112,7 +112,7 @@ type RecentClosedFile = {
   title: string;
   closedAt: number;
 };
-const MAX_RECENT_CLOSED_FILES = 7;
+const MAX_RECENT_CLOSED_FILES = 5;
 
 type OpenedTextFile = {
   path: string;
@@ -206,7 +206,7 @@ function App() {
   const [goToLineValue, setGoToLineValue] = useState("1");
   const goToLineInputRef = useRef<HTMLInputElement | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [, setRecentClosedFiles] = useState<RecentClosedFile[]>([]);
+  const [recentClosedFiles, setRecentClosedFiles] = useState<RecentClosedFile[]>([]);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
@@ -1467,7 +1467,7 @@ function App() {
           (item) =>
             Boolean(item?.path) &&
             Boolean(item?.title) &&
-            /\.txt$/i.test(item.path),
+            FILE_PATH_PATTERN.test(item.path),
         )
         .slice(0, MAX_RECENT_CLOSED_FILES);
       setRecentClosedFiles(cleaned);
@@ -2775,6 +2775,23 @@ function App() {
                     <button type="button" className="menu-item" onClick={() => { closeMenus(); void closeWindow(); }}>
                       <span>{messages.app.menu.exit}</span>
                     </button>
+                    {recentClosedFiles.length > 0 ? (
+                      <>
+                        <div className="menu-divider" />
+                        <div className="menu-section-label">{messages.app.menu.recentFiles}</div>
+                        {recentClosedFiles.map((file) => (
+                          <button
+                            key={file.path}
+                            type="button"
+                            className="menu-item"
+                            title={file.path}
+                            onClick={() => { closeMenus(); void openFilesByPaths([file.path]); }}
+                          >
+                            <span>{file.title}</span>
+                          </button>
+                        ))}
+                      </>
+                    ) : null}
                   </div>
                 ) : null}
               </div>

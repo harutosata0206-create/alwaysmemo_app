@@ -51,6 +51,7 @@ type Messages = {
       newTab: string;
       newWindow: string;
       open: string;
+      recentFiles: string;
       save: string;
       saveAs: string;
       saveAll: string;
@@ -274,6 +275,7 @@ const translations: Record<AppLanguage, Messages> = {
         newTab: "新しいタブ",
         newWindow: "新しいウィンドウ",
         open: "開く",
+        recentFiles: "新着順",
         save: "保存",
         saveAs: "名前を付けて保存",
         saveAll: "すべて保存",
@@ -506,6 +508,7 @@ const translations: Record<AppLanguage, Messages> = {
         newTab: "New Tab",
         newWindow: "New Window",
         open: "Open",
+        recentFiles: "Recent Files",
         save: "Save",
         saveAs: "Save As",
         saveAll: "Save All",
@@ -738,6 +741,7 @@ const translations: Record<AppLanguage, Messages> = {
         newTab: "Nueva pestaña",
         newWindow: "Nueva ventana",
         open: "Abrir",
+        recentFiles: "Archivos recientes",
         save: "Guardar",
         saveAs: "Guardar como",
         saveAll: "Guardar todo",
@@ -970,6 +974,7 @@ const translations: Record<AppLanguage, Messages> = {
         newTab: "Nova aba",
         newWindow: "Nova janela",
         open: "Abrir",
+        recentFiles: "Arquivos recentes",
         save: "Salvar",
         saveAs: "Salvar como",
         saveAll: "Salvar tudo",

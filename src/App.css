@@ -680,7 +680,8 @@ body::-webkit-scrollbar-thumb,
 
 .file-menu-panel {
   min-width: 232px;
-  max-width: min(296px, calc(100vw - 16px));
+  width: 232px;
+  max-width: min(232px, calc(100vw - 16px));
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -761,6 +762,7 @@ body::-webkit-scrollbar-thumb,
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .menu-item:hover {
@@ -790,6 +792,13 @@ body::-webkit-scrollbar-thumb,
   height: 1px;
   background: #e2e8f0;
   margin: 4px 2px;
+}
+
+.menu-section-label {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 6px 2px;
 }
 
 .menu-item.toggle {
@@ -2446,6 +2455,10 @@ body::-webkit-scrollbar-thumb,
 
 .app.theme-dark .menu-divider {
   background: #1e3563;
+}
+
+.app.theme-dark .menu-section-label {
+  color: #9fb3d8;
 }
 
 html.global-dark,
