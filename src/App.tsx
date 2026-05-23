@@ -2192,8 +2192,23 @@ function App() {
     }
   }, [isTabDirty, saveTab, tabs, windowHandle]);
 
+  const focusAlwaysMemo = useCallback(async () => {
+    try {
+      if (await windowHandle.isMinimized()) {
+        await windowHandle.unminimize();
+      }
+      await windowHandle.show();
+      await windowHandle.setFocus();
+      await windowHandle.requestUserAttention(UserAttentionType.Informational);
+      restoreEditorSelection();
+    } catch (error) {
+      console.error("Failed to focus AlwaysMemo", error);
+    }
+  }, [restoreEditorSelection, windowHandle]);
+
   const shortcutActions = useMemo(
     () => [
+      { id: "focusAlwaysMemo", combo: "Ctrl+Alt+[", action: focusAlwaysMemo },
       { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: toggleAlwaysOnTop },
       { id: "snapLeft", combo: "Ctrl+Alt+Left", action: snapLeft },
       { id: "snapRight", combo: "Ctrl+Alt+Right", action: snapRight },
@@ -2203,6 +2218,7 @@ function App() {
       { id: "fitContent", combo: "Ctrl+Alt+K", action: resizeToFitContent },
     ],
     [
+      focusAlwaysMemo,
       resizeToFitContent,
       resizeToMinimum,
       snapBottom,
@@ -2336,6 +2352,11 @@ function App() {
       }
       if (!event.ctrlKey || !event.altKey) return;
       switch (event.code) {
+        case "BracketLeft": {
+          event.preventDefault();
+          void focusAlwaysMemo();
+          break;
+        }
         case "KeyT": {
           event.preventDefault();
           setStatus(messages.app.statuses.hotkeyToggleAlwaysOnTop);
@@ -2387,6 +2408,7 @@ function App() {
     cycleActiveTab,
     closeActiveTab,
     closeWindow,
+    focusAlwaysMemo,
     openFilePicker,
     openNewWindow,
     resizeToFitContent,
