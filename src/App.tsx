@@ -319,20 +319,47 @@ function App() {
     savedSelectionRef.current = range.cloneRange();
   }, []);
 
-  const restoreEditorSelection = useCallback(() => {
+  const moveEditorSelectionToEnd = useCallback(() => {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection) return;
+    editor.focus();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    savedSelectionRef.current = range.cloneRange();
+    updateCursorIndex();
+  }, [updateCursorIndex]);
+
+  const restoreEditorSelection = useCallback((options?: { fallbackToEnd?: boolean }) => {
     const editor = editorRef.current;
     const selection = window.getSelection();
     const saved = savedSelectionRef.current;
     if (!editor || !selection) return;
     editor.focus();
-    if (!saved) return;
+    if (!saved) {
+      if (options?.fallbackToEnd) {
+        moveEditorSelectionToEnd();
+      }
+      return;
+    }
+    if (!editor.contains(saved.startContainer) || !editor.contains(saved.endContainer)) {
+      if (options?.fallbackToEnd) {
+        moveEditorSelectionToEnd();
+      }
+      return;
+    }
     try {
       selection.removeAllRanges();
       selection.addRange(saved);
     } catch {
-      // Ignore stale range; keep editor focused and let command apply at caret.
+      if (options?.fallbackToEnd) {
+        moveEditorSelectionToEnd();
+      }
     }
-  }, []);
+  }, [moveEditorSelectionToEnd]);
 
   const persistState = useCallback(
     (nextTabs: Tab[], nextActiveId = activeTabId) => {
@@ -2200,7 +2227,7 @@ function App() {
       await windowHandle.show();
       await windowHandle.setFocus();
       await windowHandle.requestUserAttention(UserAttentionType.Informational);
-      restoreEditorSelection();
+      restoreEditorSelection({ fallbackToEnd: true });
     } catch (error) {
       console.error("Failed to focus AlwaysMemo", error);
     }
