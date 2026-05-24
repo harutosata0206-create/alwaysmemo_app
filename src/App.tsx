@@ -20,6 +20,7 @@ import {
   UserAttentionType,
 } from "@tauri-apps/api/window";
 import {
+  Check,
   CircleQuestionMark,
   Copy,
   ExternalLink,
@@ -1489,14 +1490,14 @@ function App() {
         if (!wrapper || !panel) return;
 
         const margin = 8;
+        const bottomMargin = 20;
         const wrapperRect = wrapper.getBoundingClientRect();
         const panelWidth = Math.max(panel.offsetWidth, 220);
         const panelHeight = Math.max(panel.scrollHeight, panel.offsetHeight);
-        const availableViewportHeight = Math.max(window.innerHeight - margin * 2, 180);
-        const maxHeight = Math.min(panelHeight, availableViewportHeight);
         const desiredTop = wrapperRect.bottom + 6;
-        const maxViewportTop = Math.max(margin, window.innerHeight - margin - maxHeight);
-        const viewportTop = Math.min(Math.max(desiredTop, margin), maxViewportTop);
+        const viewportTop = Math.max(desiredTop, margin);
+        const availableViewportHeight = Math.max(window.innerHeight - viewportTop - bottomMargin, 120);
+        const maxHeight = Math.min(panelHeight, availableViewportHeight);
 
         let left = 0;
         const overflowRight = wrapperRect.left + panelWidth - (window.innerWidth - margin);
@@ -2878,7 +2879,9 @@ function App() {
                       className="menu-item"
                       onClick={() => setShowStatusBar((prev) => !prev)}
                     >
-                      <span className={`menu-check ${showStatusBar ? "on" : ""}`}>✓</span>
+                      <span className={`menu-check ${showStatusBar ? "on" : ""}`}>
+                        <Check size={13} strokeWidth={2.2} aria-hidden="true" />
+                      </span>
                       <span>{messages.app.menu.statusBar}</span>
                     </button>
                     <button
@@ -2886,7 +2889,9 @@ function App() {
                       className="menu-item"
                       onClick={() => setWrapAtRightEdge((prev) => !prev)}
                     >
-                      <span className={`menu-check ${wrapAtRightEdge ? "on" : ""}`}>✓</span>
+                      <span className={`menu-check ${wrapAtRightEdge ? "on" : ""}`}>
+                        <Check size={13} strokeWidth={2.2} aria-hidden="true" />
+                      </span>
                       <span>{messages.app.menu.wrapAtRightEdge}</span>
                     </button>
                   </div>
