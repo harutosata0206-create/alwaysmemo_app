@@ -21,6 +21,7 @@ import {
 } from "@tauri-apps/api/window";
 import {
   Check,
+  ChevronDown,
   CircleQuestionMark,
   Copy,
   ExternalLink,
@@ -208,6 +209,7 @@ function App() {
   const goToLineInputRef = useRef<HTMLInputElement | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [recentClosedFiles, setRecentClosedFiles] = useState<RecentClosedFile[]>([]);
+  const [recentFilesExpanded, setRecentFilesExpanded] = useState(true);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
@@ -2779,18 +2781,33 @@ function App() {
                     {recentClosedFiles.length > 0 ? (
                       <>
                         <div className="menu-divider" />
-                        <div className="menu-section-label">{messages.app.menu.recentFiles}</div>
-                        {recentClosedFiles.map((file) => (
-                          <button
-                            key={file.path}
-                            type="button"
-                            className="menu-item"
-                            title={file.path}
-                            onClick={() => { closeMenus(); void openFilesByPaths([file.path]); }}
-                          >
-                            <span>{file.title}</span>
-                          </button>
-                        ))}
+                        <button
+                          type="button"
+                          className="menu-section-toggle"
+                          aria-expanded={recentFilesExpanded}
+                          onClick={() => setRecentFilesExpanded((prev) => !prev)}
+                        >
+                          <span>{messages.app.menu.recentFiles}</span>
+                          <ChevronDown
+                            className={`menu-section-toggle-icon ${recentFilesExpanded ? "expanded" : ""}`}
+                            size={12}
+                            strokeWidth={2.2}
+                            aria-hidden="true"
+                          />
+                        </button>
+                        {recentFilesExpanded
+                          ? recentClosedFiles.map((file) => (
+                            <button
+                              key={file.path}
+                              type="button"
+                              className="menu-item"
+                              title={file.path}
+                              onClick={() => { closeMenus(); void openFilesByPaths([file.path]); }}
+                            >
+                              <span>{file.title}</span>
+                            </button>
+                          ))
+                          : null}
                       </>
                     ) : null}
                   </div>

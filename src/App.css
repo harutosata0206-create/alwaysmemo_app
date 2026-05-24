@@ -801,6 +801,33 @@ body::-webkit-scrollbar-thumb,
   padding: 4px 6px 2px;
 }
 
+.menu-section-toggle {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 4px 6px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.menu-section-toggle:hover {
+  color: #0f172a;
+}
+
+.menu-section-toggle-icon {
+  transform: rotate(-90deg);
+  transition: transform 120ms ease;
+}
+
+.menu-section-toggle-icon.expanded {
+  transform: rotate(0deg);
+}
+
 .menu-item.toggle {
   justify-content: space-between;
 }
@@ -2458,6 +2485,14 @@ body::-webkit-scrollbar-thumb,
 
 .app.theme-dark .menu-section-label {
   color: #9fb3d8;
+}
+
+.app.theme-dark .menu-section-toggle {
+  color: #9fb3d8;
+}
+
+.app.theme-dark .menu-section-toggle:hover {
+  color: #dce7ff;
 }
 
 html.global-dark,
