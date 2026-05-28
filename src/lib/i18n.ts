@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-export const SUPPORTED_LANGUAGES = ["ja", "en", "es", "pt-BR"] as const;
+export const SUPPORTED_LANGUAGES = ["ja", "en", "es", "pt-BR", "ko"] as const;
 
 export type AppLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 export type LanguagePreference = "system" | AppLanguage;
@@ -32,6 +32,7 @@ type Messages = {
       en: string;
       es: string;
       "pt-BR": string;
+      ko: string;
     };
   };
   app: {
@@ -256,6 +257,7 @@ const translations: Record<AppLanguage, Messages> = {
         en: "English",
         es: "Español",
         "pt-BR": "Português (Brasil)",
+        ko: "한국어",
       },
     },
     app: {
@@ -489,6 +491,7 @@ const translations: Record<AppLanguage, Messages> = {
         en: "English",
         es: "Spanish",
         "pt-BR": "Portuguese (Brazil)",
+        ko: "Korean",
       },
     },
     app: {
@@ -722,6 +725,7 @@ const translations: Record<AppLanguage, Messages> = {
         en: "Inglés",
         es: "Español",
         "pt-BR": "Portugués (Brasil)",
+        ko: "Coreano",
       },
     },
     app: {
@@ -955,6 +959,7 @@ const translations: Record<AppLanguage, Messages> = {
         en: "Inglês",
         es: "Espanhol",
         "pt-BR": "Português (Brasil)",
+        ko: "Coreano",
       },
     },
     app: {
@@ -1171,6 +1176,240 @@ const translations: Record<AppLanguage, Messages> = {
       },
     },
   },
+  ko: {
+    common: {
+      productName: "AlwaysMemo",
+      on: "ON",
+      off: "OFF",
+      windowControls: {
+        minimize: "최소화",
+        maximize: "최대화",
+        restore: "복원",
+        close: "닫기",
+      },
+      languageOptions: {
+        system: "시스템",
+        ja: "일본어",
+        en: "영어",
+        es: "스페인어",
+        "pt-BR": "포르투갈어(브라질)",
+        ko: "한국어",
+      },
+    },
+    app: {
+      untitledTab: "제목 없음",
+      numberedMemo: (index) => `메모 ${index}`,
+      defaultSaveName: "memo",
+      textFileFilter: "텍스트",
+      renameTabPrompt: "탭 이름 바꾸기",
+      tabCloseAria: {
+        unsaved: "저장되지 않음",
+        close: "닫기",
+      },
+      menu: {
+        file: "파일",
+        edit: "편집",
+        view: "보기",
+        newTab: "새 탭",
+        newWindow: "새 창",
+        open: "열기",
+        recentFiles: "최근 파일",
+        save: "저장",
+        saveAs: "다른 이름으로 저장",
+        saveAll: "모두 저장",
+        alwaysOnTop: "항상 위에 표시",
+        globalShortcuts: "전역 단축키",
+        closeTab: "탭 닫기",
+        closeWindow: "창 닫기",
+        exit: "종료",
+        undo: "실행 취소",
+        cut: "잘라내기",
+        copy: "복사",
+        paste: "붙여넣기",
+        find: "찾기",
+        replace: "바꾸기",
+        goTo: "이동",
+        font: "글꼴",
+        zoomIn: "확대",
+        zoomOut: "축소",
+        resetZoom: "확대/축소 초기화",
+        statusBar: "상태 표시줄",
+        wrapAtRightEdge: "자동 줄 바꿈",
+        zoomInShortcut: "Ctrl+더하기(+)",
+        zoomOutShortcut: "Ctrl+빼기(-)",
+      },
+      search: {
+        searchPlaceholder: "검색",
+        replacePlaceholder: "바꾸기",
+        count: (count) => `${count}개 일치`,
+        close: "검색 닫기",
+        replace: "바꾸기",
+        replaceAll: "모두 바꾸기",
+      },
+      help: {
+        buttonLabel: "도움말",
+        hintLabel: "도움말 팁",
+        closeHint: "팁 닫기",
+        hintBody: "여기에서 단축키 팁과 기능 안내를 확인할 수 있습니다",
+        panelLabel: "빠른 도움말",
+        title: "도움말",
+        closePanel: "도움말 닫기",
+        shortcutsTitle: "자주 쓰는 작업",
+        pointsTitle: "AlwaysMemo의 장점",
+        openDetailedHelp: "자세한 도움말 열기",
+        shortcuts: [
+          { keys: ["Ctrl", "Alt", "T"], label: "항상 위에 표시 전환" },
+          { groups: [["Ctrl", "Alt"], ["←", "↑", "→", "↓"]], label: "창 이동" },
+          { keys: ["Ctrl", "N"], label: "새 메모 만들기" },
+          { keys: ["Ctrl", "W"], label: "현재 메모 삭제" },
+        ],
+        points: [
+          "필요할 때 메모 창을 다른 앱 위에 둘 수 있습니다",
+          "전역 단축키를 켜면 어디서든 빠르게 조작할 수 있습니다",
+        ],
+      },
+      settingsButtonLabel: "설정",
+      newTabButtonTitle: "새 탭",
+      editorPlaceholder: "여기에 메모를 입력하세요",
+      dialogs: {
+        confirmTitle: "확인",
+        unsavedMemosBeforeExit: (count) =>
+          count > 1
+            ? `저장되지 않은 메모가 ${count}개 있습니다. 닫기 전에 저장할까요?`
+            : "저장되지 않은 메모가 있습니다. 닫기 전에 저장할까요?",
+        saveChangesTo: (target) => `${target}의 변경 내용을 저장할까요?`,
+        goToLineTitle: "줄로 이동",
+        lineNumber: "줄 번호",
+        move: "이동",
+        save: "저장",
+        dontSave: "저장하지 않음",
+        cancel: "취소",
+      },
+      statusBar: {
+        lineColumn: (line, column) => `줄 ${line}, 칸 ${column}`,
+        characters: (count) => `${count}자`,
+        encoding: "UTF-8",
+        alwaysOnTop: "위에 표시",
+        shortcuts: "단축키",
+      },
+      windowTitles: {
+        main: "AlwaysMemo",
+        settings: "AlwaysMemo 설정",
+      },
+      statuses: {
+        disabledShortcutsMultiWindow: "여러 창이 열려 있어 전역 단축키를 껐습니다",
+        failedOpenNewWindow: "새 창을 열지 못했습니다",
+        opened: (title) => `${title}을(를) 열었습니다`,
+        failedOpenFile: "파일을 열지 못했습니다",
+        openingSaveDialog: "저장 대화 상자를 여는 중...",
+        saveDialogReturnedNoPath: "저장 위치가 선택되지 않았습니다",
+        savingTo: (path) => `${path}에 저장하는 중...`,
+        saved: (title) => `${title}을(를) 저장했습니다`,
+        failedSaveFile: (error) => `파일 저장에 실패했습니다: ${error}`,
+        noSavedFilesToUpdate: "업데이트할 저장된 파일이 없습니다",
+        savedAll: "모든 파일을 저장했습니다",
+        failedSaveAll: "모든 파일을 저장하지 못했습니다",
+        alwaysOnTopEnabled: "항상 위에 표시를 켰습니다",
+        alwaysOnTopDisabled: "항상 위에 표시를 껐습니다",
+        failedSetAlwaysOnTop: "항상 위에 표시 설정을 변경하지 못했습니다",
+        failedOpenSettingsWindow: "설정 창을 열지 못했습니다",
+        failedOpenDetailedHelp: "자세한 도움말을 열지 못했습니다",
+        failedToggleAlwaysOnTop: "항상 위에 표시를 전환하지 못했습니다",
+        snappedLeft: "왼쪽 위로 이동했습니다(단축키)",
+        failedSnapLeft: "왼쪽으로 이동하지 못했습니다",
+        snappedRight: "오른쪽 위로 이동했습니다(단축키)",
+        failedSnapRight: "오른쪽으로 이동하지 못했습니다",
+        snappedTop: "위쪽 가장자리로 이동했습니다(단축키)",
+        failedSnapTop: "위쪽 가장자리로 이동하지 못했습니다",
+        snappedBottom: "아래쪽 가장자리로 이동했습니다(단축키)",
+        failedSnapBottom: "아래쪽 가장자리로 이동하지 못했습니다",
+        resizedMinimum: "최소 크기로 변경했습니다(단축키)",
+        failedResizeMinimum: "최소 크기로 변경하지 못했습니다",
+        resizedFitContent: "내용에 맞게 크기를 변경했습니다(단축키)",
+        failedResizeFitContent: "내용에 맞게 크기를 변경하지 못했습니다",
+        failedReadAlwaysOnTopState: "항상 위에 표시 상태를 읽지 못했습니다",
+        clipboardUnavailable: "클립보드에 접근할 수 없습니다",
+        hotkeyToggleAlwaysOnTop: "단축키: 항상 위에 표시를 전환했습니다",
+        hotkeySnapLeft: "단축키: 왼쪽으로 이동했습니다",
+        hotkeySnapRight: "단축키: 오른쪽으로 이동했습니다",
+        hotkeySnapTop: "단축키: 위쪽 가장자리로 이동했습니다",
+        hotkeySnapBottom: "단축키: 아래쪽 가장자리로 이동했습니다",
+        globalShortcutError: (message) => `전역 단축키 오류: ${message}`,
+        globalShortcutsActive: "전역 단축키가 활성화되었습니다",
+        localShortcutsActive: "로컬 단축키가 활성화되었습니다(창 포커스 중)",
+        failedConfigureShortcuts: "단축키를 설정하지 못했습니다",
+      },
+    },
+    settings: {
+      loading: "설정을 불러오는 중...",
+      navigation: {
+        language: "언어",
+        appearance: "모양",
+        formatting: "서식",
+        features: "기능",
+        startup: "시작",
+        about: "정보",
+      },
+      language: {
+        title: "언어",
+        description: "앱 전체에서 사용할 언어를 선택합니다.",
+        label: "표시 언어",
+        helper: "시스템을 선택하면 OS 표시 언어를 따릅니다",
+      },
+      appearance: {
+        title: "모양",
+        description: "메모 창의 표시 방식을 조정합니다.",
+        themeLabel: "테마",
+        themeDescription: "앱의 색상 테마를 선택합니다",
+        themeLight: "라이트",
+        themeDark: "다크",
+        themeSystem: "시스템",
+      },
+      formatting: {
+        title: "서식",
+        description: "텍스트 표시와 구성을 조정합니다.",
+        fontSizeLabel: "글꼴 크기",
+        fontSizeDescription: "읽기 편한 크기로 조정합니다",
+        lineSpacingLabel: "줄 간격",
+        lineSpacingDescription: "줄 사이 간격을 조정합니다",
+        lineSpacingStandard: "표준",
+        lineSpacingRelaxed: "넓게",
+        wrapLabel: "줄 바꿈",
+        wrapDescription: "긴 줄을 자동으로 줄 바꿈합니다",
+        previewTitle: "미리 보기:",
+        previewLine1: "AlwaysMemo 표시 예시입니다.",
+        previewLine2: "이 문장은 줄 바꿈 설정을 확인할 수 있도록 일부러 조금 길게 작성했습니다.",
+      },
+      features: {
+        title: "기능",
+        description: "작업을 더 빠르게 도와주는 기능을 설정합니다.",
+        alwaysOnTopLabel: "항상 위에 표시",
+        alwaysOnTopDescription: "창을 다른 앱 위에 유지합니다",
+        globalShortcutsLabel: "전역 단축키",
+        globalShortcutsDescription: "시스템 어디서든 앱을 조작합니다",
+      },
+      startup: {
+        title: "시작",
+        description: "앱이 시작될 때의 동작을 선택합니다.",
+        sessionLabel: "세션",
+        restoreSession: "이전 상태 복원",
+        startNewSession: "항상 새로 시작",
+        fileOpenLabel: "파일 열기",
+        openInExistingWindow: "현재 창에 추가",
+        openInNewWindow: "새 창에서 열기",
+      },
+      about: {
+        description: "흐름을 끊지 않고 아이디어를 바로 적을 수 있는 메모 도구입니다.",
+        version: (version) => `버전 ${version}`,
+        settingsWindow: "설정 창",
+        license: "MIT 라이선스",
+        linksLabel: "AlwaysMemo 관련 링크",
+        help: "도움말",
+        terms: "이용 약관",
+        privacy: "개인정보 처리방침",
+      },
+    },
+  },
 };
 
 const untitledTitles = new Set(
@@ -1190,6 +1429,7 @@ export function resolveSystemLanguage(locales?: readonly string[]): AppLanguage 
     if (normalized.startsWith("en")) return "en";
     if (normalized.startsWith("es")) return "es";
     if (normalized.startsWith("pt")) return "pt-BR";
+    if (normalized.startsWith("ko")) return "ko";
   }
 
   return "en";

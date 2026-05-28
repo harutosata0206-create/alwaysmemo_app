@@ -2,7 +2,7 @@ export type SessionBehavior = "restore" | "new";
 export type FileOpenBehavior = "existing" | "new_window";
 export type LineSpacing = "standard" | "relaxed";
 export type ThemeMode = "light" | "dark" | "system";
-export type LanguagePreference = "system" | "ja" | "en" | "es" | "pt-BR";
+export type LanguagePreference = "system" | "ja" | "en" | "es" | "pt-BR" | "ko";
 
 export type SettingsSnapshot = {
   alwaysOnTop: boolean;
