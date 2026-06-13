@@ -10,7 +10,7 @@ export type ThemeId =
   | "sepia"
   | "lavender"
   | "sakura"
-  | "slate"
+  | "light-gray"
   | "aqua";
 
 export type ThemeColors = {
@@ -62,10 +62,10 @@ export const THEMES: ThemeDefinition[] = [
     dark: true,
     plus: false,
     colors: {
-      appBackground: "#071329", sidebarBackground: "#091A35", panelBackground: "#102243",
-      editorBackground: "#0C1C38", textPrimary: "#F1F5FF", textSecondary: "#9EB5D8",
-      borderColor: "#29446D", accentColor: "#3B73F1", accentHover: "#5588F5",
-      selectionColor: "#31589B", inputBackground: "#172D53",
+      appBackground: "#171717", sidebarBackground: "#1D1D1D", panelBackground: "#272727",
+      editorBackground: "#202020", textPrimary: "#E7E7E7", textSecondary: "#A5A5A5",
+      borderColor: "#414141", accentColor: "#8F969D", accentHover: "#A8AEB4",
+      selectionColor: "#505050", inputBackground: "#303030",
     },
   },
   {
@@ -74,10 +74,10 @@ export const THEMES: ThemeDefinition[] = [
     dark: true,
     plus: true,
     colors: {
-      appBackground: "#040B18", sidebarBackground: "#071225", panelBackground: "#0B1A31",
-      editorBackground: "#061326", textPrimary: "#EAF2FF", textSecondary: "#8FA8CC",
-      borderColor: "#203B63", accentColor: "#4B7CFF", accentHover: "#6691FF",
-      selectionColor: "#294D99", inputBackground: "#102440",
+      appBackground: "#071329", sidebarBackground: "#091A35", panelBackground: "#102243",
+      editorBackground: "#0C1C38", textPrimary: "#F1F5FF", textSecondary: "#9EB5D8",
+      borderColor: "#29446D", accentColor: "#3B73F1", accentHover: "#5588F5",
+      selectionColor: "#31589B", inputBackground: "#172D53",
     },
   },
   {
@@ -86,10 +86,10 @@ export const THEMES: ThemeDefinition[] = [
     dark: true,
     plus: true,
     colors: {
-      appBackground: "#091713", sidebarBackground: "#0C211B", panelBackground: "#133329",
-      editorBackground: "#0E271F", textPrimary: "#E8F5EE", textSecondary: "#9CC5B1",
-      borderColor: "#2B5746", accentColor: "#4DAA7B", accentHover: "#68BE91",
-      selectionColor: "#2E6A50", inputBackground: "#173D30",
+      appBackground: "#0C1D18", sidebarBackground: "#102A22", panelBackground: "#173B30",
+      editorBackground: "#123027", textPrimary: "#E8F5EE", textSecondary: "#A8CDBA",
+      borderColor: "#356A55", accentColor: "#55B486", accentHover: "#70C59B",
+      selectionColor: "#377A5D", inputBackground: "#1B4939",
     },
   },
   {
@@ -129,15 +129,15 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: "slate",
-    names: names("スレート", "Slate", "Pizarra", "Ardósia", "슬레이트"),
-    dark: true,
+    id: "light-gray",
+    names: names("ライトグレー", "Light Gray", "Gris claro", "Cinza claro", "라이트 그레이"),
+    dark: false,
     plus: true,
     colors: {
-      appBackground: "#16191E", sidebarBackground: "#1B1F25", panelBackground: "#232830",
-      editorBackground: "#1D2229", textPrimary: "#E5E7EB", textSecondary: "#9CA3AF",
-      borderColor: "#3A414C", accentColor: "#8B9BAF", accentHover: "#A1ADBC",
-      selectionColor: "#465361", inputBackground: "#2A3039",
+      appBackground: "#E9EDF2", sidebarBackground: "#DCE2E8", panelBackground: "#F3F5F7",
+      editorBackground: "#FAFBFC", textPrimary: "#2F3742", textSecondary: "#687482",
+      borderColor: "#C5CDD6", accentColor: "#6F8194", accentHover: "#8192A4",
+      selectionColor: "#C9D5E2", inputBackground: "#E5EAF0",
     },
   },
   {
@@ -156,7 +156,7 @@ export const THEMES: ThemeDefinition[] = [
 
 export const THEME_IDS: readonly ThemeId[] = [
   "light", "dark", "system", "midnight-blue", "forest",
-  "sepia", "lavender", "sakura", "slate", "aqua",
+  "sepia", "lavender", "sakura", "light-gray", "aqua",
 ];
 
 export const getTheme = (id: ThemeId, systemDark = false): ThemeDefinition =>

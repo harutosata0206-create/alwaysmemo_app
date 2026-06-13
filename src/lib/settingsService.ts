@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { SettingsSnapshot } from "./settingsBridge";
 import { THEME_IDS } from "./themes";
 
-export const SETTINGS_SCHEMA_VERSION = 2;
+export const SETTINGS_SCHEMA_VERSION = 3;
 
 export const DEFAULT_SETTINGS: SettingsSnapshot = {
   alwaysOnTop: false,
@@ -30,6 +30,11 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isOneOf = <T extends string>(value: unknown, values: readonly T[]): value is T =>
   typeof value === "string" && values.includes(value as T);
 
+const normalizeThemeMode = (value: unknown): SettingsSnapshot["themeMode"] => {
+  if (value === "slate") return "dark";
+  return isOneOf(value, THEME_IDS) ? value : DEFAULT_SETTINGS.themeMode;
+};
+
 function normalizeSettings(value: unknown): SettingsSnapshot {
   const source = isRecord(value) ? value : {};
   const fontSize = typeof source.editorFontSizePx === "number"
@@ -53,9 +58,7 @@ function normalizeSettings(value: unknown): SettingsSnapshot {
     lineSpacing: isOneOf(source.lineSpacing, ["standard", "relaxed"])
       ? source.lineSpacing
       : DEFAULT_SETTINGS.lineSpacing,
-    themeMode: isOneOf(source.themeMode, THEME_IDS)
-      ? source.themeMode
-      : DEFAULT_SETTINGS.themeMode,
+    themeMode: normalizeThemeMode(source.themeMode),
     sessionBehavior: isOneOf(source.sessionBehavior, ["restore", "new"])
       ? source.sessionBehavior
       : DEFAULT_SETTINGS.sessionBehavior,

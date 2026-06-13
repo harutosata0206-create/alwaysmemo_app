@@ -3126,6 +3126,11 @@ button:active {
   color: var(--theme-text);
 }
 
+.app.theme-palette .window-button,
+.app.theme-palette .settings-window-controls .window-button {
+  background: var(--theme-sidebar);
+}
+
 .app.theme-palette .settings-nav-item:hover,
 .app.theme-palette .settings-nav-item.active,
 .app.theme-palette .menu-button:hover,
