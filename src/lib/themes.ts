@@ -10,7 +10,7 @@ export type ThemeId =
   | "sepia"
   | "lavender"
   | "sakura"
-  | "light-gray"
+  | "middle-gray"
   | "aqua";
 
 export type ThemeColors = {
@@ -129,15 +129,15 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: "light-gray",
-    names: names("ライトグレー", "Light Gray", "Gris claro", "Cinza claro", "라이트 그레이"),
+    id: "middle-gray",
+    names: names("ミドルグレー", "Middle Gray", "Gris medio", "Cinza médio", "미들 그레이"),
     dark: false,
     plus: true,
     colors: {
-      appBackground: "#E9EDF2", sidebarBackground: "#DCE2E8", panelBackground: "#F3F5F7",
-      editorBackground: "#FAFBFC", textPrimary: "#2F3742", textSecondary: "#687482",
-      borderColor: "#C5CDD6", accentColor: "#6F8194", accentHover: "#8192A4",
-      selectionColor: "#C9D5E2", inputBackground: "#E5EAF0",
+      appBackground: "#A9ADB2", sidebarBackground: "#8F949A", panelBackground: "#B8BCC1",
+      editorBackground: "#C7CACD", textPrimary: "#24272B", textSecondary: "#54595F",
+      borderColor: "#7D838A", accentColor: "#5F6B78", accentHover: "#707D8B",
+      selectionColor: "#8FA0B2", inputBackground: "#AEB3B8",
     },
   },
   {
@@ -156,7 +156,7 @@ export const THEMES: ThemeDefinition[] = [
 
 export const THEME_IDS: readonly ThemeId[] = [
   "light", "dark", "system", "midnight-blue", "forest",
-  "sepia", "lavender", "sakura", "light-gray", "aqua",
+  "sepia", "lavender", "sakura", "middle-gray", "aqua",
 ];
 
 export const getTheme = (id: ThemeId, systemDark = false): ThemeDefinition =>

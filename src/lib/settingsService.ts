@@ -32,6 +32,7 @@ const isOneOf = <T extends string>(value: unknown, values: readonly T[]): value 
 
 const normalizeThemeMode = (value: unknown): SettingsSnapshot["themeMode"] => {
   if (value === "slate") return "dark";
+  if (value === "light-gray") return "middle-gray";
   return isOneOf(value, THEME_IDS) ? value : DEFAULT_SETTINGS.themeMode;
 };
 
