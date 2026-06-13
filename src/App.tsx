@@ -55,12 +55,15 @@ import {
   type SettingsPatch,
   type SettingsRequestPayload,
   type SettingsSnapshot as BridgeSettingsSnapshot,
+  type ThemeMode,
 } from "./lib/settingsBridge";
 import {
   isUntitledTitle,
   useMessages,
   type LanguagePreference,
 } from "./lib/i18n";
+import { loadSettings, saveSettings } from "./lib/settingsService";
+import { getTheme, getThemeStyle } from "./lib/themes";
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 300;
@@ -85,22 +88,10 @@ type SnapPosition = "left" | "right" | "top" | "bottom" | null;
 type SessionBehavior = "restore" | "new";
 type FileOpenBehavior = "existing" | "new_window";
 type LineSpacing = "standard" | "relaxed";
-type ThemeMode = "light" | "dark" | "system";
-
 type PersistedState = {
   tabs: Tab[];
   activeTabId: string | null;
-  alwaysOnTop: boolean;
   snap: SnapPosition;
-  useGlobalShortcuts: boolean;
-  showStatusBar?: boolean;
-  wrapAtRightEdge?: boolean;
-  sessionBehavior?: SessionBehavior;
-  fileOpenBehavior?: FileOpenBehavior;
-  editorFontSizePx?: number;
-  lineSpacing?: LineSpacing;
-  themeMode?: ThemeMode;
-  languagePreference?: LanguagePreference;
 };
 
 type GlobalShortcutSyncMessage = {
@@ -222,7 +213,7 @@ function App() {
     [currentWindowLabel],
   );
   const effectiveTheme = useMemo(
-    () => (themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : themeMode),
+    () => getTheme(themeMode, systemPrefersDark),
     [systemPrefersDark, themeMode],
   );
   const syncWindowMaximizedState = useCallback(async () => {
@@ -369,34 +360,14 @@ function App() {
       const state: PersistedState = {
         tabs: nextTabs,
         activeTabId: nextActiveId,
-        alwaysOnTop,
         snap,
-        useGlobalShortcuts,
-        showStatusBar,
-        wrapAtRightEdge,
-        sessionBehavior,
-        fileOpenBehavior,
-        editorFontSizePx,
-        lineSpacing,
-        themeMode,
-        languagePreference,
       };
       window.localStorage.setItem(storageKey, JSON.stringify(state));
     },
     [
       activeTabId,
-      alwaysOnTop,
-      editorFontSizePx,
-      fileOpenBehavior,
-      languagePreference,
-      lineSpacing,
-      sessionBehavior,
-      showStatusBar,
       snap,
       storageKey,
-      themeMode,
-      useGlobalShortcuts,
-      wrapAtRightEdge,
     ],
   );
 
@@ -1237,27 +1208,35 @@ function App() {
         const forceAlwaysOnTop =
           alwaysOnTopParam === "1" || alwaysOnTopParam === "true";
         const stored = window.localStorage.getItem(storageKey);
+        let legacySettings: unknown = null;
+        let parsed: PersistedState | null = null;
         if (stored) {
-          const parsed = JSON.parse(stored) as PersistedState;
-          const nextSessionBehavior = parsed.sessionBehavior ?? "restore";
-          const nextFileOpenBehavior = parsed.fileOpenBehavior ?? "existing";
-          const nextEditorFontSizePx = parsed.editorFontSizePx ?? 14;
-          const nextLineSpacing = parsed.lineSpacing ?? "standard";
-          const nextThemeMode = parsed.themeMode ?? "system";
-          const nextLanguagePreference = parsed.languagePreference ?? "system";
-          const nextShowStatusBar = parsed.showStatusBar ?? true;
-          const nextWrapAtRightEdge = parsed.wrapAtRightEdge ?? true;
-          setSessionBehavior(nextSessionBehavior);
-          setFileOpenBehavior(nextFileOpenBehavior);
-          setEditorFontSizePx(nextEditorFontSizePx);
-          setLineSpacing(nextLineSpacing);
-          setThemeMode(nextThemeMode);
-          setLanguagePreference(nextLanguagePreference);
-          setShowStatusBar(nextShowStatusBar);
-          setWrapAtRightEdge(nextWrapAtRightEdge);
+          try {
+            const candidate = JSON.parse(stored) as Record<string, unknown>;
+            legacySettings = candidate;
+            if (candidate && Array.isArray(candidate.tabs)) {
+              parsed = candidate as unknown as PersistedState;
+            }
+          } catch (error) {
+            console.error("Failed to read session state", error);
+          }
+        }
+
+        const loadedSettings = await loadSettings(legacySettings);
+        setSessionBehavior(loadedSettings.sessionBehavior);
+        setFileOpenBehavior(loadedSettings.fileOpenBehavior);
+        setEditorFontSizePx(loadedSettings.editorFontSizePx);
+        setLineSpacing(loadedSettings.lineSpacing);
+        setThemeMode(loadedSettings.themeMode);
+        setLanguagePreference(loadedSettings.languagePreference);
+        setShowStatusBar(loadedSettings.showStatusBar);
+        setWrapAtRightEdge(loadedSettings.wrapAtRightEdge);
+        setUseGlobalShortcuts(loadedSettings.useGlobalShortcuts);
+
+        if (parsed) {
           const pathMap = getPathMap();
-          const shouldRestoreTabs = nextSessionBehavior === "restore";
-          const restoredTabs = ((shouldRestoreTabs && parsed.tabs.length)
+          const shouldRestoreTabs = loadedSettings.sessionBehavior === "restore";
+          const restoredTabs = ((shouldRestoreTabs && parsed.tabs.length > 0)
             ? parsed.tabs
             : [{ id: "initial", title: messages.app.untitledTab, content: "" }]
           ).map((tab) => ({
@@ -1274,15 +1253,7 @@ function App() {
               ? parsed.activeTabId
               : restoredTabs[0]?.id ?? "initial";
           setActiveTabId(validActive);
-          setUseGlobalShortcuts(parsed.useGlobalShortcuts ?? DEFAULT_USE_GLOBAL_SHORTCUTS);
           setSnap(parsed.snap ?? null);
-          const nextAlwaysOnTop = forceAlwaysOnTopDefined
-            ? forceAlwaysOnTop
-            : parsed.alwaysOnTop ?? current;
-          setAlwaysOnTopState(nextAlwaysOnTop);
-          if (nextAlwaysOnTop) {
-            await invoke("set_always_on_top", { value: true });
-          }
           if (parsed.snap === "left") {
             await snapLeft();
           } else if (parsed.snap === "right") {
@@ -1293,25 +1264,17 @@ function App() {
             await snapBottom();
           }
         } else {
-          setSessionBehavior("restore");
-          setFileOpenBehavior("existing");
-          setEditorFontSizePx(14);
-          setLineSpacing("standard");
-          setThemeMode("system");
-          setLanguagePreference("system");
-          setUseGlobalShortcuts(DEFAULT_USE_GLOBAL_SHORTCUTS);
-          setShowStatusBar(true);
-          setWrapAtRightEdge(true);
-          const nextAlwaysOnTop = forceAlwaysOnTopDefined
-            ? forceAlwaysOnTop
-            : current;
-          setAlwaysOnTopState(nextAlwaysOnTop);
-          if (nextAlwaysOnTop) {
-            await invoke("set_always_on_top", { value: true });
-          }
           savedTabsRef.current = {
             initial: { title: messages.app.untitledTab, content: "" },
           };
+        }
+
+        const nextAlwaysOnTop = forceAlwaysOnTopDefined
+          ? forceAlwaysOnTop
+          : loadedSettings.alwaysOnTop;
+        setAlwaysOnTopState(nextAlwaysOnTop);
+        if (nextAlwaysOnTop !== current) {
+          await invoke("set_always_on_top", { value: nextAlwaysOnTop });
         }
         if (openPathParam) {
           try {
@@ -1408,12 +1371,22 @@ function App() {
 
   useEffect(() => {
     const root = document.documentElement;
-    const dark = effectiveTheme === "dark";
-    root.classList.toggle("global-dark", dark);
+    root.classList.toggle("global-dark", effectiveTheme.dark);
+    root.style.backgroundColor = effectiveTheme.colors.appBackground;
+    document.body.style.backgroundColor = effectiveTheme.colors.appBackground;
     return () => {
       root.classList.remove("global-dark");
+      root.style.removeProperty("background-color");
+      document.body.style.removeProperty("background-color");
     };
   }, [effectiveTheme]);
+
+  useEffect(() => {
+    if (!startupStateReady) return;
+    void saveSettings(settingsSnapshot).catch((error) => {
+      console.error("Failed to save settings file", error);
+    });
+  }, [settingsSnapshot, startupStateReady]);
 
   useEffect(() => {
     if (!settingsReadyRef.current) return;
@@ -1429,7 +1402,7 @@ function App() {
         window.clearTimeout(persistStateTimerRef.current);
       }
     };
-  }, [activeTabId, fileOpenBehavior, lineSpacing, persistState, sessionBehavior, tabs, themeMode]);
+  }, [activeTabId, persistState, tabs]);
 
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -2571,7 +2544,10 @@ function App() {
   };
 
   return (
-    <div className={`app theme-${effectiveTheme} ${isWindowMaximized ? "window-maximized" : ""}`}>
+    <div
+      className={`app theme-palette ${effectiveTheme.dark ? "theme-dark" : "theme-light"} ${isWindowMaximized ? "window-maximized" : ""}`}
+      style={getThemeStyle(effectiveTheme)}
+    >
       <div className="titlebar">
         <div
           className="titlebar-row top"

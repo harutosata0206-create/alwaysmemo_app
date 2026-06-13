@@ -1,7 +1,9 @@
+import type { ThemeId } from "./themes";
+
 export type SessionBehavior = "restore" | "new";
 export type FileOpenBehavior = "existing" | "new_window";
 export type LineSpacing = "standard" | "relaxed";
-export type ThemeMode = "light" | "dark" | "system";
+export type ThemeMode = ThemeId;
 export type LanguagePreference = "system" | "ja" | "en" | "es" | "pt-BR" | "ko";
 
 export type SettingsSnapshot = {

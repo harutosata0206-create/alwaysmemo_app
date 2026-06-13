@@ -8,7 +8,7 @@ import {
 } from "react";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, Monitor, Minus, Moon, Square, Sun, X, Copy } from "lucide-react";
+import { Check, ExternalLink, Minus, Square, X, Copy } from "lucide-react";
 import {
   SETTINGS_REQUEST_EVENT,
   SETTINGS_SYNC_EVENT,
@@ -21,6 +21,7 @@ import {
   type SettingsSyncPayload,
 } from "./lib/settingsBridge";
 import { useMessages } from "./lib/i18n";
+import { THEME_IDS, getTheme, getThemeName, getThemeStyle } from "./lib/themes";
 import "./App.css";
 
 const HELP_URL = "https://alwaysmemo.pages.dev/help";
@@ -44,11 +45,11 @@ function SettingsWindow() {
   );
   const [editorFontSizeInput, setEditorFontSizeInput] = useState("14");
   const settingsContentRef = useRef<HTMLDivElement | null>(null);
-  const { messages } = useMessages(snapshot?.languagePreference ?? "system");
+  const { language, messages } = useMessages(snapshot?.languagePreference ?? "system");
 
   const effectiveTheme = useMemo(() => {
     const themeMode = snapshot?.themeMode ?? "system";
-    return themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : themeMode;
+    return getTheme(themeMode, systemPrefersDark);
   }, [snapshot?.themeMode, systemPrefersDark]);
 
   const syncWindowState = useCallback(async () => {
@@ -210,10 +211,13 @@ function SettingsWindow() {
 
   useEffect(() => {
     const root = document.documentElement;
-    const dark = effectiveTheme === "dark";
-    root.classList.toggle("global-dark", dark);
+    root.classList.toggle("global-dark", effectiveTheme.dark);
+    root.style.backgroundColor = effectiveTheme.colors.appBackground;
+    document.body.style.backgroundColor = effectiveTheme.colors.appBackground;
     return () => {
       root.classList.remove("global-dark");
+      root.style.removeProperty("background-color");
+      document.body.style.removeProperty("background-color");
     };
   }, [effectiveTheme]);
 
@@ -244,7 +248,10 @@ function SettingsWindow() {
 
   if (!snapshot) {
     return (
-      <div className={`app theme-${effectiveTheme}`}>
+      <div
+        className={`app theme-palette ${effectiveTheme.dark ? "theme-dark" : "theme-light"}`}
+        style={getThemeStyle(effectiveTheme)}
+      >
         <section className="settings-screen standalone">
           <div className="settings-drag-region" onPointerDown={handleWindowDragStart} />
           <div className="settings-window-controls">
@@ -295,7 +302,10 @@ function SettingsWindow() {
   }
 
   return (
-    <div className={`app theme-${effectiveTheme} settings-window-root ${isWindowMaximized ? "window-maximized" : ""}`}>
+    <div
+      className={`app theme-palette ${effectiveTheme.dark ? "theme-dark" : "theme-light"} settings-window-root ${isWindowMaximized ? "window-maximized" : ""}`}
+      style={getThemeStyle(effectiveTheme)}
+    >
       <section className="settings-screen standalone">
         <div className="settings-drag-region" onPointerDown={handleWindowDragStart} />
         <div className="settings-window-controls">
@@ -394,18 +404,40 @@ function SettingsWindow() {
                 <h2>{messages.settings.appearance.title}</h2>
                 <p className="settings-desc">{messages.settings.appearance.description}</p>
                 <div className="theme-options">
-                  <button type="button" className={`theme-card ${snapshot.themeMode === "light" ? "active" : ""}`} onClick={() => void sendPatch({ themeMode: "light" })}>
-                    <span className="theme-icon"><Sun size={18} strokeWidth={1.8} aria-hidden="true" /></span>
-                    <span>{messages.settings.appearance.themeLight}</span>
-                  </button>
-                  <button type="button" className={`theme-card ${snapshot.themeMode === "dark" ? "active" : ""}`} onClick={() => void sendPatch({ themeMode: "dark" })}>
-                    <span className="theme-icon"><Moon size={18} strokeWidth={1.8} aria-hidden="true" /></span>
-                    <span>{messages.settings.appearance.themeDark}</span>
-                  </button>
-                  <button type="button" className={`theme-card ${snapshot.themeMode === "system" ? "active" : ""}`} onClick={() => void sendPatch({ themeMode: "system" })}>
-                    <span className="theme-icon"><Monitor size={18} strokeWidth={1.8} aria-hidden="true" /></span>
-                    <span>{messages.settings.appearance.themeSystem}</span>
-                  </button>
+                  {THEME_IDS.map((themeId) => {
+                    const previewTheme = getTheme(themeId, systemPrefersDark);
+                    const plus = themeId !== "system" && previewTheme.plus;
+                    return (
+                      <button
+                        type="button"
+                        key={themeId}
+                        className={`theme-card ${snapshot.themeMode === themeId ? "active" : ""}`}
+                        onClick={() => void sendPatch({ themeMode: themeId })}
+                      >
+                        <span
+                          className="theme-preview"
+                          data-system={themeId === "system" ? "true" : "false"}
+                          style={getThemeStyle(previewTheme)}
+                          aria-hidden="true"
+                        >
+                          <span className="theme-preview-sidebar">
+                            <i /><i /><i />
+                          </span>
+                          <span className="theme-preview-editor">
+                            <i /><i /><i />
+                            <b />
+                          </span>
+                        </span>
+                        <span className="theme-card-label">
+                          <span>{getThemeName(themeId, language)}</span>
+                          {plus ? <span className="theme-plus-badge">PLUS</span> : null}
+                        </span>
+                        {snapshot.themeMode === themeId ? (
+                          <span className="theme-selected"><Check size={14} strokeWidth={2.6} /></span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
 

@@ -1631,28 +1631,28 @@ body::-webkit-scrollbar-thumb,
 }
 
 .theme-options {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(132px, 1fr));
+  gap: 12px;
   width: 100%;
 }
 
 .theme-card {
-  flex: 1 1 0;
-  min-width: 140px;
+  position: relative;
+  min-width: 0;
   border: 1px solid #d5dde8;
-  border-radius: 14px;
+  border-radius: 8px;
   background: #f5f6fa;
   color: #1f2937;
-  min-height: 78px;
-  padding: 14px 12px;
+  min-height: 132px;
+  padding: 9px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  justify-content: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .theme-card:hover {
@@ -1666,13 +1666,116 @@ body::-webkit-scrollbar-thumb,
   box-shadow: inset 0 0 0 1px #2959e2;
 }
 
-.theme-icon {
-  font-size: 18px;
-  color: #7688a4;
+.theme-preview {
+  position: relative;
+  width: 100%;
+  height: 78px;
+  border: 1px solid var(--theme-border);
+  border-radius: 7px;
+  background: var(--theme-editor);
+  display: grid;
+  grid-template-columns: 36% 64%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.theme-preview-sidebar,
+.theme-preview-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px 9px;
+  box-sizing: border-box;
+}
+
+.theme-preview-sidebar {
+  background: var(--theme-sidebar);
+  border-right: 1px solid var(--theme-border);
+}
+
+.theme-preview-editor {
+  position: relative;
+  background: var(--theme-editor);
+}
+
+.theme-preview i {
+  display: block;
+  width: 72%;
+  height: 5px;
+  border-radius: 4px;
+  background: var(--theme-text);
+  opacity: 0.35;
+}
+
+.theme-preview-sidebar i:first-child {
+  width: 88%;
+  height: 11px;
+  background: var(--theme-accent);
+  opacity: 0.9;
+}
+
+.theme-preview-editor i:nth-child(2) {
+  width: 92%;
+}
+
+.theme-preview-editor b {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--theme-accent);
+}
+
+.theme-preview[data-system="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 50%;
+  background: rgba(4, 11, 24, 0.48);
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+.theme-card-label {
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.theme-card-label > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-plus-badge {
+  flex: 0 0 auto;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--theme-accent) 22%, transparent);
+  color: var(--theme-accent);
+  padding: 2px 5px;
+  font-size: 9px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.theme-selected {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--theme-accent);
+  color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  line-height: 0;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.22);
 }
 
 .settings-card {
@@ -2929,4 +3032,173 @@ button:active {
 .goto-line-button.primary:hover {
   border-color: #7dd3fc;
   background: #7dd3fc;
+}
+
+.app.theme-palette {
+  background: var(--theme-app);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+
+.app.theme-palette ::selection {
+  background: var(--theme-selection);
+}
+
+.app.theme-palette .settings-screen,
+.app.theme-palette .settings-content {
+  background: var(--theme-app);
+}
+
+.app.theme-palette .settings-sidebar,
+.app.theme-palette .settings-mobile-header,
+.app.theme-palette .titlebar-row.top,
+.app.theme-palette .window-controls,
+.app.theme-palette .bottom-bar {
+  background: var(--theme-sidebar);
+  border-color: var(--theme-border);
+}
+
+.app.theme-palette .titlebar,
+.app.theme-palette .titlebar-row.toolbar,
+.app.theme-palette .settings-card,
+.app.theme-palette .feature-row,
+.app.theme-palette .startup-card,
+.app.theme-palette .settings-preview,
+.app.theme-palette .theme-card,
+.app.theme-palette .help-panel,
+.app.theme-palette .help-panel-section,
+.app.theme-palette .menu-panel,
+.app.theme-palette .menu-subpanel,
+.app.theme-palette .format-menu,
+.app.theme-palette .heading-menu,
+.app.theme-palette .list-menu,
+.app.theme-palette .delete-choice-dialog,
+.app.theme-palette .delete-choice-actions {
+  background: var(--theme-panel);
+  border-color: var(--theme-border);
+}
+
+.app.theme-palette .memo,
+.app.theme-palette .editor,
+.app.theme-palette .editor-body {
+  background: var(--theme-editor);
+}
+
+.app.theme-palette .settings-brand-name,
+.app.theme-palette .settings-block h2,
+.app.theme-palette .settings-sections,
+.app.theme-palette .settings-field-row strong,
+.app.theme-palette .feature-row strong,
+.app.theme-palette .startup-card strong,
+.app.theme-palette .settings-preview,
+.app.theme-palette .editor-body,
+.app.theme-palette .tab .tab-title,
+.app.theme-palette .help-panel-header strong,
+.app.theme-palette .help-shortcut-label,
+.app.theme-palette .help-points-list li,
+.app.theme-palette .menu-item,
+.app.theme-palette .bottom-bar,
+.app.theme-palette .delete-choice-dialog,
+.app.theme-palette .delete-choice-dialog h2 {
+  color: var(--theme-text);
+}
+
+.app.theme-palette .settings-desc,
+.app.theme-palette .settings-field-row small,
+.app.theme-palette .feature-row small,
+.app.theme-palette .startup-card label,
+.app.theme-palette .editor-body:empty::before,
+.app.theme-palette .menu-shortcut,
+.app.theme-palette .menu-section-label,
+.app.theme-palette .menu-section-toggle,
+.app.theme-palette .delete-choice-dialog p {
+  color: var(--theme-muted);
+}
+
+.app.theme-palette .settings-nav-item,
+.app.theme-palette .theme-card,
+.app.theme-palette .window-button,
+.app.theme-palette .settings-window-controls .window-button,
+.app.theme-palette .menu-button,
+.app.theme-palette .icon-button,
+.app.theme-palette .add-tab,
+.app.theme-palette .tab-scroll-button {
+  color: var(--theme-text);
+}
+
+.app.theme-palette .settings-nav-item:hover,
+.app.theme-palette .settings-nav-item.active,
+.app.theme-palette .menu-button:hover,
+.app.theme-palette .menu-button.active,
+.app.theme-palette .menu-item:hover,
+.app.theme-palette .format-item:hover,
+.app.theme-palette .icon-button:hover,
+.app.theme-palette .icon-button.active,
+.app.theme-palette .add-tab:hover,
+.app.theme-palette .tab-scroll-button:hover,
+.app.theme-palette .window-button:hover,
+.app.theme-palette .settings-window-controls .window-button:hover {
+  background: var(--theme-accent);
+  color: #ffffff;
+}
+
+.app.theme-palette .theme-card:hover {
+  border-color: var(--theme-accent-hover);
+}
+
+.app.theme-palette .theme-card.active {
+  border-color: var(--theme-accent);
+  box-shadow: inset 0 0 0 1px var(--theme-accent);
+}
+
+.app.theme-palette .modern-switch input:checked + span,
+.app.theme-palette .theme-selected {
+  background: var(--theme-accent);
+}
+
+.app.theme-palette .settings-field-row select,
+.app.theme-palette .settings-number-input,
+.app.theme-palette .delete-choice {
+  border-color: var(--theme-border);
+  background: var(--theme-input);
+  color: var(--theme-text);
+}
+
+.app.theme-palette .settings-sidebar,
+.app.theme-palette .settings-mobile-header,
+.app.theme-palette .settings-card,
+.app.theme-palette .settings-field-row,
+.app.theme-palette .feature-row,
+.app.theme-palette .startup-card,
+.app.theme-palette .settings-preview,
+.app.theme-palette .theme-card,
+.app.theme-palette .titlebar,
+.app.theme-palette .tab,
+.app.theme-palette .bottom-bar,
+.app.theme-palette .bottom-item + .bottom-item,
+.app.theme-palette .menu-divider {
+  border-color: var(--theme-border);
+}
+
+.app.theme-palette .tab {
+  background: var(--theme-sidebar);
+  color: var(--theme-muted);
+}
+
+.app.theme-palette .tab.active,
+.app.theme-palette .tab:not(.active):hover {
+  background: var(--theme-panel);
+  color: var(--theme-text);
+}
+
+@media (max-width: 900px) {
+  .theme-options {
+    grid-template-columns: repeat(3, minmax(132px, 1fr));
+  }
+}
+
+@media (max-width: 780px) {
+  .theme-options {
+    grid-template-columns: repeat(2, minmax(124px, 1fr));
+  }
 }

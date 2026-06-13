@@ -7,12 +7,13 @@ use std::{
     sync::{Arc, Mutex},
     thread,
 };
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 const MAX_TEXT_FILE_BYTES: u64 = 1_048_576;
 const SINGLE_INSTANCE_ADDR: &str = "127.0.0.1:47652";
 const SINGLE_INSTANCE_ACK: &str = "alwaysmemo-single-instance-ok";
 const PENDING_OPEN_FILES_EVENT: &str = "alwaysmemo:pending-open-files";
+const MAX_SETTINGS_FILE_BYTES: usize = 1_048_576;
 
 fn has_allowed_text_extension(path: &Path) -> bool {
     path.extension()
@@ -226,6 +227,7 @@ struct OpenedFile {
 }
 
 struct PendingOpenFiles(Arc<Mutex<Vec<String>>>);
+struct SettingsFileLock(Mutex<()>);
 
 #[derive(Debug, Deserialize, Serialize)]
 struct SingleInstanceMessage {
@@ -402,6 +404,134 @@ fn write_text_file(path: String, contents: String) -> Result<(), String> {
     fs::write(validated_path, contents).map_err(|_| "failed to write text file".to_string())
 }
 
+fn settings_paths(app: &tauri::AppHandle) -> Result<(PathBuf, PathBuf, PathBuf), String> {
+    let directory = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("failed to resolve settings directory: {e}"))?;
+    Ok((
+        directory.join("settings.json"),
+        directory.join("settings.json.tmp"),
+        directory.join("settings.json.bak"),
+    ))
+}
+
+fn read_settings_value(path: &Path) -> Option<serde_json::Value> {
+    let contents = fs::read(path).ok()?;
+    if contents.len() > MAX_SETTINGS_FILE_BYTES {
+        return None;
+    }
+    serde_json::from_slice(&contents).ok()
+}
+
+fn write_settings_value(
+    settings_path: &Path,
+    temp_path: &Path,
+    backup_path: &Path,
+    settings: &serde_json::Value,
+) -> Result<(), String> {
+    let serialized = serde_json::to_vec_pretty(settings)
+        .map_err(|e| format!("failed to serialize settings: {e}"))?;
+    if serialized.len() > MAX_SETTINGS_FILE_BYTES {
+        return Err("settings file is too large".to_string());
+    }
+    let directory = settings_path
+        .parent()
+        .ok_or_else(|| "invalid settings path".to_string())?;
+    fs::create_dir_all(directory)
+        .map_err(|e| format!("failed to create settings directory: {e}"))?;
+
+    let mut temp_file = fs::File::create(temp_path)
+        .map_err(|e| format!("failed to create temporary settings file: {e}"))?;
+    temp_file
+        .write_all(&serialized)
+        .and_then(|_| temp_file.sync_all())
+        .map_err(|e| format!("failed to write temporary settings file: {e}"))?;
+    drop(temp_file);
+
+    if settings_path.exists() {
+        if read_settings_value(settings_path).is_some() {
+            if backup_path.exists() {
+                fs::remove_file(backup_path)
+                    .map_err(|e| format!("failed to replace settings backup: {e}"))?;
+            }
+            fs::rename(settings_path, backup_path)
+                .map_err(|e| format!("failed to back up settings: {e}"))?;
+        } else {
+            fs::remove_file(settings_path)
+                .map_err(|e| format!("failed to remove invalid settings: {e}"))?;
+        }
+    }
+    if let Err(error) = fs::rename(temp_path, settings_path) {
+        if backup_path.exists() {
+            let _ = fs::rename(backup_path, settings_path);
+        }
+        return Err(format!("failed to replace settings file: {error}"));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn read_settings_file(
+    app: tauri::AppHandle,
+    lock: tauri::State<'_, SettingsFileLock>,
+) -> Result<Option<serde_json::Value>, String> {
+    let _guard = lock
+        .0
+        .lock()
+        .map_err(|_| "failed to lock settings file".to_string())?;
+    let (settings_path, _, backup_path) = settings_paths(&app)?;
+    Ok(read_settings_value(&settings_path).or_else(|| read_settings_value(&backup_path)))
+}
+
+#[tauri::command]
+fn write_settings_file(
+    app: tauri::AppHandle,
+    lock: tauri::State<'_, SettingsFileLock>,
+    settings: serde_json::Value,
+) -> Result<(), String> {
+    let _guard = lock
+        .0
+        .lock()
+        .map_err(|_| "failed to lock settings file".to_string())?;
+    let (settings_path, temp_path, backup_path) = settings_paths(&app)?;
+    write_settings_value(&settings_path, &temp_path, &backup_path, &settings)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{read_settings_value, write_settings_value};
+    use std::{fs, time::SystemTime};
+
+    #[test]
+    fn settings_file_round_trip_and_backup_recovery() {
+        let unique = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!("alwaysmemo-settings-{unique}"));
+        let settings_path = directory.join("settings.json");
+        let temp_path = directory.join("settings.json.tmp");
+        let backup_path = directory.join("settings.json.bak");
+        let first = serde_json::json!({ "schemaVersion": 1, "settings": { "themeMode": "dark" } });
+        let second =
+            serde_json::json!({ "schemaVersion": 1, "settings": { "themeMode": "light" } });
+
+        write_settings_value(&settings_path, &temp_path, &backup_path, &first).unwrap();
+        write_settings_value(&settings_path, &temp_path, &backup_path, &second).unwrap();
+        assert_eq!(read_settings_value(&settings_path), Some(second.clone()));
+
+        fs::write(&settings_path, b"invalid json").unwrap();
+        assert_eq!(read_settings_value(&settings_path), None);
+        assert_eq!(read_settings_value(&backup_path), Some(first.clone()));
+
+        write_settings_value(&settings_path, &temp_path, &backup_path, &second).unwrap();
+        assert_eq!(read_settings_value(&settings_path), Some(second));
+        assert_eq!(read_settings_value(&backup_path), Some(first));
+        fs::remove_dir_all(directory).unwrap();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let startup_paths = collect_launch_paths();
@@ -424,6 +554,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(PendingOpenFiles(pending_open_files))
+        .manage(SettingsFileLock(Mutex::new(())))
         .setup(move |app| {
             if let Some(listener) = single_instance_listener {
                 start_single_instance_server(
@@ -449,7 +580,9 @@ pub fn run() {
             open_text_file_by_path,
             take_pending_open_files,
             save_text_file_dialog,
-            write_text_file
+            write_text_file,
+            read_settings_file,
+            write_settings_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
