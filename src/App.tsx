@@ -40,7 +40,7 @@ import {
   htmlToText,
   normalizePlainText,
   normalizeHtml,
-  nodeToPlainTextBeforePosition,
+  getTextPositionBeforePosition,
   replaceTextInHtml,
   stripTrustedSearchHighlights,
   textToHtml,
@@ -116,6 +116,20 @@ type RecentClosedFile = {
 };
 const MAX_RECENT_CLOSED_FILES = 5;
 
+type PastePerformanceReport = {
+  textLength: number;
+  totalMs: number;
+  steps: Record<string, { calls: number; totalMs: number }>;
+};
+
+type PastePerformanceState = {
+  startedAt: number;
+  lastStepAt: number;
+  textLength: number;
+  steps: PastePerformanceReport["steps"];
+  finishTimer: number | null;
+};
+
 type OpenedTextFile = {
   path: string;
   contents: string;
@@ -142,11 +156,13 @@ function App() {
   const tabsWheelTargetRef = useRef<number | null>(null);
   const tabsWheelRafRef = useRef<number | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const suppressEditorInputRef = useRef(false);
   const savedSelectionRef = useRef<Range | null>(null);
   const allowImmediateCloseRef = useRef(false);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const cursorUpdateRafRef = useRef<number | null>(null);
+  const pastePerformanceRef = useRef<PastePerformanceState | null>(null);
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const savedTabsRef = useRef<Record<string, { title: string; content: string }>>({});
   const [, setSavedVersion] = useState(0);
@@ -279,29 +295,77 @@ function App() {
     }
   }, []);
 
+  const recordPastePerformanceStep = useCallback((name: string, durationMs: number) => {
+    if (!import.meta.env.DEV) return;
+    const current = pastePerformanceRef.current;
+    if (!current) return;
+    const step = current.steps[name] ?? { calls: 0, totalMs: 0 };
+    current.steps[name] = {
+      calls: step.calls + 1,
+      totalMs: step.totalMs + durationMs,
+    };
+    current.lastStepAt = performance.now();
+    if (current.finishTimer !== null) {
+      window.clearTimeout(current.finishTimer);
+    }
+    current.finishTimer = window.setTimeout(() => {
+      const active = pastePerformanceRef.current;
+      if (!active) return;
+      const report: PastePerformanceReport = {
+        textLength: active.textLength,
+        totalMs: active.lastStepAt - active.startedAt,
+        steps: active.steps,
+      };
+      console.info("[AlwaysMemo paste performance]", JSON.stringify(report));
+      (window as typeof window & { __alwaysMemoPastePerformance?: PastePerformanceReport })
+        .__alwaysMemoPastePerformance = report;
+      pastePerformanceRef.current = null;
+    }, 800);
+  }, []);
+
+  const measurePastePerformance = useCallback(<T,>(name: string, action: () => T): T => {
+    if (!import.meta.env.DEV || !pastePerformanceRef.current) return action();
+    const startedAt = performance.now();
+    const result = action();
+    recordPastePerformanceStep(name, performance.now() - startedAt);
+    return result;
+  }, [recordPastePerformanceStep]);
+
+  const startPastePerformance = useCallback((textLength: number) => {
+    if (!import.meta.env.DEV) return;
+    const current = pastePerformanceRef.current;
+    if (current && current.finishTimer !== null) {
+      window.clearTimeout(current.finishTimer);
+    }
+    pastePerformanceRef.current = {
+      startedAt: performance.now(),
+      lastStepAt: performance.now(),
+      textLength,
+      steps: {},
+      finishTimer: null,
+    };
+  }, []);
+
   const updateCursorIndex = useCallback(() => {
+    const startedAt = performance.now();
     const editor = editorRef.current;
     const selection = window.getSelection();
     if (!editor || !selection || selection.rangeCount === 0) {
       setCursorPosition({ line: 1, column: 1 });
+      recordPastePerformanceStep("cursor-index", performance.now() - startedAt);
       return;
     }
     const range = selection.getRangeAt(0);
     if (!editor.contains(range.startContainer)) {
       setCursorPosition({ line: 1, column: 1 });
+      recordPastePerformanceStep("cursor-index", performance.now() - startedAt);
       return;
     }
-    const normalized = normalizePlainText(
-      nodeToPlainTextBeforePosition(editor, range.startContainer, range.startOffset),
+    setCursorPosition(
+      getTextPositionBeforePosition(editor, range.startContainer, range.startOffset),
     );
-    const lines = normalized.split("\n");
-    const currentLine = Math.max(lines.length, 1);
-    const currentLineText = lines[lines.length - 1] ?? "";
-    setCursorPosition({
-      line: currentLine,
-      column: Math.max(1, Array.from(currentLineText).length + 1),
-    });
-  }, []);
+    recordPastePerformanceStep("cursor-index", performance.now() - startedAt);
+  }, [recordPastePerformanceStep]);
 
   const scheduleCursorIndexUpdate = useCallback(() => {
     if (cursorUpdateRafRef.current !== null) {
@@ -366,6 +430,7 @@ function App() {
 
   const persistState = useCallback(
     (nextTabs: Tab[], nextActiveId = activeTabId) => {
+      const startedAt = performance.now();
       const state: PersistedState = {
         tabs: nextTabs,
         activeTabId: nextActiveId,
@@ -382,6 +447,7 @@ function App() {
         languagePreference,
       };
       window.localStorage.setItem(storageKey, JSON.stringify(state));
+      recordPastePerformanceStep("persist-state", performance.now() - startedAt);
     },
     [
       activeTabId,
@@ -390,6 +456,7 @@ function App() {
       fileOpenBehavior,
       languagePreference,
       lineSpacing,
+      recordPastePerformanceStep,
       sessionBehavior,
       showStatusBar,
       snap,
@@ -1454,6 +1521,10 @@ function App() {
       if (cursorUpdateRafRef.current !== null) {
         window.cancelAnimationFrame(cursorUpdateRafRef.current);
       }
+      const pastePerformance = pastePerformanceRef.current;
+      if (pastePerformance && pastePerformance.finishTimer !== null) {
+        window.clearTimeout(pastePerformance.finishTimer);
+      }
     };
   }, []);
 
@@ -1839,12 +1910,18 @@ function App() {
   const updateContent = useCallback((content: string) => {
     if (!activeTab) return;
     // Live editor DOM stays on a trusted path; strip transient search markup before persisting.
-    const clean = stripTrustedSearchHighlights(content);
-    if (clean === activeTab.content) return;
-    setTabs((prev) =>
-      prev.map((t) => (t.id === activeTab.id ? { ...t, content: clean } : t)),
+    const clean = measurePastePerformance(
+      "content-cleanup",
+      () => stripTrustedSearchHighlights(content),
     );
-  }, [activeTab]);
+    if (clean === activeTab.content) return;
+    measurePastePerformance(
+      "queue-content-state",
+      () => setTabs((prev) =>
+        prev.map((t) => (t.id === activeTab.id ? { ...t, content: clean } : t)),
+      ),
+    );
+  }, [activeTab, measurePastePerformance]);
 
   const runEditorCommand = useCallback((command: string) => {
     const editor = editorRef.current;
@@ -1857,14 +1934,27 @@ function App() {
     });
   }, [restoreEditorSelection, updateContent, updateCursorIndex]);
 
+  const insertPlainText = useCallback((text: string) => {
+    suppressEditorInputRef.current = true;
+    try {
+      if (!document.execCommand("insertHTML", false, textToHtml(text))) {
+        document.execCommand("insertText", false, text);
+      }
+    } finally {
+      suppressEditorInputRef.current = false;
+    }
+  }, []);
+
   const pasteFromClipboard = useCallback(async () => {
     const editor = editorRef.current;
     if (!editor) return;
     restoreEditorSelection();
     if (navigator.clipboard?.readText) {
       try {
-        const text = normalizePlainText(await navigator.clipboard.readText());
-        document.execCommand("insertText", false, text);
+        const rawText = await navigator.clipboard.readText();
+        startPastePerformance(rawText.length);
+        const text = measurePastePerformance("normalize-text", () => normalizePlainText(rawText));
+        measurePastePerformance("insert-text", () => insertPlainText(text));
       } catch (error) {
         console.error("clipboard read failed", error);
         setStatus(messages.app.statuses.clipboardUnavailable);
@@ -1878,8 +1968,11 @@ function App() {
     });
   }, [
     messages.app.statuses.clipboardUnavailable,
+    insertPlainText,
     normalizePlainText,
+    measurePastePerformance,
     restoreEditorSelection,
+    startPastePerformance,
     updateContent,
     updateCursorIndex,
   ]);
@@ -1887,15 +1980,24 @@ function App() {
   const handleEditorPaste = useCallback((event: ReactClipboardEvent<HTMLDivElement>) => {
     event.preventDefault();
     restoreEditorSelection();
-    const text = normalizePlainText(event.clipboardData.getData("text/plain"));
-    document.execCommand("insertText", false, text);
+    const rawText = event.clipboardData.getData("text/plain");
+    startPastePerformance(rawText.length);
+    const text = measurePastePerformance("normalize-text", () => normalizePlainText(rawText));
+    measurePastePerformance("insert-text", () => insertPlainText(text));
     window.requestAnimationFrame(() => {
       const editor = editorRef.current;
       if (!editor) return;
       updateContent(editor.innerHTML);
       updateCursorIndex();
     });
-  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
+  }, [
+    insertPlainText,
+    measurePastePerformance,
+    restoreEditorSelection,
+    startPastePerformance,
+    updateContent,
+    updateCursorIndex,
+  ]);
 
   const handleEditorDrop = useCallback((event: ReactDragEvent<HTMLDivElement>) => {
     // Dropped rich HTML/files bypass paste sanitization, so accept plain text only.
@@ -1903,14 +2005,14 @@ function App() {
     restoreEditorSelection();
     const text = normalizePlainText(event.dataTransfer.getData("text/plain"));
     if (!text) return;
-    document.execCommand("insertText", false, text);
+    insertPlainText(text);
     window.requestAnimationFrame(() => {
       const editor = editorRef.current;
       if (!editor) return;
       updateContent(editor.innerHTML);
       updateCursorIndex();
     });
-  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
+  }, [insertPlainText, restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const focusSearchBox = useCallback(() => {
     closeMenus();
@@ -2261,7 +2363,6 @@ function App() {
 
   useEffect(() => {
     let unlistenResize: (() => void) | undefined;
-    let unlistenMove: (() => void) | undefined;
     void syncWindowMaximizedState();
     void windowHandle.onResized(() => {
       scheduleWindowMaximizedSync();
@@ -2270,19 +2371,11 @@ function App() {
     }).catch((error) => {
       console.error("Failed to listen for resize", error);
     });
-    void windowHandle.onMoved(() => {
-      scheduleWindowMaximizedSync();
-    }).then((cleanup) => {
-      unlistenMove = cleanup;
-    }).catch((error) => {
-      console.error("Failed to listen for move", error);
-    });
     return () => {
       if (windowStateSyncTimerRef.current !== null) {
         window.clearTimeout(windowStateSyncTimerRef.current);
       }
       unlistenResize?.();
-      unlistenMove?.();
     };
   }, [scheduleWindowMaximizedSync, syncWindowMaximizedState, windowHandle]);
 
@@ -3141,6 +3234,7 @@ function App() {
             suppressContentEditableWarning
             data-placeholder={messages.app.editorPlaceholder}
             onInput={(event) => {
+              if (suppressEditorInputRef.current) return;
               updateContent(event.currentTarget.innerHTML);
               scheduleCursorIndexUpdate();
             }}
