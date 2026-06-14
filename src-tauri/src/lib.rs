@@ -7,12 +7,15 @@ use std::{
     sync::{Arc, Mutex},
     thread,
 };
+#[cfg(target_os = "windows")]
+use std::{ffi::OsStr, iter, os::windows::ffi::OsStrExt, ptr};
 use tauri::Emitter;
 
 const MAX_TEXT_FILE_BYTES: u64 = 1_048_576;
 const SINGLE_INSTANCE_ADDR: &str = "127.0.0.1:47652";
 const SINGLE_INSTANCE_ACK: &str = "alwaysmemo-single-instance-ok";
 const PENDING_OPEN_FILES_EVENT: &str = "alwaysmemo:pending-open-files";
+const STORE_REVIEW_URI: &str = "ms-windows-store://review/?ProductId=9N22TL7M39Q3";
 
 fn has_allowed_text_extension(path: &Path) -> bool {
     path.extension()
@@ -402,6 +405,49 @@ fn write_text_file(path: String, contents: String) -> Result<(), String> {
     fs::write(validated_path, contents).map_err(|_| "failed to write text file".to_string())
 }
 
+#[tauri::command]
+#[cfg(target_os = "windows")]
+fn open_store_review() -> Result<(), String> {
+    #[link(name = "shell32")]
+    unsafe extern "system" {
+        fn ShellExecuteW(
+            hwnd: *mut std::ffi::c_void,
+            operation: *const u16,
+            file: *const u16,
+            parameters: *const u16,
+            directory: *const u16,
+            show_command: i32,
+        ) -> isize;
+    }
+
+    let operation: Vec<u16> = OsStr::new("open").encode_wide().chain(iter::once(0)).collect();
+    let uri: Vec<u16> = OsStr::new(STORE_REVIEW_URI)
+        .encode_wide()
+        .chain(iter::once(0))
+        .collect();
+    let result = unsafe {
+        ShellExecuteW(
+            ptr::null_mut(),
+            operation.as_ptr(),
+            uri.as_ptr(),
+            ptr::null(),
+            ptr::null(),
+            1,
+        )
+    };
+    if result > 32 {
+        Ok(())
+    } else {
+        Err(format!("failed to open Microsoft Store review page: {result}"))
+    }
+}
+
+#[tauri::command]
+#[cfg(not(target_os = "windows"))]
+fn open_store_review() -> Result<(), String> {
+    Err("Microsoft Store review page is only available on Windows".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let startup_paths = collect_launch_paths();
@@ -449,7 +495,8 @@ pub fn run() {
             open_text_file_by_path,
             take_pending_open_files,
             save_text_file_dialog,
-            write_text_file
+            write_text_file,
+            open_store_review
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

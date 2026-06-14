@@ -2696,6 +2696,138 @@ button:active {
   text-align: center;
 }
 
+.review-prompt {
+  position: fixed;
+  right: 18px;
+  bottom: 42px;
+  z-index: 180;
+  width: min(284px, calc(100vw - 24px));
+  max-height: calc(100vh - 54px);
+  box-sizing: border-box;
+  padding: 14px;
+  border: 1px solid #d8dde3;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #202124;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+  overflow-y: auto;
+}
+
+.review-prompt.without-status {
+  bottom: 14px;
+  max-height: calc(100vh - 28px);
+}
+
+.review-prompt strong {
+  display: block;
+  padding-right: 24px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.review-prompt p {
+  margin: 10px 0 13px;
+  color: #3f3f46;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.review-prompt-close {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #52525b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  transform: none;
+}
+
+.review-prompt-close:hover {
+  background: #eef2f7;
+  transform: none;
+  box-shadow: none;
+}
+
+.review-prompt-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.review-prompt-actions button {
+  min-width: 0;
+  padding: 7px 8px;
+  border-color: #d4d4d8;
+  background: #ffffff;
+  color: #0b65c2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 11.5px;
+  box-shadow: none;
+  transform: none;
+}
+
+.review-prompt-actions button:hover {
+  background: #f4f7fb;
+  transform: none;
+  box-shadow: none;
+}
+
+.review-prompt-actions .primary {
+  border-color: #0b65c2;
+  background: #0b65c2;
+  color: #ffffff;
+}
+
+.review-prompt-actions .primary:hover {
+  background: #0a5ab0;
+}
+
+.app.theme-dark .review-prompt {
+  border-color: #29406e;
+  background: #13213d;
+  color: #eef4ff;
+  box-shadow: 0 14px 30px rgba(2, 8, 23, 0.54);
+}
+
+.app.theme-dark .review-prompt p {
+  color: #b7c8e6;
+}
+
+.app.theme-dark .review-prompt-close {
+  color: #b7c8e6;
+}
+
+.app.theme-dark .review-prompt-close:hover,
+.app.theme-dark .review-prompt-actions button {
+  border-color: #28406d;
+  background: #1d2d4d;
+  color: #e7efff;
+}
+
+.app.theme-dark .review-prompt-actions button:hover {
+  background: #24385e;
+}
+
+.app.theme-dark .review-prompt-actions .primary {
+  border-color: #2f5fe8;
+  background: #2f5fe8;
+  color: #ffffff;
+}
+
+.app.theme-dark .review-prompt-actions .primary:hover {
+  background: #4f7fff;
+}
+
 @media (max-width: 600px) {
   .bottom-label {
     display: none;
@@ -2708,6 +2840,11 @@ button:active {
 
   .bottom-item.status-item .bottom-value {
     grid-column: 1;
+  }
+
+  .review-prompt {
+    right: 12px;
+    bottom: 38px;
   }
 }
 

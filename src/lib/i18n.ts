@@ -102,6 +102,13 @@ type Messages = {
     settingsButtonLabel: string;
     newTabButtonTitle: string;
     editorPlaceholder: string;
+    reviewPrompt: {
+      title: string;
+      body: string;
+      later: string;
+      review: string;
+      close: string;
+    };
     dialogs: {
       confirmTitle: string;
       unsavedMemosBeforeExit: (count: number) => string;
@@ -335,6 +342,13 @@ const translations: Record<AppLanguage, Messages> = {
       settingsButtonLabel: "設定",
       newTabButtonTitle: "新規タブ",
       editorPlaceholder: "ここにメモを書く",
+      reviewPrompt: {
+        title: "AlwaysMemoは役立っていますか？",
+        body: "評価やご意見をいただけると、今後の改善の助けになります。",
+        later: "あとで",
+        review: "評価する",
+        close: "レビュー依頼を閉じる",
+      },
       dialogs: {
         confirmTitle: "確認",
         unsavedMemosBeforeExit: (count) =>
@@ -569,6 +583,13 @@ const translations: Record<AppLanguage, Messages> = {
       settingsButtonLabel: "Settings",
       newTabButtonTitle: "New Tab",
       editorPlaceholder: "Write your memo here",
+      reviewPrompt: {
+        title: "Is AlwaysMemo useful to you?",
+        body: "Your rating and feedback help us improve AlwaysMemo.",
+        later: "Later",
+        review: "Rate AlwaysMemo",
+        close: "Close review request",
+      },
       dialogs: {
         confirmTitle: "Confirm",
         unsavedMemosBeforeExit: (count) =>
@@ -803,6 +824,13 @@ const translations: Record<AppLanguage, Messages> = {
       settingsButtonLabel: "Configuración",
       newTabButtonTitle: "Nueva pestaña",
       editorPlaceholder: "Escribe tu memo aquí",
+      reviewPrompt: {
+        title: "¿AlwaysMemo te resulta útil?",
+        body: "Tu valoración y comentarios nos ayudan a mejorar AlwaysMemo.",
+        later: "Más tarde",
+        review: "Valorar",
+        close: "Cerrar solicitud de valoración",
+      },
       dialogs: {
         confirmTitle: "Confirmar",
         unsavedMemosBeforeExit: (count) =>
@@ -1037,6 +1065,13 @@ const translations: Record<AppLanguage, Messages> = {
       settingsButtonLabel: "Configurações",
       newTabButtonTitle: "Nova aba",
       editorPlaceholder: "Escreva seu memo aqui",
+      reviewPrompt: {
+        title: "O AlwaysMemo é útil para você?",
+        body: "Sua avaliação e opinião nos ajudam a melhorar o AlwaysMemo.",
+        later: "Mais tarde",
+        review: "Avaliar",
+        close: "Fechar pedido de avaliação",
+      },
       dialogs: {
         confirmTitle: "Confirmar",
         unsavedMemosBeforeExit: (count) =>
@@ -1271,6 +1306,13 @@ const translations: Record<AppLanguage, Messages> = {
       settingsButtonLabel: "설정",
       newTabButtonTitle: "새 탭",
       editorPlaceholder: "여기에 메모를 입력하세요",
+      reviewPrompt: {
+        title: "AlwaysMemo가 도움이 되고 있나요?",
+        body: "평가와 의견을 남겨 주시면 AlwaysMemo를 개선하는 데 도움이 됩니다.",
+        later: "나중에",
+        review: "평가하기",
+        close: "리뷰 요청 닫기",
+      },
       dialogs: {
         confirmTitle: "확인",
         unsavedMemosBeforeExit: (count) =>

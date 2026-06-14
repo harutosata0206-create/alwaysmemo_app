@@ -31,6 +31,7 @@ import {
   Search,
   Settings,
   Square,
+  Star,
   X,
 } from "lucide-react";
 import {
@@ -61,6 +62,7 @@ import {
   useMessages,
   type LanguagePreference,
 } from "./lib/i18n";
+import { markReviewSessionError, startReviewPromptSession } from "./lib/reviewPrompt";
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 300;
@@ -71,6 +73,7 @@ const GLOBAL_SHORTCUT_SYNC_KEY = "alwaysmemo-global-shortcut-sync";
 const PENDING_OPEN_FILES_EVENT = "alwaysmemo:pending-open-files";
 const TAB_CLOSE_ANIMATION_MS = 140;
 const HELP_URL = "https://alwaysmemo.pages.dev/help";
+const REVIEW_URL = "https://apps.microsoft.com/detail/9n22tl7m39q3";
 const HELP_HINT_STORAGE_KEY = "alwaysmemo-help-hint-seen";
 const DEFAULT_USE_GLOBAL_SHORTCUTS = true;
 
@@ -226,6 +229,7 @@ function App() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [recentClosedFiles, setRecentClosedFiles] = useState<RecentClosedFile[]>([]);
   const [recentFilesExpanded, setRecentFilesExpanded] = useState(true);
+  const [reviewPromptVisible, setReviewPromptVisible] = useState(false);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
@@ -1470,6 +1474,33 @@ function App() {
       }
     } catch {
       setHelpHintVisible(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentWindowLabel !== "main") return;
+    const recordError = () => markReviewSessionError(window.localStorage);
+    window.addEventListener("error", recordError);
+    window.addEventListener("unhandledrejection", recordError);
+    setReviewPromptVisible(startReviewPromptSession(window.localStorage));
+    return () => {
+      window.removeEventListener("error", recordError);
+      window.removeEventListener("unhandledrejection", recordError);
+    };
+  }, [currentWindowLabel]);
+
+  const openReviewPage = useCallback(async () => {
+    try {
+      await invoke("open_store_review");
+      setReviewPromptVisible(false);
+    } catch (error) {
+      console.error("Failed to open Microsoft Store review page", error);
+      try {
+        await openUrl(REVIEW_URL);
+        setReviewPromptVisible(false);
+      } catch (fallbackError) {
+        console.error("Failed to open review page", fallbackError);
+      }
     }
   }, []);
 
@@ -3400,6 +3431,35 @@ function App() {
             <span className="bottom-value">{useGlobalShortcuts ? messages.common.on : messages.common.off}</span>
           </span>
         </div>
+      ) : null}
+
+      {reviewPromptVisible ? (
+        <aside
+          className={`review-prompt ${showStatusBar ? "" : "without-status"}`}
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="review-prompt-title"
+        >
+          <button
+            type="button"
+            className="review-prompt-close"
+            aria-label={messages.app.reviewPrompt.close}
+            onClick={() => setReviewPromptVisible(false)}
+          >
+            <X size={16} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+          <strong id="review-prompt-title">{messages.app.reviewPrompt.title}</strong>
+          <p>{messages.app.reviewPrompt.body}</p>
+          <div className="review-prompt-actions">
+            <button type="button" onClick={() => setReviewPromptVisible(false)}>
+              {messages.app.reviewPrompt.later}
+            </button>
+            <button type="button" className="primary" onClick={() => void openReviewPage()}>
+              <Star size={15} strokeWidth={1.9} aria-hidden="true" />
+              {messages.app.reviewPrompt.review}
+            </button>
+          </div>
+        </aside>
       ) : null}
 
     </div>
