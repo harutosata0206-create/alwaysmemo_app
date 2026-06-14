@@ -2696,6 +2696,233 @@ button:active {
   text-align: center;
 }
 
+.bottom-item.onboarding-target {
+  border-radius: 4px;
+  outline: 2px dashed #1684e8;
+  outline-offset: -2px;
+  color: #0b65c2;
+}
+
+.app.theme-dark .bottom-item.onboarding-target {
+  color: #72adff;
+}
+
+.onboarding-card {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 190;
+  width: min(430px, calc(100vw - 28px));
+  max-height: calc(100vh - 28px);
+  box-sizing: border-box;
+  padding: 20px 22px 18px;
+  border: 1px solid #b9cce7;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.22);
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.onboarding-header,
+.onboarding-footer,
+.onboarding-key-group,
+.onboarding-shortcut {
+  display: flex;
+  align-items: center;
+}
+
+.onboarding-header {
+  flex: 0 0 auto;
+  justify-content: space-between;
+  color: #24558d;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.onboarding-content {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.onboarding-header button {
+  border: 0;
+  padding: 4px 0;
+  background: transparent;
+  color: #0b65c2;
+  font-size: 12px;
+  box-shadow: none;
+  transform: none;
+}
+
+.onboarding-card h2 {
+  margin: 20px 0 18px;
+  text-align: center;
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.onboarding-shortcut {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #c7d7eb;
+  border-radius: 8px;
+  background: #f3f7fc;
+}
+
+.onboarding-key-group {
+  gap: 6px;
+}
+
+.onboarding-plus {
+  margin-right: 2px;
+  color: #334155;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.onboarding-shortcut kbd {
+  min-width: 38px;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0 9px;
+  border: 1px solid #8ea9cd;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #254e80;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 -2px 0 #d7e1ee;
+  transition:
+    transform 70ms ease,
+    background-color 70ms ease,
+    border-color 70ms ease,
+    color 70ms ease,
+    box-shadow 70ms ease;
+}
+
+.onboarding-shortcut kbd.pressed {
+  border-color: #0b65c2;
+  background: #0b65c2;
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transform: translateY(2px);
+}
+
+.onboarding-card p {
+  margin: 18px 4px 0;
+  color: #334155;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.onboarding-card .onboarding-instruction,
+.onboarding-card .onboarding-tested {
+  margin-top: 10px;
+  color: #64748b;
+}
+
+.onboarding-card .onboarding-tested {
+  color: #0b65c2;
+  font-weight: 600;
+}
+
+.onboarding-footer {
+  flex: 0 0 auto;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.onboarding-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.onboarding-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d8dee8;
+}
+
+.onboarding-dots span.active {
+  background: #0b65c2;
+}
+
+.onboarding-next {
+  border: 0;
+  padding: 6px 2px;
+  background: transparent;
+  color: #0b65c2;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: none;
+  transform: none;
+}
+
+.onboarding-next:hover:not(:disabled) {
+  background: transparent;
+  transform: none;
+  box-shadow: none;
+}
+
+.onboarding-next:disabled {
+  color: #a7b2c2;
+  cursor: default;
+}
+
+.app.theme-dark .onboarding-card {
+  border-color: #29406e;
+  background: #13213d;
+  color: #eef4ff;
+  box-shadow: 0 16px 36px rgba(2, 8, 23, 0.56);
+}
+
+.app.theme-dark .onboarding-card h2 {
+  color: #eef4ff;
+}
+
+.app.theme-dark .onboarding-card p {
+  color: #b7c8e6;
+}
+
+.app.theme-dark .onboarding-shortcut {
+  border-color: #29406e;
+  background: #0c1a35;
+}
+
+.app.theme-dark .onboarding-shortcut kbd {
+  border-color: #3c5f95;
+  background: #1d2d4d;
+  color: #e7efff;
+  box-shadow: inset 0 -2px 0 #102041;
+}
+
+.app.theme-dark .onboarding-shortcut kbd.pressed {
+  border-color: #4f8cff;
+  background: #2f5fe8;
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.app.theme-dark .onboarding-plus {
+  color: #b7c8e6;
+}
+
 .review-prompt {
   position: fixed;
   right: 18px;
@@ -2845,6 +3072,27 @@ button:active {
   .review-prompt {
     right: 12px;
     bottom: 38px;
+  }
+
+  .onboarding-card {
+    padding: 16px;
+  }
+
+  .onboarding-card h2 {
+    margin: 14px 0;
+    font-size: 16px;
+  }
+
+  .onboarding-shortcut {
+    gap: 5px;
+    padding: 9px;
+  }
+
+  .onboarding-shortcut kbd {
+    min-width: 31px;
+    height: 32px;
+    padding: 0 6px;
+    font-size: 12px;
   }
 }
 

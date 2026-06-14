@@ -102,6 +102,16 @@ type Messages = {
     settingsButtonLabel: string;
     newTabButtonTitle: string;
     editorPlaceholder: string;
+    onboarding: {
+      skip: string;
+      next: string;
+      finish: string;
+      tested: string;
+      steps: Record<
+        "snap" | "alwaysOnTop" | "fitContent" | "focus",
+        { title: string; shortcutLabel: string; body: string; instruction: string }
+      >;
+    };
     reviewPrompt: {
       title: string;
       body: string;
@@ -342,6 +352,18 @@ const translations: Record<AppLanguage, Messages> = {
       settingsButtonLabel: "設定",
       newTabButtonTitle: "新規タブ",
       editorPlaceholder: "ここにメモを書く",
+      onboarding: {
+        skip: "スキップ",
+        next: "次へ",
+        finish: "完了",
+        tested: "ショートカットを確認しました",
+        steps: {
+          snap: { title: "ウィンドウをすばやく移動", shortcutLabel: "移動ショートカット", body: "矢印キーに合わせて、AlwaysMemoを画面内の好きな位置へ移動できます。", instruction: "実際に押して試してください。" },
+          alwaysOnTop: { title: "メモを常に手前に表示", shortcutLabel: "最前面表示ショートカット", body: "他のアプリを操作している間も、AlwaysMemoを手前に表示できます。", instruction: "ショートカットを押して試してください。" },
+          fitContent: { title: "内容に合わせてサイズ調整", shortcutLabel: "サイズ調整ショートカット", body: "メモの内容に合わせて、ウィンドウサイズをすばやく整えます。", instruction: "ショートカットを押して試してください。" },
+          focus: { title: "いつでもメモへ戻る", shortcutLabel: "フォーカスショートカット", body: "他のアプリからAlwaysMemoを呼び出し、そのまま本文へ入力できます。", instruction: "ショートカットを押して試してください。" },
+        },
+      },
       reviewPrompt: {
         title: "AlwaysMemoは役立っていますか？",
         body: "評価やご意見をいただけると、今後の改善の助けになります。",
@@ -583,6 +605,18 @@ const translations: Record<AppLanguage, Messages> = {
       settingsButtonLabel: "Settings",
       newTabButtonTitle: "New Tab",
       editorPlaceholder: "Write your memo here",
+      onboarding: {
+        skip: "Skip",
+        next: "Next",
+        finish: "Finish",
+        tested: "Shortcut confirmed",
+        steps: {
+          snap: { title: "Move the window instantly", shortcutLabel: "Window movement shortcut", body: "Use an arrow key to quickly move AlwaysMemo around the screen.", instruction: "Try the shortcut now." },
+          alwaysOnTop: { title: "Keep your memo in front", shortcutLabel: "Always on top shortcut", body: "Keep AlwaysMemo visible while working in other apps.", instruction: "Try the shortcut now." },
+          fitContent: { title: "Fit the window to your memo", shortcutLabel: "Fit content shortcut", body: "Quickly resize the window to match the memo content.", instruction: "Try the shortcut now." },
+          focus: { title: "Return to your memo anytime", shortcutLabel: "Focus shortcut", body: "Bring back AlwaysMemo from another app and type immediately.", instruction: "Try the shortcut now." },
+        },
+      },
       reviewPrompt: {
         title: "Is AlwaysMemo useful to you?",
         body: "Your rating and feedback help us improve AlwaysMemo.",
@@ -824,6 +858,18 @@ const translations: Record<AppLanguage, Messages> = {
       settingsButtonLabel: "Configuración",
       newTabButtonTitle: "Nueva pestaña",
       editorPlaceholder: "Escribe tu memo aquí",
+      onboarding: {
+        skip: "Omitir",
+        next: "Siguiente",
+        finish: "Finalizar",
+        tested: "Atajo confirmado",
+        steps: {
+          snap: { title: "Mueve la ventana al instante", shortcutLabel: "Atajo para mover la ventana", body: "Usa una flecha para mover AlwaysMemo rápidamente por la pantalla.", instruction: "Prueba el atajo ahora." },
+          alwaysOnTop: { title: "Mantén el memo al frente", shortcutLabel: "Atajo siempre visible", body: "Mantén AlwaysMemo visible mientras trabajas en otras aplicaciones.", instruction: "Prueba el atajo ahora." },
+          fitContent: { title: "Ajusta la ventana al memo", shortcutLabel: "Atajo para ajustar el contenido", body: "Ajusta rápidamente la ventana al contenido del memo.", instruction: "Prueba el atajo ahora." },
+          focus: { title: "Vuelve al memo en cualquier momento", shortcutLabel: "Atajo para enfocar", body: "Abre AlwaysMemo desde otra aplicación y escribe de inmediato.", instruction: "Prueba el atajo ahora." },
+        },
+      },
       reviewPrompt: {
         title: "¿AlwaysMemo te resulta útil?",
         body: "Tu valoración y comentarios nos ayudan a mejorar AlwaysMemo.",
@@ -1065,6 +1111,18 @@ const translations: Record<AppLanguage, Messages> = {
       settingsButtonLabel: "Configurações",
       newTabButtonTitle: "Nova aba",
       editorPlaceholder: "Escreva seu memo aqui",
+      onboarding: {
+        skip: "Pular",
+        next: "Próximo",
+        finish: "Concluir",
+        tested: "Atalho confirmado",
+        steps: {
+          snap: { title: "Mova a janela rapidamente", shortcutLabel: "Atalho para mover a janela", body: "Use uma seta para mover o AlwaysMemo rapidamente pela tela.", instruction: "Experimente o atalho agora." },
+          alwaysOnTop: { title: "Mantenha o memo à frente", shortcutLabel: "Atalho sempre no topo", body: "Mantenha o AlwaysMemo visível enquanto usa outros aplicativos.", instruction: "Experimente o atalho agora." },
+          fitContent: { title: "Ajuste a janela ao memo", shortcutLabel: "Atalho para ajustar conteúdo", body: "Redimensione rapidamente a janela para o conteúdo do memo.", instruction: "Experimente o atalho agora." },
+          focus: { title: "Volte ao memo a qualquer momento", shortcutLabel: "Atalho para focar", body: "Abra o AlwaysMemo de outro aplicativo e digite imediatamente.", instruction: "Experimente o atalho agora." },
+        },
+      },
       reviewPrompt: {
         title: "O AlwaysMemo é útil para você?",
         body: "Sua avaliação e opinião nos ajudam a melhorar o AlwaysMemo.",
@@ -1306,6 +1364,18 @@ const translations: Record<AppLanguage, Messages> = {
       settingsButtonLabel: "설정",
       newTabButtonTitle: "새 탭",
       editorPlaceholder: "여기에 메모를 입력하세요",
+      onboarding: {
+        skip: "건너뛰기",
+        next: "다음",
+        finish: "완료",
+        tested: "단축키를 확인했습니다",
+        steps: {
+          snap: { title: "창을 빠르게 이동", shortcutLabel: "창 이동 단축키", body: "화살표 키로 AlwaysMemo를 화면의 원하는 위치로 빠르게 이동합니다.", instruction: "지금 단축키를 눌러 보세요." },
+          alwaysOnTop: { title: "메모를 항상 위에 표시", shortcutLabel: "항상 위에 표시 단축키", body: "다른 앱을 사용하는 동안에도 AlwaysMemo를 앞에 표시합니다.", instruction: "지금 단축키를 눌러 보세요." },
+          fitContent: { title: "메모에 맞게 창 크기 조절", shortcutLabel: "내용 맞춤 단축키", body: "메모 내용에 맞게 창 크기를 빠르게 조절합니다.", instruction: "지금 단축키를 눌러 보세요." },
+          focus: { title: "언제든 메모로 돌아오기", shortcutLabel: "포커스 단축키", body: "다른 앱에서 AlwaysMemo를 불러와 바로 입력할 수 있습니다.", instruction: "지금 단축키를 눌러 보세요." },
+        },
+      },
       reviewPrompt: {
         title: "AlwaysMemo가 도움이 되고 있나요?",
         body: "평가와 의견을 남겨 주시면 AlwaysMemo를 개선하는 데 도움이 됩니다.",

@@ -22,6 +22,7 @@ import {
 import {
   Check,
   ChevronDown,
+  ChevronRight,
   CircleQuestionMark,
   Copy,
   ExternalLink,
@@ -75,6 +76,7 @@ const TAB_CLOSE_ANIMATION_MS = 140;
 const HELP_URL = "https://alwaysmemo.pages.dev/help";
 const REVIEW_URL = "https://apps.microsoft.com/detail/9n22tl7m39q3";
 const HELP_HINT_STORAGE_KEY = "alwaysmemo-help-hint-seen";
+const ONBOARDING_STORAGE_KEY = "alwaysmemo-onboarding-completed";
 const DEFAULT_USE_GLOBAL_SHORTCUTS = true;
 
 type Tab = {
@@ -89,6 +91,27 @@ type SessionBehavior = "restore" | "new";
 type FileOpenBehavior = "existing" | "new_window";
 type LineSpacing = "standard" | "relaxed";
 type ThemeMode = "light" | "dark" | "system";
+type OnboardingStep = "snap" | "alwaysOnTop" | "fitContent" | "focus";
+const ONBOARDING_STEPS: OnboardingStep[] = ["snap", "alwaysOnTop", "focus", "fitContent"];
+const ONBOARDING_KEY_GROUPS: Record<OnboardingStep, string[][]> = {
+  snap: [["Ctrl"], ["Alt"], ["←", "↑", "↓", "→"]],
+  alwaysOnTop: [["Ctrl"], ["Alt"], ["T"]],
+  fitContent: [["Ctrl"], ["Alt"], ["K"]],
+  focus: [["Ctrl"], ["Alt"], ["["]],
+};
+const ONBOARDING_KEY_LABELS: Record<string, string> = {
+  ControlLeft: "Ctrl",
+  ControlRight: "Ctrl",
+  AltLeft: "Alt",
+  AltRight: "Alt",
+  ArrowLeft: "←",
+  ArrowUp: "↑",
+  ArrowDown: "↓",
+  ArrowRight: "→",
+  KeyT: "T",
+  KeyK: "K",
+  BracketLeft: "[",
+};
 
 type PersistedState = {
   tabs: Tab[];
@@ -230,6 +253,12 @@ function App() {
   const [recentClosedFiles, setRecentClosedFiles] = useState<RecentClosedFile[]>([]);
   const [recentFilesExpanded, setRecentFilesExpanded] = useState(true);
   const [reviewPromptVisible, setReviewPromptVisible] = useState(false);
+  const [onboardingStepIndex, setOnboardingStepIndex] = useState<number | null>(null);
+  const [onboardingStepTested, setOnboardingStepTested] = useState(false);
+  const [heldOnboardingKeys, setHeldOnboardingKeys] = useState<string[]>([]);
+  const [pulsedOnboardingKeys, setPulsedOnboardingKeys] = useState<string[]>([]);
+  const onboardingStepRef = useRef<OnboardingStep | null>(null);
+  const onboardingKeyPulseTimerRef = useRef<number | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
@@ -245,6 +274,78 @@ function App() {
     () => (themeMode === "system" ? (systemPrefersDark ? "dark" : "light") : themeMode),
     [systemPrefersDark, themeMode],
   );
+  const onboardingStep =
+    onboardingStepIndex === null ? null : ONBOARDING_STEPS[onboardingStepIndex] ?? null;
+  const onboardingContent = onboardingStep ? messages.app.onboarding.steps[onboardingStep] : null;
+  const pressedOnboardingKeys = useMemo(
+    () => new Set([...heldOnboardingKeys, ...pulsedOnboardingKeys]),
+    [heldOnboardingKeys, pulsedOnboardingKeys],
+  );
+
+  const finishOnboarding = useCallback(() => {
+    try {
+      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
+    } catch (error) {
+      console.error("Failed to save onboarding state", error);
+    }
+    if (onboardingKeyPulseTimerRef.current !== null) {
+      window.clearTimeout(onboardingKeyPulseTimerRef.current);
+      onboardingKeyPulseTimerRef.current = null;
+    }
+    onboardingStepRef.current = null;
+    setOnboardingStepIndex(null);
+    setOnboardingStepTested(false);
+    setHeldOnboardingKeys([]);
+    setPulsedOnboardingKeys([]);
+  }, []);
+
+  const markOnboardingStepTested = useCallback((step: OnboardingStep) => {
+    if (onboardingStepRef.current === step) {
+      setOnboardingStepTested(true);
+    }
+  }, []);
+
+  const pulseOnboardingKeys = useCallback((step: OnboardingStep, keys: string[]) => {
+    if (onboardingStepRef.current !== step) return;
+    if (onboardingKeyPulseTimerRef.current !== null) {
+      window.clearTimeout(onboardingKeyPulseTimerRef.current);
+    }
+    setPulsedOnboardingKeys(keys);
+    onboardingKeyPulseTimerRef.current = window.setTimeout(() => {
+      onboardingKeyPulseTimerRef.current = null;
+      setPulsedOnboardingKeys([]);
+    }, 450);
+  }, []);
+
+  const advanceOnboarding = useCallback(() => {
+    if (onboardingStepIndex === null || !onboardingStepTested) return;
+    const nextIndex = onboardingStepIndex + 1;
+    if (nextIndex >= ONBOARDING_STEPS.length) {
+      finishOnboarding();
+      return;
+    }
+    onboardingStepRef.current = ONBOARDING_STEPS[nextIndex];
+    if (onboardingKeyPulseTimerRef.current !== null) {
+      window.clearTimeout(onboardingKeyPulseTimerRef.current);
+      onboardingKeyPulseTimerRef.current = null;
+    }
+    setOnboardingStepIndex(nextIndex);
+    setOnboardingStepTested(false);
+    setHeldOnboardingKeys([]);
+    setPulsedOnboardingKeys([]);
+  }, [finishOnboarding, onboardingStepIndex, onboardingStepTested]);
+
+  useEffect(() => {
+    if (onboardingStepIndex === null || !onboardingStepTested) return;
+    const handleEnter = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || event.repeat || event.isComposing) return;
+      event.preventDefault();
+      advanceOnboarding();
+    };
+    window.addEventListener("keydown", handleEnter);
+    return () => window.removeEventListener("keydown", handleEnter);
+  }, [advanceOnboarding, onboardingStepIndex, onboardingStepTested]);
+
   const syncWindowMaximizedState = useCallback(async () => {
     try {
       const maximized = await windowHandle.isMaximized();
@@ -1167,6 +1268,7 @@ function App() {
     try {
       const next = await invoke<boolean>("toggle_always_on_top");
       setAlwaysOnTopState(next);
+      markOnboardingStepTested("alwaysOnTop");
       setStatus(
         next
           ? messages.app.statuses.alwaysOnTopEnabled
@@ -1176,51 +1278,55 @@ function App() {
       console.error(error);
       setStatus(messages.app.statuses.failedToggleAlwaysOnTop);
     }
-  }, [messages.app.statuses]);
+  }, [markOnboardingStepTested, messages.app.statuses]);
 
   const snapLeft = useCallback(async () => {
     try {
       await invoke("snap_left");
       setSnap("left");
+      markOnboardingStepTested("snap");
       setStatus(messages.app.statuses.snappedLeft);
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedSnapLeft);
     }
-  }, [messages.app.statuses.failedSnapLeft, messages.app.statuses.snappedLeft]);
+  }, [markOnboardingStepTested, messages.app.statuses.failedSnapLeft, messages.app.statuses.snappedLeft]);
 
   const snapRight = useCallback(async () => {
     try {
       await invoke("snap_right");
       setSnap("right");
+      markOnboardingStepTested("snap");
       setStatus(messages.app.statuses.snappedRight);
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedSnapRight);
     }
-  }, [messages.app.statuses.failedSnapRight, messages.app.statuses.snappedRight]);
+  }, [markOnboardingStepTested, messages.app.statuses.failedSnapRight, messages.app.statuses.snappedRight]);
 
   const snapTop = useCallback(async () => {
     try {
       await invoke("snap_top");
       setSnap("top");
+      markOnboardingStepTested("snap");
       setStatus(messages.app.statuses.snappedTop);
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedSnapTop);
     }
-  }, [messages.app.statuses.failedSnapTop, messages.app.statuses.snappedTop]);
+  }, [markOnboardingStepTested, messages.app.statuses.failedSnapTop, messages.app.statuses.snappedTop]);
 
   const snapBottom = useCallback(async () => {
     try {
       await invoke("snap_bottom");
       setSnap("bottom");
+      markOnboardingStepTested("snap");
       setStatus(messages.app.statuses.snappedBottom);
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedSnapBottom);
     }
-  }, [messages.app.statuses.failedSnapBottom, messages.app.statuses.snappedBottom]);
+  }, [markOnboardingStepTested, messages.app.statuses.failedSnapBottom, messages.app.statuses.snappedBottom]);
 
   const resizeToMinimum = useCallback(async () => {
     try {
@@ -1287,12 +1393,13 @@ function App() {
       await windowHandle.setSize(
         new LogicalSize(Math.min(nextWidth, maxWidth), Math.min(nextHeight, maxHeight)),
       );
+      markOnboardingStepTested("fitContent");
       setStatus(messages.app.statuses.resizedFitContent);
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedResizeFitContent);
     }
-  }, [messages.app.statuses.failedResizeFitContent, messages.app.statuses.resizedFitContent, windowHandle]);
+  }, [markOnboardingStepTested, messages.app.statuses.failedResizeFitContent, messages.app.statuses.resizedFitContent, windowHandle]);
 
   useEffect(() => {
     const initState = async () => {
@@ -1488,6 +1595,54 @@ function App() {
       window.removeEventListener("unhandledrejection", recordError);
     };
   }, [currentWindowLabel]);
+
+  useEffect(() => {
+    if (!startupStateReady || currentWindowLabel !== "main") return;
+    try {
+      if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY)) return;
+    } catch (error) {
+      console.error("Failed to read onboarding state", error);
+    }
+    onboardingStepRef.current = ONBOARDING_STEPS[0];
+    setOnboardingStepIndex(0);
+    setOnboardingStepTested(false);
+  }, [currentWindowLabel, startupStateReady]);
+
+  useEffect(() => {
+    if (!onboardingStep) return;
+    const visibleKeys = new Set(ONBOARDING_KEY_GROUPS[onboardingStep].flat());
+    const updateHeldKey = (event: KeyboardEvent, pressed: boolean) => {
+      const label = ONBOARDING_KEY_LABELS[event.code];
+      if (!label || !visibleKeys.has(label)) return;
+      setHeldOnboardingKeys((current) => {
+        if (pressed) {
+          return current.includes(label) ? current : [...current, label];
+        }
+        return current.filter((key) => key !== label);
+      });
+      if (!pressed) {
+        setPulsedOnboardingKeys((current) => current.filter((key) => key !== label));
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => updateHeldKey(event, true);
+    const handleKeyUp = (event: KeyboardEvent) => updateHeldKey(event, false);
+    const clearHeldKeys = () => setHeldOnboardingKeys([]);
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", clearHeldKeys);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", clearHeldKeys);
+    };
+  }, [onboardingStep]);
+
+  useEffect(() => () => {
+    if (onboardingKeyPulseTimerRef.current !== null) {
+      window.clearTimeout(onboardingKeyPulseTimerRef.current);
+    }
+  }, []);
 
   const openReviewPage = useCallback(async () => {
     try {
@@ -2364,24 +2519,47 @@ function App() {
       await windowHandle.setFocus();
       await windowHandle.requestUserAttention(UserAttentionType.Informational);
       restoreEditorSelection({ fallbackToEnd: true });
+      markOnboardingStepTested("focus");
     } catch (error) {
       console.error("Failed to focus AlwaysMemo", error);
     }
-  }, [restoreEditorSelection, windowHandle]);
+  }, [markOnboardingStepTested, restoreEditorSelection, windowHandle]);
 
   const shortcutActions = useMemo(
     () => [
-      { id: "focusAlwaysMemo", combo: "Ctrl+Alt+[", action: focusAlwaysMemo },
-      { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: toggleAlwaysOnTop },
-      { id: "snapLeft", combo: "Ctrl+Alt+Left", action: snapLeft },
-      { id: "snapRight", combo: "Ctrl+Alt+Right", action: snapRight },
-      { id: "snapTop", combo: "Ctrl+Alt+Up", action: snapTop },
-      { id: "snapBottom", combo: "Ctrl+Alt+Down", action: snapBottom },
+      { id: "focusAlwaysMemo", combo: "Ctrl+Alt+[", action: () => {
+        pulseOnboardingKeys("focus", ["Ctrl", "Alt", "["]);
+        return focusAlwaysMemo();
+      } },
+      { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: () => {
+        pulseOnboardingKeys("alwaysOnTop", ["Ctrl", "Alt", "T"]);
+        return toggleAlwaysOnTop();
+      } },
+      { id: "snapLeft", combo: "Ctrl+Alt+Left", action: () => {
+        pulseOnboardingKeys("snap", ["Ctrl", "Alt", "←"]);
+        return snapLeft();
+      } },
+      { id: "snapRight", combo: "Ctrl+Alt+Right", action: () => {
+        pulseOnboardingKeys("snap", ["Ctrl", "Alt", "→"]);
+        return snapRight();
+      } },
+      { id: "snapTop", combo: "Ctrl+Alt+Up", action: () => {
+        pulseOnboardingKeys("snap", ["Ctrl", "Alt", "↑"]);
+        return snapTop();
+      } },
+      { id: "snapBottom", combo: "Ctrl+Alt+Down", action: () => {
+        pulseOnboardingKeys("snap", ["Ctrl", "Alt", "↓"]);
+        return snapBottom();
+      } },
       { id: "minimumSize", combo: "Ctrl+Alt+J", action: resizeToMinimum },
-      { id: "fitContent", combo: "Ctrl+Alt+K", action: resizeToFitContent },
+      { id: "fitContent", combo: "Ctrl+Alt+K", action: () => {
+        pulseOnboardingKeys("fitContent", ["Ctrl", "Alt", "K"]);
+        return resizeToFitContent();
+      } },
     ],
     [
       focusAlwaysMemo,
+      pulseOnboardingKeys,
       resizeToFitContent,
       resizeToMinimum,
       snapBottom,
@@ -3129,7 +3307,7 @@ function App() {
                 >
                   <CircleQuestionMark size={14} strokeWidth={1.9} aria-hidden="true" />
                 </button>
-                {helpHintVisible && !helpPanelOpen ? (
+                {helpHintVisible && !helpPanelOpen && !onboardingStep ? (
                   <div
                     ref={helpHintRef}
                     className="help-hint-bubble"
@@ -3422,7 +3600,7 @@ function App() {
           <span className="bottom-item">{messages.app.statusBar.characters(activePlainText.length)}</span>
           <span className="bottom-item">{zoomPercentLabel}</span>
           <span className="bottom-item">{messages.app.statusBar.encoding}</span>
-          <span className="bottom-item status-item">
+          <span className={`bottom-item status-item ${onboardingStep === "alwaysOnTop" ? "onboarding-target" : ""}`}>
             <span className="bottom-label">{messages.app.statusBar.alwaysOnTop}: </span>
             <span className="bottom-value">{alwaysOnTop ? messages.common.on : messages.common.off}</span>
           </span>
@@ -3433,7 +3611,65 @@ function App() {
         </div>
       ) : null}
 
-      {reviewPromptVisible ? (
+      {onboardingStep && onboardingContent && onboardingStepIndex !== null ? (
+        <aside
+          className="onboarding-card"
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="onboarding-title"
+        >
+          <div className="onboarding-header">
+            <span>{onboardingStepIndex + 1} / {ONBOARDING_STEPS.length}</span>
+            <button type="button" onClick={finishOnboarding}>
+              {messages.app.onboarding.skip}
+            </button>
+          </div>
+          <div className="onboarding-content">
+            <h2 id="onboarding-title">{onboardingContent.title}</h2>
+            <div className="onboarding-shortcut" aria-label={onboardingContent.shortcutLabel}>
+              {ONBOARDING_KEY_GROUPS[onboardingStep].map((group, groupIndex) => (
+                <span className="onboarding-key-group" key={`${onboardingStep}-${groupIndex}`}>
+                  {groupIndex > 0 ? <span className="onboarding-plus">+</span> : null}
+                  {group.map((key) => (
+                    <kbd
+                      key={key}
+                      className={pressedOnboardingKeys.has(key) ? "pressed" : ""}
+                    >
+                      {key}
+                    </kbd>
+                  ))}
+                </span>
+              ))}
+            </div>
+            <p>{onboardingContent.body}</p>
+            <p className={onboardingStepTested ? "onboarding-tested" : "onboarding-instruction"}>
+              {onboardingStepTested
+                ? messages.app.onboarding.tested
+                : onboardingContent.instruction}
+            </p>
+          </div>
+          <div className="onboarding-footer">
+            <div className="onboarding-dots" aria-hidden="true">
+              {ONBOARDING_STEPS.map((step, index) => (
+                <span key={step} className={index === onboardingStepIndex ? "active" : ""} />
+              ))}
+            </div>
+            <button
+              type="button"
+              className="onboarding-next"
+              disabled={!onboardingStepTested}
+              onClick={advanceOnboarding}
+            >
+              {onboardingStepIndex === ONBOARDING_STEPS.length - 1
+                ? messages.app.onboarding.finish
+                : messages.app.onboarding.next}
+              <ChevronRight size={16} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+          </div>
+        </aside>
+      ) : null}
+
+      {reviewPromptVisible && !onboardingStep ? (
         <aside
           className={`review-prompt ${showStatusBar ? "" : "without-status"}`}
           role="dialog"
