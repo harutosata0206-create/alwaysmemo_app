@@ -1,17 +1,19 @@
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "windows")]
+use std::{ffi::OsStr, iter, os::windows::ffi::OsStrExt, ptr};
 use std::{
     fs,
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, Read, Write},
     net::{Shutdown, TcpListener, TcpStream},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     thread,
 };
-#[cfg(target_os = "windows")]
-use std::{ffi::OsStr, iter, os::windows::ffi::OsStrExt, ptr};
 use tauri::Emitter;
 
 const MAX_TEXT_FILE_BYTES: u64 = 1_048_576;
+const MAX_SINGLE_INSTANCE_MESSAGE_BYTES: u64 = 65_536;
+const MAX_PENDING_OPEN_FILES: usize = 128;
 const SINGLE_INSTANCE_ADDR: &str = "127.0.0.1:47652";
 const SINGLE_INSTANCE_ACK: &str = "alwaysmemo-single-instance-ok";
 const PENDING_OPEN_FILES_EVENT: &str = "alwaysmemo:pending-open-files";
@@ -238,6 +240,7 @@ struct SingleInstanceMessage {
 fn collect_launch_paths() -> Vec<String> {
     std::env::args_os()
         .skip(1)
+        .take(MAX_PENDING_OPEN_FILES)
         .filter_map(|arg| {
             let candidate = PathBuf::from(arg);
             if candidate.as_os_str().is_empty() || candidate.to_string_lossy().starts_with('-') {
@@ -256,12 +259,30 @@ fn read_single_instance_message(stream: &TcpStream) -> Result<SingleInstanceMess
         stream
             .try_clone()
             .map_err(|e| format!("failed to clone single-instance stream: {e}"))?,
-    );
-    reader
+    )
+    .take(MAX_SINGLE_INSTANCE_MESSAGE_BYTES + 1);
+    let bytes_read = reader
         .read_line(&mut payload)
         .map_err(|e| format!("failed to read single-instance payload: {e}"))?;
-    serde_json::from_str::<SingleInstanceMessage>(payload.trim())
-        .map_err(|e| format!("failed to parse single-instance payload: {e}"))
+    if bytes_read == 0
+        || bytes_read as u64 > MAX_SINGLE_INSTANCE_MESSAGE_BYTES
+        || !payload.ends_with('\n')
+    {
+        return Err("invalid single-instance payload size".to_string());
+    }
+    let message = serde_json::from_str::<SingleInstanceMessage>(payload.trim())
+        .map_err(|e| format!("failed to parse single-instance payload: {e}"))?;
+    if message.paths.len() > MAX_PENDING_OPEN_FILES {
+        return Err("too many single-instance paths".to_string());
+    }
+    let paths = message
+        .paths
+        .into_iter()
+        .map(|path| {
+            validate_read_path(Path::new(&path)).map(|path| path.to_string_lossy().into_owned())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(SingleInstanceMessage { paths })
 }
 
 fn try_forward_to_running_instance(paths: &[String]) -> bool {
@@ -291,7 +312,8 @@ fn queue_pending_open_files(
     let mut pending = pending_open_files
         .lock()
         .map_err(|_| "failed to lock pending open files".to_string())?;
-    pending.extend(paths.iter().cloned());
+    let remaining = MAX_PENDING_OPEN_FILES.saturating_sub(pending.len());
+    pending.extend(paths.iter().take(remaining).cloned());
     Ok(pending.len())
 }
 
@@ -398,7 +420,7 @@ fn save_text_file_dialog(
 
 #[tauri::command]
 fn write_text_file(path: String, contents: String) -> Result<(), String> {
-    if contents.as_bytes().len() as u64 > MAX_TEXT_FILE_BYTES {
+    if contents.len() as u64 > MAX_TEXT_FILE_BYTES {
         return Err("file is too large".to_string());
     }
     let validated_path = validate_write_path(Path::new(&path))?;
@@ -420,7 +442,10 @@ fn open_store_review() -> Result<(), String> {
         ) -> isize;
     }
 
-    let operation: Vec<u16> = OsStr::new("open").encode_wide().chain(iter::once(0)).collect();
+    let operation: Vec<u16> = OsStr::new("open")
+        .encode_wide()
+        .chain(iter::once(0))
+        .collect();
     let uri: Vec<u16> = OsStr::new(STORE_REVIEW_URI)
         .encode_wide()
         .chain(iter::once(0))
@@ -438,7 +463,9 @@ fn open_store_review() -> Result<(), String> {
     if result > 32 {
         Ok(())
     } else {
-        Err(format!("failed to open Microsoft Store review page: {result}"))
+        Err(format!(
+            "failed to open Microsoft Store review page: {result}"
+        ))
     }
 }
 
