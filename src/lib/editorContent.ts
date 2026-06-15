@@ -186,10 +186,10 @@ function isPlaceholderBreak(node: Node): boolean {
   if (!parent || !BLOCK_TEXT_TAGS.has(parent.tagName)) {
     return false;
   }
-  return Array.from(parent.childNodes).every(
-    (child) =>
-      child === node ||
-      (child.nodeType === Node.TEXT_NODE && (child.textContent ?? "").length === 0),
+  return (
+    parent.children.length === 1 &&
+    parent.firstElementChild === node &&
+    (parent.textContent ?? "").length === 0
   );
 }
 
@@ -270,6 +270,91 @@ export function nodeToPlainTextBeforePosition(
   return walk(root).text;
 }
 
+export function getTextPositionBeforePosition(
+  root: Node,
+  container: Node,
+  offset: number,
+): { line: number; column: number } {
+  const position = { line: 1, column: 1, hasText: false, endsWithNewline: false };
+
+  const appendText = (value: string) => {
+    const normalized = normalizePlainText(value);
+    if (!normalized) return;
+    const lines = normalized.split("\n");
+    if (lines.length > 1) {
+      position.line += lines.length - 1;
+      position.column = Array.from(lines[lines.length - 1] ?? "").length + 1;
+    } else {
+      position.column += Array.from(normalized).length;
+    }
+    position.hasText = true;
+    position.endsWithNewline = normalized.endsWith("\n");
+  };
+
+  const appendBlockBoundary = (node: Node) => {
+    if (
+      node.nodeType === Node.ELEMENT_NODE &&
+      BLOCK_TEXT_TAGS.has((node as Element).tagName) &&
+      position.hasText &&
+      !position.endsWithNewline
+    ) {
+      appendText("\n");
+    }
+  };
+
+  const appendBlockEnd = (node: Node) => {
+    if (
+      node.nodeType === Node.ELEMENT_NODE &&
+      BLOCK_TEXT_TAGS.has((node as Element).tagName) &&
+      !position.endsWithNewline
+    ) {
+      appendText("\n");
+    }
+  };
+
+  const walk = (node: Node): boolean => {
+    if (node === container) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        appendText((node.textContent ?? "").slice(0, offset));
+        return true;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+        return true;
+      }
+      for (let index = 0; index < Math.min(offset, node.childNodes.length); index += 1) {
+        const child = node.childNodes[index];
+        appendBlockBoundary(child);
+        if (!isPlaceholderBreak(child)) walk(child);
+      }
+      return true;
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      appendText(node.textContent ?? "");
+      return false;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+      return false;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === "BR") {
+      if (!isPlaceholderBreak(node)) appendText("\n");
+      return false;
+    }
+
+    for (const child of Array.from(node.childNodes)) {
+      appendBlockBoundary(child);
+      if (walk(child)) return true;
+    }
+    appendBlockEnd(node);
+    return false;
+  };
+
+  if (root.contains(container)) {
+    walk(root);
+  }
+  return { line: position.line, column: position.column };
+}
+
 export function textToHtml(text: string): string {
   const normalizedText = normalizePlainText(text);
   const div = document.createElement("div");
@@ -300,6 +385,7 @@ export function htmlToText(html: string): string {
 }
 
 export function stripTrustedSearchHighlights(html: string): string {
+  if (!html.includes("search-hit")) return html;
   const container = document.createElement("div");
   container.innerHTML = html;
   unwrapSearchHighlightMarks(container);

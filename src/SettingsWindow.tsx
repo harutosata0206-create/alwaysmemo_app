@@ -156,7 +156,6 @@ function SettingsWindow() {
   useEffect(() => {
     let unlistenSync: (() => void) | undefined;
     let unlistenResize: (() => void) | undefined;
-    let unlistenMove: (() => void) | undefined;
     let unlistenFocus: (() => void) | undefined;
 
     void windowHandle.listen<SettingsSyncPayload>(SETTINGS_SYNC_EVENT, ({ payload }) => {
@@ -175,12 +174,6 @@ function SettingsWindow() {
       unlistenResize = cleanup;
     });
 
-    void windowHandle.onMoved(() => {
-      void syncWindowState();
-    }).then((cleanup) => {
-      unlistenMove = cleanup;
-    });
-
     void windowHandle.onFocusChanged(({ payload }) => {
       if (!payload) return;
       void requestSnapshot();
@@ -194,7 +187,6 @@ function SettingsWindow() {
     return () => {
       unlistenSync?.();
       unlistenResize?.();
-      unlistenMove?.();
       unlistenFocus?.();
     };
   }, [requestSnapshot, sourceLabel, syncWindowState, windowHandle]);

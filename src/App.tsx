@@ -22,6 +22,7 @@ import {
 import {
   Check,
   ChevronDown,
+  ChevronRight,
   CircleQuestionMark,
   Copy,
   ExternalLink,
@@ -31,6 +32,7 @@ import {
   Search,
   Settings,
   Square,
+  Star,
   X,
 } from "lucide-react";
 import {
@@ -40,7 +42,7 @@ import {
   htmlToText,
   normalizePlainText,
   normalizeHtml,
-  nodeToPlainTextBeforePosition,
+  getTextPositionBeforePosition,
   replaceTextInHtml,
   stripTrustedSearchHighlights,
   textToHtml,
@@ -62,8 +64,15 @@ import {
   useMessages,
   type LanguagePreference,
 } from "./lib/i18n";
+
 import { loadSettings, saveSettings } from "./lib/settingsService";
 import { getTheme, getThemeStyle } from "./lib/themes";
+
+import {
+  markReviewSessionError,
+  startReviewPromptSession,
+} from "./lib/reviewPrompt";
+
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 300;
@@ -74,7 +83,9 @@ const GLOBAL_SHORTCUT_SYNC_KEY = "alwaysmemo-global-shortcut-sync";
 const PENDING_OPEN_FILES_EVENT = "alwaysmemo:pending-open-files";
 const TAB_CLOSE_ANIMATION_MS = 140;
 const HELP_URL = "https://alwaysmemo.pages.dev/help";
+const REVIEW_URL = "https://apps.microsoft.com/detail/9n22tl7m39q3";
 const HELP_HINT_STORAGE_KEY = "alwaysmemo-help-hint-seen";
+const ONBOARDING_STORAGE_KEY = "alwaysmemo-onboarding-completed";
 const DEFAULT_USE_GLOBAL_SHORTCUTS = true;
 
 type Tab = {
@@ -88,6 +99,35 @@ type SnapPosition = "left" | "right" | "top" | "bottom" | null;
 type SessionBehavior = "restore" | "new";
 type FileOpenBehavior = "existing" | "new_window";
 type LineSpacing = "standard" | "relaxed";
+
+type ThemeMode = "light" | "dark" | "system";
+type OnboardingStep = "snap" | "alwaysOnTop" | "fitContent" | "focus";
+const ONBOARDING_STEPS: OnboardingStep[] = [
+  "snap",
+  "alwaysOnTop",
+  "focus",
+  "fitContent",
+];
+const ONBOARDING_KEY_GROUPS: Record<OnboardingStep, string[][]> = {
+  snap: [["Ctrl"], ["Alt"], ["←", "↑", "↓", "→"]],
+  alwaysOnTop: [["Ctrl"], ["Alt"], ["T"]],
+  fitContent: [["Ctrl"], ["Alt"], ["K"]],
+  focus: [["Ctrl"], ["Alt"], ["["]],
+};
+const ONBOARDING_KEY_LABELS: Record<string, string> = {
+  ControlLeft: "Ctrl",
+  ControlRight: "Ctrl",
+  AltLeft: "Alt",
+  AltRight: "Alt",
+  ArrowLeft: "←",
+  ArrowUp: "↑",
+  ArrowDown: "↓",
+  ArrowRight: "→",
+  KeyT: "T",
+  KeyK: "K",
+  BracketLeft: "[",
+};
+
 type PersistedState = {
   tabs: Tab[];
   activeTabId: string | null;
@@ -107,16 +147,33 @@ type RecentClosedFile = {
 };
 const MAX_RECENT_CLOSED_FILES = 5;
 
+type PastePerformanceReport = {
+  textLength: number;
+  totalMs: number;
+  steps: Record<string, { calls: number; totalMs: number }>;
+};
+
+type PastePerformanceState = {
+  startedAt: number;
+  lastStepAt: number;
+  textLength: number;
+  steps: PastePerformanceReport["steps"];
+  finishTimer: number | null;
+};
+
 type OpenedTextFile = {
   path: string;
   contents: string;
 };
 
 function App() {
-  const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(DEFAULT_USE_GLOBAL_SHORTCUTS);
+  const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(
+    DEFAULT_USE_GLOBAL_SHORTCUTS,
+  );
   const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
   const [, setStatus] = useState<string | null>(null);
-  const [languagePreference, setLanguagePreference] = useState<LanguagePreference>("system");
+  const [languagePreference, setLanguagePreference] =
+    useState<LanguagePreference>("system");
   const { messages } = useMessages(languagePreference);
   const [tabs, setTabs] = useState<Tab[]>([
     { id: "initial", title: messages.app.untitledTab, content: "" },
@@ -133,15 +190,21 @@ function App() {
   const tabsWheelTargetRef = useRef<number | null>(null);
   const tabsWheelRafRef = useRef<number | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const suppressEditorInputRef = useRef(false);
   const savedSelectionRef = useRef<Range | null>(null);
   const allowImmediateCloseRef = useRef(false);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
   const cursorUpdateRafRef = useRef<number | null>(null);
+  const pastePerformanceRef = useRef<PastePerformanceState | null>(null);
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const savedTabsRef = useRef<Record<string, { title: string; content: string }>>({});
+  const savedTabsRef = useRef<
+    Record<string, { title: string; content: string }>
+  >({});
   const [, setSavedVersion] = useState(0);
-  const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(null);
+  const [openMenu, setOpenMenu] = useState<"file" | "edit" | "view" | null>(
+    null,
+  );
   const menuRef = useRef<HTMLDivElement | null>(null);
   const helpButtonRef = useRef<HTMLButtonElement | null>(null);
   const helpHintRef = useRef<HTMLDivElement | null>(null);
@@ -150,28 +213,40 @@ function App() {
   const [helpHintVisible, setHelpHintVisible] = useState(false);
   const fileMenuWrapperRef = useRef<HTMLDivElement | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
-  const [fileMenuStyle, setFileMenuStyle] = useState<CSSProperties | undefined>(undefined);
+  const [fileMenuStyle, setFileMenuStyle] = useState<CSSProperties | undefined>(
+    undefined,
+  );
   const editMenuRef = useRef<HTMLDivElement | null>(null);
   const editMenuWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [editMenuStyle, setEditMenuStyle] = useState<CSSProperties | undefined>(undefined);
+  const [editMenuStyle, setEditMenuStyle] = useState<CSSProperties | undefined>(
+    undefined,
+  );
   const viewMenuRef = useRef<HTMLDivElement | null>(null);
   const viewMenuWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [viewMenuStyle, setViewMenuStyle] = useState<CSSProperties | undefined>(undefined);
+  const [viewMenuStyle, setViewMenuStyle] = useState<CSSProperties | undefined>(
+    undefined,
+  );
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
   const [editorFontSizePx, setEditorFontSizePx] = useState(14);
   const [, setEditorFontSizeInput] = useState("14");
   const [lineSpacing, setLineSpacing] = useState<LineSpacing>("standard");
   const [themeMode, setThemeMode] = useState<ThemeMode>("system");
-  const [systemPrefersDark, setSystemPrefersDark] = useState(() =>
-    window.matchMedia("(prefers-color-scheme: dark)").matches,
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
   );
-  const [sessionBehavior, setSessionBehavior] = useState<SessionBehavior>("restore");
-  const [fileOpenBehavior, setFileOpenBehavior] = useState<FileOpenBehavior>("existing");
-  const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
+  const [sessionBehavior, setSessionBehavior] =
+    useState<SessionBehavior>("restore");
+  const [fileOpenBehavior, setFileOpenBehavior] =
+    useState<FileOpenBehavior>("existing");
+  const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(
+    null,
+  );
   const [windowClosePromptOpen, setWindowClosePromptOpen] = useState(false);
   const [closingTabIds, setClosingTabIds] = useState<string[]>([]);
-  const [hoveredTabCloseId, setHoveredTabCloseId] = useState<string | null>(null);
+  const [hoveredTabCloseId, setHoveredTabCloseId] = useState<string | null>(
+    null,
+  );
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
   const tabCloseTimerRef = useRef<Record<string, number>>({});
   const windowStateSyncTimerRef = useRef<number | null>(null);
@@ -199,12 +274,27 @@ function App() {
   const [goToLineValue, setGoToLineValue] = useState("1");
   const goToLineInputRef = useRef<HTMLInputElement | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [recentClosedFiles, setRecentClosedFiles] = useState<RecentClosedFile[]>([]);
+  const [recentClosedFiles, setRecentClosedFiles] = useState<
+    RecentClosedFile[]
+  >([]);
   const [recentFilesExpanded, setRecentFilesExpanded] = useState(true);
+  const [reviewPromptVisible, setReviewPromptVisible] = useState(false);
+  const [onboardingStepIndex, setOnboardingStepIndex] = useState<number | null>(
+    null,
+  );
+  const [onboardingStepTested, setOnboardingStepTested] = useState(false);
+  const [heldOnboardingKeys, setHeldOnboardingKeys] = useState<string[]>([]);
+  const [pulsedOnboardingKeys, setPulsedOnboardingKeys] = useState<string[]>(
+    [],
+  );
+  const onboardingStepRef = useRef<OnboardingStep | null>(null);
+  const onboardingKeyPulseTimerRef = useRef<number | null>(null);
 
-  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
-  const deletePromptTab =
-    deletePromptTabId ? tabs.find((tab) => tab.id === deletePromptTabId) ?? null : null;
+  const activeTab =
+    tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
+  const deletePromptTab = deletePromptTabId
+    ? (tabs.find((tab) => tab.id === deletePromptTabId) ?? null)
+    : null;
   const windowHandle = getCurrentWindow();
   const currentWebviewWindow = useMemo(() => WebviewWindow.getCurrent(), []);
   const currentWindowLabel = currentWebviewWindow.label;
@@ -216,6 +306,85 @@ function App() {
     () => getTheme(themeMode, systemPrefersDark),
     [systemPrefersDark, themeMode],
   );
+  const onboardingStep =
+    onboardingStepIndex === null
+      ? null
+      : (ONBOARDING_STEPS[onboardingStepIndex] ?? null);
+  const onboardingContent = onboardingStep
+    ? messages.app.onboarding.steps[onboardingStep]
+    : null;
+  const pressedOnboardingKeys = useMemo(
+    () => new Set([...heldOnboardingKeys, ...pulsedOnboardingKeys]),
+    [heldOnboardingKeys, pulsedOnboardingKeys],
+  );
+
+  const finishOnboarding = useCallback(() => {
+    try {
+      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
+    } catch (error) {
+      console.error("Failed to save onboarding state", error);
+    }
+    if (onboardingKeyPulseTimerRef.current !== null) {
+      window.clearTimeout(onboardingKeyPulseTimerRef.current);
+      onboardingKeyPulseTimerRef.current = null;
+    }
+    onboardingStepRef.current = null;
+    setOnboardingStepIndex(null);
+    setOnboardingStepTested(false);
+    setHeldOnboardingKeys([]);
+    setPulsedOnboardingKeys([]);
+  }, []);
+
+  const markOnboardingStepTested = useCallback((step: OnboardingStep) => {
+    if (onboardingStepRef.current === step) {
+      setOnboardingStepTested(true);
+    }
+  }, []);
+
+  const pulseOnboardingKeys = useCallback(
+    (step: OnboardingStep, keys: string[]) => {
+      if (onboardingStepRef.current !== step) return;
+      if (onboardingKeyPulseTimerRef.current !== null) {
+        window.clearTimeout(onboardingKeyPulseTimerRef.current);
+      }
+      setPulsedOnboardingKeys(keys);
+      onboardingKeyPulseTimerRef.current = window.setTimeout(() => {
+        onboardingKeyPulseTimerRef.current = null;
+        setPulsedOnboardingKeys([]);
+      }, 450);
+    },
+    [],
+  );
+
+  const advanceOnboarding = useCallback(() => {
+    if (onboardingStepIndex === null || !onboardingStepTested) return;
+    const nextIndex = onboardingStepIndex + 1;
+    if (nextIndex >= ONBOARDING_STEPS.length) {
+      finishOnboarding();
+      return;
+    }
+    onboardingStepRef.current = ONBOARDING_STEPS[nextIndex];
+    if (onboardingKeyPulseTimerRef.current !== null) {
+      window.clearTimeout(onboardingKeyPulseTimerRef.current);
+      onboardingKeyPulseTimerRef.current = null;
+    }
+    setOnboardingStepIndex(nextIndex);
+    setOnboardingStepTested(false);
+    setHeldOnboardingKeys([]);
+    setPulsedOnboardingKeys([]);
+  }, [finishOnboarding, onboardingStepIndex, onboardingStepTested]);
+
+  useEffect(() => {
+    if (onboardingStepIndex === null || !onboardingStepTested) return;
+    const handleEnter = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || event.repeat || event.isComposing) return;
+      event.preventDefault();
+      advanceOnboarding();
+    };
+    window.addEventListener("keydown", handleEnter);
+    return () => window.removeEventListener("keydown", handleEnter);
+  }, [advanceOnboarding, onboardingStepIndex, onboardingStepTested]);
+
   const syncWindowMaximizedState = useCallback(async () => {
     try {
       const maximized = await windowHandle.isMaximized();
@@ -227,15 +396,18 @@ function App() {
     }
   }, [windowHandle]);
 
-  const scheduleWindowMaximizedSync = useCallback((delay = 120) => {
-    if (windowStateSyncTimerRef.current !== null) {
-      window.clearTimeout(windowStateSyncTimerRef.current);
-    }
-    windowStateSyncTimerRef.current = window.setTimeout(() => {
-      windowStateSyncTimerRef.current = null;
-      void syncWindowMaximizedState();
-    }, delay);
-  }, [syncWindowMaximizedState]);
+  const scheduleWindowMaximizedSync = useCallback(
+    (delay = 120) => {
+      if (windowStateSyncTimerRef.current !== null) {
+        window.clearTimeout(windowStateSyncTimerRef.current);
+      }
+      windowStateSyncTimerRef.current = window.setTimeout(() => {
+        windowStateSyncTimerRef.current = null;
+        void syncWindowMaximizedState();
+      }, delay);
+    },
+    [syncWindowMaximizedState],
+  );
 
   useEffect(() => {
     setEditorFontSizeInput(String(editorFontSizePx));
@@ -244,17 +416,29 @@ function App() {
   useEffect(() => {
     activeTabIdRef.current = activeTabId;
     if (!activeTabId) return;
-    tabHistoryRef.current = [...tabHistoryRef.current.filter((id) => id !== activeTabId), activeTabId].slice(-100);
+    tabHistoryRef.current = [
+      ...tabHistoryRef.current.filter((id) => id !== activeTabId),
+      activeTabId,
+    ].slice(-100);
   }, [activeTabId]);
   const activeHtml = activeTab?.content ?? "";
-  const activePlainText = useMemo(() => trustedHtmlToText(activeHtml), [activeHtml]);
+  const activePlainText = useMemo(
+    () => trustedHtmlToText(activeHtml),
+    [activeHtml],
+  );
   const storageKey = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     const instance = params.get("instance");
     return instance ? `${STORAGE_KEY}-${instance}` : STORAGE_KEY;
   }, []);
-  const recentClosedKey = useMemo(() => `${storageKey}-recent-closed`, [storageKey]);
-  const zoomPercentLabel = useMemo(() => `${Math.round(zoomLevel * 100)}%`, [zoomLevel]);
+  const recentClosedKey = useMemo(
+    () => `${storageKey}-recent-closed`,
+    [storageKey],
+  );
+  const zoomPercentLabel = useMemo(
+    () => `${Math.round(zoomLevel * 100)}%`,
+    [zoomLevel],
+  );
   const editorLineHeight = useMemo(
     () => (lineSpacing === "relaxed" ? 1.75 : 1.15),
     [lineSpacing],
@@ -264,35 +448,99 @@ function App() {
     [lineSpacing],
   );
 
-  const applyEditorHtml = useCallback((editor: HTMLDivElement, html: string) => {
-    if (editor.innerHTML !== html) {
-      editor.innerHTML = html;
+  const applyEditorHtml = useCallback(
+    (editor: HTMLDivElement, html: string) => {
+      if (editor.innerHTML !== html) {
+        editor.innerHTML = html;
+      }
+    },
+    [],
+  );
+
+  const recordPastePerformanceStep = useCallback(
+    (name: string, durationMs: number) => {
+      if (!import.meta.env.DEV) return;
+      const current = pastePerformanceRef.current;
+      if (!current) return;
+      const step = current.steps[name] ?? { calls: 0, totalMs: 0 };
+      current.steps[name] = {
+        calls: step.calls + 1,
+        totalMs: step.totalMs + durationMs,
+      };
+      current.lastStepAt = performance.now();
+      if (current.finishTimer !== null) {
+        window.clearTimeout(current.finishTimer);
+      }
+      current.finishTimer = window.setTimeout(() => {
+        const active = pastePerformanceRef.current;
+        if (!active) return;
+        const report: PastePerformanceReport = {
+          textLength: active.textLength,
+          totalMs: active.lastStepAt - active.startedAt,
+          steps: active.steps,
+        };
+        console.info("[AlwaysMemo paste performance]", JSON.stringify(report));
+        (
+          window as typeof window & {
+            __alwaysMemoPastePerformance?: PastePerformanceReport;
+          }
+        ).__alwaysMemoPastePerformance = report;
+        pastePerformanceRef.current = null;
+      }, 800);
+    },
+    [],
+  );
+
+  const measurePastePerformance = useCallback(
+    <T,>(name: string, action: () => T): T => {
+      if (!import.meta.env.DEV || !pastePerformanceRef.current) return action();
+      const startedAt = performance.now();
+      const result = action();
+      recordPastePerformanceStep(name, performance.now() - startedAt);
+      return result;
+    },
+    [recordPastePerformanceStep],
+  );
+
+  const startPastePerformance = useCallback((textLength: number) => {
+    if (!import.meta.env.DEV) return;
+    const current = pastePerformanceRef.current;
+    if (current && current.finishTimer !== null) {
+      window.clearTimeout(current.finishTimer);
     }
+    pastePerformanceRef.current = {
+      startedAt: performance.now(),
+      lastStepAt: performance.now(),
+      textLength,
+      steps: {},
+      finishTimer: null,
+    };
   }, []);
 
   const updateCursorIndex = useCallback(() => {
+    const startedAt = performance.now();
     const editor = editorRef.current;
     const selection = window.getSelection();
     if (!editor || !selection || selection.rangeCount === 0) {
       setCursorPosition({ line: 1, column: 1 });
+      recordPastePerformanceStep("cursor-index", performance.now() - startedAt);
       return;
     }
     const range = selection.getRangeAt(0);
     if (!editor.contains(range.startContainer)) {
       setCursorPosition({ line: 1, column: 1 });
+      recordPastePerformanceStep("cursor-index", performance.now() - startedAt);
       return;
     }
-    const normalized = normalizePlainText(
-      nodeToPlainTextBeforePosition(editor, range.startContainer, range.startOffset),
+    setCursorPosition(
+      getTextPositionBeforePosition(
+        editor,
+        range.startContainer,
+        range.startOffset,
+      ),
     );
-    const lines = normalized.split("\n");
-    const currentLine = Math.max(lines.length, 1);
-    const currentLineText = lines[lines.length - 1] ?? "";
-    setCursorPosition({
-      line: currentLine,
-      column: Math.max(1, Array.from(currentLineText).length + 1),
-    });
-  }, []);
+    recordPastePerformanceStep("cursor-index", performance.now() - startedAt);
+  }, [recordPastePerformanceStep]);
 
   const scheduleCursorIndexUpdate = useCallback(() => {
     if (cursorUpdateRafRef.current !== null) {
@@ -309,7 +557,11 @@ function App() {
     const selection = window.getSelection();
     if (!editor || !selection || selection.rangeCount === 0) return;
     const range = selection.getRangeAt(0);
-    if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return;
+    if (
+      !editor.contains(range.startContainer) ||
+      !editor.contains(range.endContainer)
+    )
+      return;
     savedSelectionRef.current = range.cloneRange();
   }, []);
 
@@ -327,45 +579,66 @@ function App() {
     updateCursorIndex();
   }, [updateCursorIndex]);
 
-  const restoreEditorSelection = useCallback((options?: { fallbackToEnd?: boolean }) => {
-    const editor = editorRef.current;
-    const selection = window.getSelection();
-    const saved = savedSelectionRef.current;
-    if (!editor || !selection) return;
-    editor.focus();
-    if (!saved) {
-      if (options?.fallbackToEnd) {
-        moveEditorSelectionToEnd();
+  const restoreEditorSelection = useCallback(
+    (options?: { fallbackToEnd?: boolean }) => {
+      const editor = editorRef.current;
+      const selection = window.getSelection();
+      const saved = savedSelectionRef.current;
+      if (!editor || !selection) return;
+      editor.focus();
+      if (!saved) {
+        if (options?.fallbackToEnd) {
+          moveEditorSelectionToEnd();
+        }
+        return;
       }
-      return;
-    }
-    if (!editor.contains(saved.startContainer) || !editor.contains(saved.endContainer)) {
-      if (options?.fallbackToEnd) {
-        moveEditorSelectionToEnd();
+      if (
+        !editor.contains(saved.startContainer) ||
+        !editor.contains(saved.endContainer)
+      ) {
+        if (options?.fallbackToEnd) {
+          moveEditorSelectionToEnd();
+        }
+        return;
       }
-      return;
-    }
-    try {
-      selection.removeAllRanges();
-      selection.addRange(saved);
-    } catch {
-      if (options?.fallbackToEnd) {
-        moveEditorSelectionToEnd();
+      try {
+        selection.removeAllRanges();
+        selection.addRange(saved);
+      } catch {
+        if (options?.fallbackToEnd) {
+          moveEditorSelectionToEnd();
+        }
       }
-    }
-  }, [moveEditorSelectionToEnd]);
+    },
+    [moveEditorSelectionToEnd],
+  );
 
   const persistState = useCallback(
     (nextTabs: Tab[], nextActiveId = activeTabId) => {
+      const startedAt = performance.now();
       const state: PersistedState = {
         tabs: nextTabs,
         activeTabId: nextActiveId,
         snap,
       };
       window.localStorage.setItem(storageKey, JSON.stringify(state));
+      recordPastePerformanceStep(
+        "persist-state",
+        performance.now() - startedAt,
+      );
     },
     [
       activeTabId,
+
+      alwaysOnTop,
+      editorFontSizePx,
+      fileOpenBehavior,
+      languagePreference,
+      lineSpacing,
+      recordPastePerformanceStep,
+      sessionBehavior,
+      showStatusBar,
+
       snap,
       storageKey,
     ],
@@ -388,7 +661,10 @@ function App() {
           reason,
           ts: Date.now(),
         };
-        window.localStorage.setItem(GLOBAL_SHORTCUT_SYNC_KEY, JSON.stringify(payload));
+        window.localStorage.setItem(
+          GLOBAL_SHORTCUT_SYNC_KEY,
+          JSON.stringify(payload),
+        );
       } catch {
         // Ignore storage sync failures; local state already changed.
       }
@@ -417,7 +693,9 @@ function App() {
   const ensureGlobalShortcutsSingleWindow = useCallback(async () => {
     try {
       const openWindows = await WebviewWindow.getAll();
-      const editorWindows = openWindows.filter((windowRef) => !isSettingsWindowLabel(windowRef.label));
+      const editorWindows = openWindows.filter(
+        (windowRef) => !isSettingsWindowLabel(windowRef.label),
+      );
       if (editorWindows.length > 1) {
         if (useGlobalShortcuts) {
           setGlobalShortcutsPreference(false, "auto-multi-window");
@@ -445,35 +723,43 @@ function App() {
     }
   }, []);
 
-  const pickSavePath = useCallback(async (suggested: string) => {
-    const withExt = ensureTextFileExtension(suggested);
-    const defaultPath = withExt;
-    let resolvedPath: string | null = null;
-    let dialogFailed = false;
-    const filters = [{ name: messages.app.textFileFilter, extensions: ["txt", "md", "markdown"] }];
-    try {
-      const picked = await save({
-        defaultPath,
-        filters,
-      });
-      resolvedPath =
-        typeof picked === "string"
-          ? picked
-          : Array.isArray(picked)
-            ? picked[0]
-            : null;
-    } catch (error) {
-      console.error("dialog plugin save failed", error);
-      dialogFailed = true;
-    }
-    if (!resolvedPath && dialogFailed) {
-      resolvedPath = await invoke<string | null>("save_text_file_dialog", {
-        default_name: defaultPath,
-      });
-    }
-    if (!resolvedPath) return null;
-    return ensureTextFileExtension(resolvedPath);
-  }, [messages.app.textFileFilter]);
+  const pickSavePath = useCallback(
+    async (suggested: string) => {
+      const withExt = ensureTextFileExtension(suggested);
+      const defaultPath = withExt;
+      let resolvedPath: string | null = null;
+      let dialogFailed = false;
+      const filters = [
+        {
+          name: messages.app.textFileFilter,
+          extensions: ["txt", "md", "markdown"],
+        },
+      ];
+      try {
+        const picked = await save({
+          defaultPath,
+          filters,
+        });
+        resolvedPath =
+          typeof picked === "string"
+            ? picked
+            : Array.isArray(picked)
+              ? picked[0]
+              : null;
+      } catch (error) {
+        console.error("dialog plugin save failed", error);
+        dialogFailed = true;
+      }
+      if (!resolvedPath && dialogFailed) {
+        resolvedPath = await invoke<string | null>("save_text_file_dialog", {
+          default_name: defaultPath,
+        });
+      }
+      if (!resolvedPath) return null;
+      return ensureTextFileExtension(resolvedPath);
+    },
+    [messages.app.textFileFilter],
+  );
 
   const pathsKey = useMemo(() => `${storageKey}-paths`, [storageKey]);
   const getPathMap = useCallback((): Record<string, string> => {
@@ -500,7 +786,8 @@ function App() {
   const appendOpenedFileTab = useCallback(
     (opened: OpenedTextFile, options?: { announce?: boolean }) => {
       const id = crypto.randomUUID();
-      const title = getFileNameFromPath(opened.path) || messages.app.untitledTab;
+      const title =
+        getFileNameFromPath(opened.path) || messages.app.untitledTab;
       const content = textToHtml(opened.contents);
       const pathMap = getPathMap();
       setPathMap({ ...pathMap, [id]: opened.path });
@@ -534,9 +821,12 @@ function App() {
     async (paths: string[], options?: { announce?: boolean }) => {
       if (paths.length === 0) return;
       for (const path of paths) {
-        const opened = await invoke<OpenedTextFile | null>("open_text_file_by_path", {
-          path,
-        });
+        const opened = await invoke<OpenedTextFile | null>(
+          "open_text_file_by_path",
+          {
+            path,
+          },
+        );
         if (!opened) {
           continue;
         }
@@ -560,21 +850,24 @@ function App() {
     return FILE_PATH_PATTERN.test(path);
   }, []);
 
-  const pushRecentClosedFile = useCallback((tab: Tab) => {
-    if (!isRecentEligiblePath(tab.filePath)) return;
-    const path = tab.filePath as string;
-    const nextEntry: RecentClosedFile = {
-      path,
-      title: getFileNameFromPath(path),
-      closedAt: Date.now(),
-    };
-    setRecentClosedFiles((prev) => {
-      const deduped = prev.filter((item) => item.path !== path);
-      const next = [nextEntry, ...deduped].slice(0, MAX_RECENT_CLOSED_FILES);
-      window.localStorage.setItem(recentClosedKey, JSON.stringify(next));
-      return next;
-    });
-  }, [getFileNameFromPath, isRecentEligiblePath, recentClosedKey]);
+  const pushRecentClosedFile = useCallback(
+    (tab: Tab) => {
+      if (!isRecentEligiblePath(tab.filePath)) return;
+      const path = tab.filePath as string;
+      const nextEntry: RecentClosedFile = {
+        path,
+        title: getFileNameFromPath(path),
+        closedAt: Date.now(),
+      };
+      setRecentClosedFiles((prev) => {
+        const deduped = prev.filter((item) => item.path !== path);
+        const next = [nextEntry, ...deduped].slice(0, MAX_RECENT_CLOSED_FILES);
+        window.localStorage.setItem(recentClosedKey, JSON.stringify(next));
+        return next;
+      });
+    },
+    [getFileNameFromPath, isRecentEligiblePath, recentClosedKey],
+  );
 
   const openFilePicker = useCallback(async () => {
     try {
@@ -629,112 +922,118 @@ function App() {
     windowHandle,
   ]);
 
-  const saveTabAs = useCallback(async (tab: Tab) => {
-    try {
-      setStatus(messages.app.statuses.openingSaveDialog);
-      const suggested = isUntitledTitle(tab.title)
-        ? messages.app.defaultSaveName
-        : (tab.title.trim() || messages.app.defaultSaveName);
-      const resolvedPath = await pickSavePath(suggested);
-      if (!resolvedPath) {
-        setStatus(messages.app.statuses.saveDialogReturnedNoPath);
+  const saveTabAs = useCallback(
+    async (tab: Tab) => {
+      try {
+        setStatus(messages.app.statuses.openingSaveDialog);
+        const suggested = isUntitledTitle(tab.title)
+          ? messages.app.defaultSaveName
+          : tab.title.trim() || messages.app.defaultSaveName;
+        const resolvedPath = await pickSavePath(suggested);
+        if (!resolvedPath) {
+          setStatus(messages.app.statuses.saveDialogReturnedNoPath);
+          return false;
+        }
+        setStatus(messages.app.statuses.savingTo(resolvedPath));
+        await invoke("write_text_file", {
+          path: resolvedPath,
+          contents: htmlToText(tab.content),
+        });
+        const nextTitle = getFileNameFromPath(resolvedPath);
+        const pathMap = getPathMap();
+        setPathMap({ ...pathMap, [tab.id]: resolvedPath });
+        setTabs((prev) => {
+          const nextTabs = prev.map((item) =>
+            item.id === tab.id
+              ? { ...item, title: nextTitle, filePath: resolvedPath }
+              : item,
+          );
+          persistState(nextTabs);
+          return nextTabs;
+        });
+        savedTabsRef.current = {
+          ...savedTabsRef.current,
+          [tab.id]: { title: nextTitle, content: tab.content },
+        };
+        setSavedVersion((prev) => prev + 1);
+        setStatus(messages.app.statuses.saved(nextTitle));
+        closeMenus();
+        return true;
+      } catch (error) {
+        console.error(error);
+        setStatus(messages.app.statuses.failedSaveFile(String(error)));
         return false;
       }
-      setStatus(messages.app.statuses.savingTo(resolvedPath));
-      await invoke("write_text_file", {
-        path: resolvedPath,
-        contents: htmlToText(tab.content),
-      });
-      const nextTitle = getFileNameFromPath(resolvedPath);
-      const pathMap = getPathMap();
-      setPathMap({ ...pathMap, [tab.id]: resolvedPath });
-      setTabs((prev) => {
-        const nextTabs = prev.map((item) =>
-          item.id === tab.id
-            ? { ...item, title: nextTitle, filePath: resolvedPath }
-            : item,
-        );
-        persistState(nextTabs);
-        return nextTabs;
-      });
-      savedTabsRef.current = {
-        ...savedTabsRef.current,
-        [tab.id]: { title: nextTitle, content: tab.content },
-      };
-      setSavedVersion((prev) => prev + 1);
-      setStatus(messages.app.statuses.saved(nextTitle));
-      closeMenus();
-      return true;
-    } catch (error) {
-      console.error(error);
-      setStatus(messages.app.statuses.failedSaveFile(String(error)));
-      return false;
-    }
-  }, [
-    closeMenus,
-    getFileNameFromPath,
-    htmlToText,
-    getPathMap,
-    messages.app.defaultSaveName,
-    messages.app.statuses,
-    pickSavePath,
-    persistState,
-    setPathMap,
-  ]);
+    },
+    [
+      closeMenus,
+      getFileNameFromPath,
+      htmlToText,
+      getPathMap,
+      messages.app.defaultSaveName,
+      messages.app.statuses,
+      pickSavePath,
+      persistState,
+      setPathMap,
+    ],
+  );
 
   const saveActiveTabAs = useCallback(async () => {
     if (!activeTab) return;
     await saveTabAs(activeTab);
   }, [activeTab, saveTabAs]);
 
-  const saveTab = useCallback(async (tab: Tab) => {
-    let resolvedPath = tab.filePath ?? null;
-    if (!resolvedPath) {
-      const pathMap = getPathMap();
-      resolvedPath = pathMap[tab.id] ?? null;
-    }
-    if (!resolvedPath) {
-      return await saveTabAs(tab);
-    }
-    try {
-      setStatus(messages.app.statuses.savingTo(resolvedPath));
-      await invoke("write_text_file", {
-        path: resolvedPath,
-        contents: htmlToText(tab.content),
-      });
-      const pathMap = getPathMap();
-      if (!pathMap[tab.id]) {
-        setPathMap({
-          ...pathMap,
-          [tab.id]: resolvedPath,
-        });
+  const saveTab = useCallback(
+    async (tab: Tab) => {
+      let resolvedPath = tab.filePath ?? null;
+      if (!resolvedPath) {
+        const pathMap = getPathMap();
+        resolvedPath = pathMap[tab.id] ?? null;
       }
-      savedTabsRef.current = {
-        ...savedTabsRef.current,
-        [tab.id]: { title: tab.title, content: tab.content },
-      };
-      setSavedVersion((prev) => prev + 1);
-      setTabs((prev) => {
-        persistState(prev);
-        return prev;
-      });
-      setStatus(messages.app.statuses.saved(tab.title));
-      closeMenus();
-      return true;
-    } catch (error) {
-      console.error(error);
-      setStatus(messages.app.statuses.failedSaveFile(String(error)));
-      return false;
-    }
-  }, [
-    closeMenus,
-    htmlToText,
-    getPathMap,
-    messages.app.statuses,
-    persistState,
-    saveTabAs,
-    setPathMap,
-  ]);
+      if (!resolvedPath) {
+        return await saveTabAs(tab);
+      }
+      try {
+        setStatus(messages.app.statuses.savingTo(resolvedPath));
+        await invoke("write_text_file", {
+          path: resolvedPath,
+          contents: htmlToText(tab.content),
+        });
+        const pathMap = getPathMap();
+        if (!pathMap[tab.id]) {
+          setPathMap({
+            ...pathMap,
+            [tab.id]: resolvedPath,
+          });
+        }
+        savedTabsRef.current = {
+          ...savedTabsRef.current,
+          [tab.id]: { title: tab.title, content: tab.content },
+        };
+        setSavedVersion((prev) => prev + 1);
+        setTabs((prev) => {
+          persistState(prev);
+          return prev;
+        });
+        setStatus(messages.app.statuses.saved(tab.title));
+        closeMenus();
+        return true;
+      } catch (error) {
+        console.error(error);
+        setStatus(messages.app.statuses.failedSaveFile(String(error)));
+        return false;
+      }
+    },
+    [
+      closeMenus,
+      htmlToText,
+      getPathMap,
+      messages.app.statuses,
+      persistState,
+      saveTabAs,
+      setPathMap,
+    ],
+  );
 
   const saveActiveTab = useCallback(async () => {
     if (!activeTab) return;
@@ -760,7 +1059,10 @@ function App() {
       savedTabsRef.current = {
         ...savedTabsRef.current,
         ...Object.fromEntries(
-          tabsWithPath.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
+          tabsWithPath.map((tab) => [
+            tab.id,
+            { title: tab.title, content: tab.content },
+          ]),
         ),
       };
       setSavedVersion((prev) => prev + 1);
@@ -819,7 +1121,9 @@ function App() {
       if (event.key !== GLOBAL_SHORTCUT_SYNC_KEY || !event.newValue) return;
       try {
         const payload = JSON.parse(event.newValue) as GlobalShortcutSyncMessage;
-        setGlobalShortcutsPreference(payload.enabled, payload.reason, { broadcast: false });
+        setGlobalShortcutsPreference(payload.enabled, payload.reason, {
+          broadcast: false,
+        });
       } catch (error) {
         console.error("Failed to sync global shortcut preference", error);
       }
@@ -828,20 +1132,27 @@ function App() {
     let unlistenFocusChanged: (() => void) | undefined;
     window.addEventListener("storage", syncFromStorage);
     void ensureGlobalShortcutsSingleWindow();
-    void windowHandle.onFocusChanged(({ payload: focused }) => {
-      if (!focused) return;
-      void ensureGlobalShortcutsSingleWindow();
-    }).then((cleanup) => {
-      unlistenFocusChanged = cleanup;
-    }).catch((error) => {
-      console.error("Failed to listen for focus changes", error);
-    });
+    void windowHandle
+      .onFocusChanged(({ payload: focused }) => {
+        if (!focused) return;
+        void ensureGlobalShortcutsSingleWindow();
+      })
+      .then((cleanup) => {
+        unlistenFocusChanged = cleanup;
+      })
+      .catch((error) => {
+        console.error("Failed to listen for focus changes", error);
+      });
 
     return () => {
       window.removeEventListener("storage", syncFromStorage);
       unlistenFocusChanged?.();
     };
-  }, [ensureGlobalShortcutsSingleWindow, setGlobalShortcutsPreference, windowHandle]);
+  }, [
+    ensureGlobalShortcutsSingleWindow,
+    setGlobalShortcutsPreference,
+    windowHandle,
+  ]);
 
   const setAlwaysOnTop = useCallback(
     async (value: boolean) => {
@@ -861,36 +1172,42 @@ function App() {
     [messages.app.statuses],
   );
 
-  const settingsSnapshot = useMemo<BridgeSettingsSnapshot>(() => ({
-    alwaysOnTop,
-    useGlobalShortcuts,
-    showStatusBar,
-    wrapAtRightEdge,
-    editorFontSizePx,
-    lineSpacing,
-    themeMode,
-    sessionBehavior,
-    fileOpenBehavior,
-    languagePreference,
-  }), [
-    alwaysOnTop,
-    editorFontSizePx,
-    fileOpenBehavior,
-    languagePreference,
-    lineSpacing,
-    sessionBehavior,
-    showStatusBar,
-    themeMode,
-    useGlobalShortcuts,
-    wrapAtRightEdge,
-  ]);
+  const settingsSnapshot = useMemo<BridgeSettingsSnapshot>(
+    () => ({
+      alwaysOnTop,
+      useGlobalShortcuts,
+      showStatusBar,
+      wrapAtRightEdge,
+      editorFontSizePx,
+      lineSpacing,
+      themeMode,
+      sessionBehavior,
+      fileOpenBehavior,
+      languagePreference,
+    }),
+    [
+      alwaysOnTop,
+      editorFontSizePx,
+      fileOpenBehavior,
+      languagePreference,
+      lineSpacing,
+      sessionBehavior,
+      showStatusBar,
+      themeMode,
+      useGlobalShortcuts,
+      wrapAtRightEdge,
+    ],
+  );
 
   useEffect(() => {
     settingsSnapshotRef.current = settingsSnapshot;
   }, [settingsSnapshot]);
 
   const emitSettingsSnapshot = useCallback(
-    async (targetLabel = settingsWindowLabel, snapshot = settingsSnapshotRef.current) => {
+    async (
+      targetLabel = settingsWindowLabel,
+      snapshot = settingsSnapshotRef.current,
+    ) => {
       const target = await WebviewWindow.getByLabel(targetLabel);
       if (!target) return;
       await currentWebviewWindow.emitTo(targetLabel, SETTINGS_SYNC_EVENT, {
@@ -901,68 +1218,86 @@ function App() {
     [currentWebviewWindow, currentWindowLabel, settingsWindowLabel],
   );
 
-  const applySettingsPatch = useCallback(async (patch: SettingsPatch) => {
-    let nextSnapshot: BridgeSettingsSnapshot = settingsSnapshotRef.current;
+  const applySettingsPatch = useCallback(
+    async (patch: SettingsPatch) => {
+      let nextSnapshot: BridgeSettingsSnapshot = settingsSnapshotRef.current;
 
-    if (patch.themeMode !== undefined) {
-      setThemeMode(patch.themeMode);
-      nextSnapshot = { ...nextSnapshot, themeMode: patch.themeMode };
-    }
-    if (patch.lineSpacing !== undefined) {
-      setLineSpacing(patch.lineSpacing);
-      nextSnapshot = { ...nextSnapshot, lineSpacing: patch.lineSpacing };
-    }
-    if (patch.editorFontSizePx !== undefined) {
-      setEditorFontSizePx(patch.editorFontSizePx);
-      setEditorFontSizeInput(String(patch.editorFontSizePx));
-      nextSnapshot = { ...nextSnapshot, editorFontSizePx: patch.editorFontSizePx };
-    }
-    if (patch.wrapAtRightEdge !== undefined) {
-      setWrapAtRightEdge(patch.wrapAtRightEdge);
-      nextSnapshot = { ...nextSnapshot, wrapAtRightEdge: patch.wrapAtRightEdge };
-    }
-    if (patch.showStatusBar !== undefined) {
-      setShowStatusBar(patch.showStatusBar);
-      nextSnapshot = { ...nextSnapshot, showStatusBar: patch.showStatusBar };
-    }
-    if (patch.sessionBehavior !== undefined) {
-      setSessionBehavior(patch.sessionBehavior);
-      nextSnapshot = { ...nextSnapshot, sessionBehavior: patch.sessionBehavior };
-    }
-    if (patch.fileOpenBehavior !== undefined) {
-      setFileOpenBehavior(patch.fileOpenBehavior);
-      nextSnapshot = { ...nextSnapshot, fileOpenBehavior: patch.fileOpenBehavior };
-    }
-    if (patch.languagePreference !== undefined) {
-      setLanguagePreference(patch.languagePreference);
-      nextSnapshot = { ...nextSnapshot, languagePreference: patch.languagePreference };
-    }
-    if (patch.alwaysOnTop !== undefined) {
-      await setAlwaysOnTop(patch.alwaysOnTop);
-      nextSnapshot = { ...nextSnapshot, alwaysOnTop: patch.alwaysOnTop };
-    }
-    if (patch.useGlobalShortcuts !== undefined) {
-      if (patch.useGlobalShortcuts) {
-        const canEnable = await ensureGlobalShortcutsSingleWindow();
-        if (canEnable) {
-          setGlobalShortcutsPreference(true, "manual");
-          nextSnapshot = { ...nextSnapshot, useGlobalShortcuts: true };
+      if (patch.themeMode !== undefined) {
+        setThemeMode(patch.themeMode);
+        nextSnapshot = { ...nextSnapshot, themeMode: patch.themeMode };
+      }
+      if (patch.lineSpacing !== undefined) {
+        setLineSpacing(patch.lineSpacing);
+        nextSnapshot = { ...nextSnapshot, lineSpacing: patch.lineSpacing };
+      }
+      if (patch.editorFontSizePx !== undefined) {
+        setEditorFontSizePx(patch.editorFontSizePx);
+        setEditorFontSizeInput(String(patch.editorFontSizePx));
+        nextSnapshot = {
+          ...nextSnapshot,
+          editorFontSizePx: patch.editorFontSizePx,
+        };
+      }
+      if (patch.wrapAtRightEdge !== undefined) {
+        setWrapAtRightEdge(patch.wrapAtRightEdge);
+        nextSnapshot = {
+          ...nextSnapshot,
+          wrapAtRightEdge: patch.wrapAtRightEdge,
+        };
+      }
+      if (patch.showStatusBar !== undefined) {
+        setShowStatusBar(patch.showStatusBar);
+        nextSnapshot = { ...nextSnapshot, showStatusBar: patch.showStatusBar };
+      }
+      if (patch.sessionBehavior !== undefined) {
+        setSessionBehavior(patch.sessionBehavior);
+        nextSnapshot = {
+          ...nextSnapshot,
+          sessionBehavior: patch.sessionBehavior,
+        };
+      }
+      if (patch.fileOpenBehavior !== undefined) {
+        setFileOpenBehavior(patch.fileOpenBehavior);
+        nextSnapshot = {
+          ...nextSnapshot,
+          fileOpenBehavior: patch.fileOpenBehavior,
+        };
+      }
+      if (patch.languagePreference !== undefined) {
+        setLanguagePreference(patch.languagePreference);
+        nextSnapshot = {
+          ...nextSnapshot,
+          languagePreference: patch.languagePreference,
+        };
+      }
+      if (patch.alwaysOnTop !== undefined) {
+        await setAlwaysOnTop(patch.alwaysOnTop);
+        nextSnapshot = { ...nextSnapshot, alwaysOnTop: patch.alwaysOnTop };
+      }
+      if (patch.useGlobalShortcuts !== undefined) {
+        if (patch.useGlobalShortcuts) {
+          const canEnable = await ensureGlobalShortcutsSingleWindow();
+          if (canEnable) {
+            setGlobalShortcutsPreference(true, "manual");
+            nextSnapshot = { ...nextSnapshot, useGlobalShortcuts: true };
+          } else {
+            nextSnapshot = { ...nextSnapshot, useGlobalShortcuts: false };
+          }
         } else {
+          setGlobalShortcutsPreference(false, "manual");
           nextSnapshot = { ...nextSnapshot, useGlobalShortcuts: false };
         }
-      } else {
-        setGlobalShortcutsPreference(false, "manual");
-        nextSnapshot = { ...nextSnapshot, useGlobalShortcuts: false };
       }
-    }
 
-    settingsSnapshotRef.current = nextSnapshot;
-    return nextSnapshot;
-  }, [
-    ensureGlobalShortcutsSingleWindow,
-    setAlwaysOnTop,
-    setGlobalShortcutsPreference,
-  ]);
+      settingsSnapshotRef.current = nextSnapshot;
+      return nextSnapshot;
+    },
+    [
+      ensureGlobalShortcutsSingleWindow,
+      setAlwaysOnTop,
+      setGlobalShortcutsPreference,
+    ],
+  );
 
   const openSettingsWindow = useCallback(async () => {
     closeMenus();
@@ -1022,28 +1357,34 @@ function App() {
     let unlistenRequest: (() => void) | undefined;
     let unlistenUpdate: (() => void) | undefined;
 
-    void currentWebviewWindow.listen<SettingsRequestPayload>(SETTINGS_REQUEST_EVENT, ({ payload }) => {
-      void emitSettingsSnapshot(payload.settingsLabel);
-    }).then((cleanup) => {
-      unlistenRequest = cleanup;
-    }).catch((error) => {
-      console.error("Failed to listen for settings requests", error);
-    });
+    void currentWebviewWindow
+      .listen<SettingsRequestPayload>(SETTINGS_REQUEST_EVENT, ({ payload }) => {
+        void emitSettingsSnapshot(payload.settingsLabel);
+      })
+      .then((cleanup) => {
+        unlistenRequest = cleanup;
+      })
+      .catch((error) => {
+        console.error("Failed to listen for settings requests", error);
+      });
 
-    void currentWebviewWindow.listen<{
-      settingsLabel: string;
-      patch: SettingsPatch;
-    }>(SETTINGS_UPDATE_EVENT, ({ payload }) => {
-      if (payload.settingsLabel !== settingsWindowLabel) return;
-      void (async () => {
-        const nextSnapshot = await applySettingsPatch(payload.patch);
-        await emitSettingsSnapshot(payload.settingsLabel, nextSnapshot);
-      })();
-    }).then((cleanup) => {
-      unlistenUpdate = cleanup;
-    }).catch((error) => {
-      console.error("Failed to listen for settings updates", error);
-    });
+    void currentWebviewWindow
+      .listen<{
+        settingsLabel: string;
+        patch: SettingsPatch;
+      }>(SETTINGS_UPDATE_EVENT, ({ payload }) => {
+        if (payload.settingsLabel !== settingsWindowLabel) return;
+        void (async () => {
+          const nextSnapshot = await applySettingsPatch(payload.patch);
+          await emitSettingsSnapshot(payload.settingsLabel, nextSnapshot);
+        })();
+      })
+      .then((cleanup) => {
+        unlistenUpdate = cleanup;
+      })
+      .catch((error) => {
+        console.error("Failed to listen for settings updates", error);
+      });
 
     return () => {
       unlistenRequest?.();
@@ -1067,6 +1408,7 @@ function App() {
     try {
       const next = await invoke<boolean>("toggle_always_on_top");
       setAlwaysOnTopState(next);
+      markOnboardingStepTested("alwaysOnTop");
       setStatus(
         next
           ? messages.app.statuses.alwaysOnTopEnabled
@@ -1076,61 +1418,87 @@ function App() {
       console.error(error);
       setStatus(messages.app.statuses.failedToggleAlwaysOnTop);
     }
-  }, [messages.app.statuses]);
+  }, [markOnboardingStepTested, messages.app.statuses]);
 
   const snapLeft = useCallback(async () => {
     try {
       await invoke("snap_left");
       setSnap("left");
+      markOnboardingStepTested("snap");
       setStatus(messages.app.statuses.snappedLeft);
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedSnapLeft);
     }
-  }, [messages.app.statuses.failedSnapLeft, messages.app.statuses.snappedLeft]);
+  }, [
+    markOnboardingStepTested,
+    messages.app.statuses.failedSnapLeft,
+    messages.app.statuses.snappedLeft,
+  ]);
 
   const snapRight = useCallback(async () => {
     try {
       await invoke("snap_right");
       setSnap("right");
+      markOnboardingStepTested("snap");
       setStatus(messages.app.statuses.snappedRight);
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedSnapRight);
     }
-  }, [messages.app.statuses.failedSnapRight, messages.app.statuses.snappedRight]);
+  }, [
+    markOnboardingStepTested,
+    messages.app.statuses.failedSnapRight,
+    messages.app.statuses.snappedRight,
+  ]);
 
   const snapTop = useCallback(async () => {
     try {
       await invoke("snap_top");
       setSnap("top");
+      markOnboardingStepTested("snap");
       setStatus(messages.app.statuses.snappedTop);
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedSnapTop);
     }
-  }, [messages.app.statuses.failedSnapTop, messages.app.statuses.snappedTop]);
+  }, [
+    markOnboardingStepTested,
+    messages.app.statuses.failedSnapTop,
+    messages.app.statuses.snappedTop,
+  ]);
 
   const snapBottom = useCallback(async () => {
     try {
       await invoke("snap_bottom");
       setSnap("bottom");
+      markOnboardingStepTested("snap");
       setStatus(messages.app.statuses.snappedBottom);
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedSnapBottom);
     }
-  }, [messages.app.statuses.failedSnapBottom, messages.app.statuses.snappedBottom]);
+  }, [
+    markOnboardingStepTested,
+    messages.app.statuses.failedSnapBottom,
+    messages.app.statuses.snappedBottom,
+  ]);
 
   const resizeToMinimum = useCallback(async () => {
     try {
-      await windowHandle.setSize(new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT));
+      await windowHandle.setSize(
+        new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT),
+      );
       setStatus(messages.app.statuses.resizedMinimum);
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedResizeMinimum);
     }
-  }, [messages.app.statuses.failedResizeMinimum, messages.app.statuses.resizedMinimum, windowHandle]);
+  }, [
+    messages.app.statuses.failedResizeMinimum,
+    messages.app.statuses.resizedMinimum,
+    windowHandle,
+  ]);
 
   const resizeToFitContent = useCallback(async () => {
     const editor = editorRef.current;
@@ -1164,12 +1532,16 @@ function App() {
       const paddingY =
         parseFloat(computed.paddingTop) + parseFloat(computed.paddingBottom);
       const borderX =
-        parseFloat(computed.borderLeftWidth) + parseFloat(computed.borderRightWidth);
+        parseFloat(computed.borderLeftWidth) +
+        parseFloat(computed.borderRightWidth);
       const borderY =
-        parseFloat(computed.borderTopWidth) + parseFloat(computed.borderBottomWidth);
+        parseFloat(computed.borderTopWidth) +
+        parseFloat(computed.borderBottomWidth);
 
       const targetTextWidth = Math.ceil(maxLineWidth + paddingX + borderX + 2);
-      const targetTextHeight = Math.ceil(lineCount * lineHeightValue + paddingY + borderY + 2);
+      const targetTextHeight = Math.ceil(
+        lineCount * lineHeightValue + paddingY + borderY + 2,
+      );
 
       const chromeWidth = window.innerWidth - editor.clientWidth;
       const chromeHeight = window.innerHeight - editor.clientHeight;
@@ -1185,14 +1557,23 @@ function App() {
       );
 
       await windowHandle.setSize(
-        new LogicalSize(Math.min(nextWidth, maxWidth), Math.min(nextHeight, maxHeight)),
+        new LogicalSize(
+          Math.min(nextWidth, maxWidth),
+          Math.min(nextHeight, maxHeight),
+        ),
       );
+      markOnboardingStepTested("fitContent");
       setStatus(messages.app.statuses.resizedFitContent);
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedResizeFitContent);
     }
-  }, [messages.app.statuses.failedResizeFitContent, messages.app.statuses.resizedFitContent, windowHandle]);
+  }, [
+    markOnboardingStepTested,
+    messages.app.statuses.failedResizeFitContent,
+    messages.app.statuses.resizedFitContent,
+    windowHandle,
+  ]);
 
   useEffect(() => {
     const initState = async () => {
@@ -1235,23 +1616,35 @@ function App() {
 
         if (parsed) {
           const pathMap = getPathMap();
-          const shouldRestoreTabs = loadedSettings.sessionBehavior === "restore";
-          const restoredTabs = ((shouldRestoreTabs && parsed.tabs.length > 0)
-            ? parsed.tabs
-            : [{ id: "initial", title: messages.app.untitledTab, content: "" }]
+          const shouldRestoreTabs =
+            loadedSettings.sessionBehavior === "restore";
+          const restoredTabs = (
+            shouldRestoreTabs && parsed.tabs.length > 0
+              ? parsed.tabs
+              : [
+                  {
+                    id: "initial",
+                    title: messages.app.untitledTab,
+                    content: "",
+                  },
+                ]
           ).map((tab) => ({
             ...tab,
             content: normalizeHtml(tab.content),
             filePath: tab.filePath ?? pathMap[tab.id] ?? null,
           }));
           savedTabsRef.current = Object.fromEntries(
-            restoredTabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
+            restoredTabs.map((tab) => [
+              tab.id,
+              { title: tab.title, content: tab.content },
+            ]),
           );
           setTabs(restoredTabs);
           const validActive =
-            parsed.activeTabId && restoredTabs.some((t) => t.id === parsed.activeTabId)
+            parsed.activeTabId &&
+            restoredTabs.some((t) => t.id === parsed.activeTabId)
               ? parsed.activeTabId
-              : restoredTabs[0]?.id ?? "initial";
+              : (restoredTabs[0]?.id ?? "initial");
           setActiveTabId(validActive);
           setSnap(parsed.snap ?? null);
           if (parsed.snap === "left") {
@@ -1326,15 +1719,18 @@ function App() {
       })();
     };
 
-    void currentWebviewWindow.listen(PENDING_OPEN_FILES_EVENT, () => {
-      pumpPendingOpenFiles();
-    }).then((cleanup) => {
-      unlistenPendingOpen = cleanup;
-      pumpPendingOpenFiles();
-    }).catch((error) => {
-      console.error("Failed to listen for pending open files", error);
-      setStatus(messages.app.statuses.failedOpenFile);
-    });
+    void currentWebviewWindow
+      .listen(PENDING_OPEN_FILES_EVENT, () => {
+        pumpPendingOpenFiles();
+      })
+      .then((cleanup) => {
+        unlistenPendingOpen = cleanup;
+        pumpPendingOpenFiles();
+      })
+      .catch((error) => {
+        console.error("Failed to listen for pending open files", error);
+        setStatus(messages.app.statuses.failedOpenFile);
+      });
 
     return () => {
       cancelled = true;
@@ -1366,6 +1762,86 @@ function App() {
       }
     } catch {
       setHelpHintVisible(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentWindowLabel !== "main") return;
+    const recordError = () => markReviewSessionError(window.localStorage);
+    window.addEventListener("error", recordError);
+    window.addEventListener("unhandledrejection", recordError);
+    setReviewPromptVisible(startReviewPromptSession(window.localStorage));
+    return () => {
+      window.removeEventListener("error", recordError);
+      window.removeEventListener("unhandledrejection", recordError);
+    };
+  }, [currentWindowLabel]);
+
+  useEffect(() => {
+    if (!startupStateReady || currentWindowLabel !== "main") return;
+    try {
+      if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY)) return;
+    } catch (error) {
+      console.error("Failed to read onboarding state", error);
+    }
+    onboardingStepRef.current = ONBOARDING_STEPS[0];
+    setOnboardingStepIndex(0);
+    setOnboardingStepTested(false);
+  }, [currentWindowLabel, startupStateReady]);
+
+  useEffect(() => {
+    if (!onboardingStep) return;
+    const visibleKeys = new Set(ONBOARDING_KEY_GROUPS[onboardingStep].flat());
+    const updateHeldKey = (event: KeyboardEvent, pressed: boolean) => {
+      const label = ONBOARDING_KEY_LABELS[event.code];
+      if (!label || !visibleKeys.has(label)) return;
+      setHeldOnboardingKeys((current) => {
+        if (pressed) {
+          return current.includes(label) ? current : [...current, label];
+        }
+        return current.filter((key) => key !== label);
+      });
+      if (!pressed) {
+        setPulsedOnboardingKeys((current) =>
+          current.filter((key) => key !== label),
+        );
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => updateHeldKey(event, true);
+    const handleKeyUp = (event: KeyboardEvent) => updateHeldKey(event, false);
+    const clearHeldKeys = () => setHeldOnboardingKeys([]);
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", clearHeldKeys);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", clearHeldKeys);
+    };
+  }, [onboardingStep]);
+
+  useEffect(
+    () => () => {
+      if (onboardingKeyPulseTimerRef.current !== null) {
+        window.clearTimeout(onboardingKeyPulseTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const openReviewPage = useCallback(async () => {
+    try {
+      await invoke("open_store_review");
+      setReviewPromptVisible(false);
+    } catch (error) {
+      console.error("Failed to open Microsoft Store review page", error);
+      try {
+        await openUrl(REVIEW_URL);
+        setReviewPromptVisible(false);
+      } catch (fallbackError) {
+        console.error("Failed to open review page", fallbackError);
+      }
     }
   }, []);
 
@@ -1419,13 +1895,18 @@ function App() {
       }
     };
     document.addEventListener("selectionchange", handleSelectionChange);
-    return () => document.removeEventListener("selectionchange", handleSelectionChange);
+    return () =>
+      document.removeEventListener("selectionchange", handleSelectionChange);
   }, [saveEditorSelection, scheduleCursorIndexUpdate]);
 
   useEffect(() => {
     return () => {
       if (cursorUpdateRafRef.current !== null) {
         window.cancelAnimationFrame(cursorUpdateRafRef.current);
+      }
+      const pastePerformance = pastePerformanceRef.current;
+      if (pastePerformance && pastePerformance.finishTimer !== null) {
+        window.clearTimeout(pastePerformance.finishTimer);
       }
     };
   }, []);
@@ -1471,11 +1952,15 @@ function App() {
         const panelHeight = Math.max(panel.scrollHeight, panel.offsetHeight);
         const desiredTop = wrapperRect.bottom + 6;
         const viewportTop = Math.max(desiredTop, margin);
-        const availableViewportHeight = Math.max(window.innerHeight - viewportTop - bottomMargin, 120);
+        const availableViewportHeight = Math.max(
+          window.innerHeight - viewportTop - bottomMargin,
+          120,
+        );
         const maxHeight = Math.min(panelHeight, availableViewportHeight);
 
         let left = 0;
-        const overflowRight = wrapperRect.left + panelWidth - (window.innerWidth - margin);
+        const overflowRight =
+          wrapperRect.left + panelWidth - (window.innerWidth - margin);
         if (overflowRight > 0) {
           left -= overflowRight;
         }
@@ -1513,14 +1998,24 @@ function App() {
         const wrapperRect = wrapper.getBoundingClientRect();
         const panelWidth = Math.max(panel.offsetWidth, 180);
         const panelHeight = Math.max(panel.scrollHeight, panel.offsetHeight);
-        const availableViewportHeight = Math.max(window.innerHeight - margin * 2, 140);
+        const availableViewportHeight = Math.max(
+          window.innerHeight - margin * 2,
+          140,
+        );
         const maxHeight = Math.min(panelHeight, availableViewportHeight);
         const desiredTop = wrapperRect.bottom + 6;
-        const maxViewportTop = Math.max(margin, window.innerHeight - margin - maxHeight);
-        const viewportTop = Math.min(Math.max(desiredTop, margin), maxViewportTop);
+        const maxViewportTop = Math.max(
+          margin,
+          window.innerHeight - margin - maxHeight,
+        );
+        const viewportTop = Math.min(
+          Math.max(desiredTop, margin),
+          maxViewportTop,
+        );
 
         let left = 0;
-        const overflowRight = wrapperRect.left + panelWidth - (window.innerWidth - margin);
+        const overflowRight =
+          wrapperRect.left + panelWidth - (window.innerWidth - margin);
         if (overflowRight > 0) {
           left -= overflowRight;
         }
@@ -1558,14 +2053,24 @@ function App() {
         const wrapperRect = wrapper.getBoundingClientRect();
         const panelWidth = Math.max(panel.offsetWidth, 180);
         const panelHeight = Math.max(panel.scrollHeight, panel.offsetHeight);
-        const availableViewportHeight = Math.max(window.innerHeight - margin * 2, 140);
+        const availableViewportHeight = Math.max(
+          window.innerHeight - margin * 2,
+          140,
+        );
         const maxHeight = Math.min(panelHeight, availableViewportHeight);
         const desiredTop = wrapperRect.bottom + 6;
-        const maxViewportTop = Math.max(margin, window.innerHeight - margin - maxHeight);
-        const viewportTop = Math.min(Math.max(desiredTop, margin), maxViewportTop);
+        const maxViewportTop = Math.max(
+          margin,
+          window.innerHeight - margin - maxHeight,
+        );
+        const viewportTop = Math.min(
+          Math.max(desiredTop, margin),
+          maxViewportTop,
+        );
 
         let left = 0;
-        const overflowRight = wrapperRect.left + panelWidth - (window.innerWidth - margin);
+        const overflowRight =
+          wrapperRect.left + panelWidth - (window.innerWidth - margin);
         if (overflowRight > 0) {
           left -= overflowRight;
         }
@@ -1669,9 +2174,9 @@ function App() {
       if (!pendingId) return;
       const scroller = tabsScrollerRef.current;
       if (!scroller) return;
-      const targetTab = Array.from(scroller.querySelectorAll<HTMLElement>(".tab")).find(
-        (element) => element.dataset.tabId === pendingId,
-      );
+      const targetTab = Array.from(
+        scroller.querySelectorAll<HTMLElement>(".tab"),
+      ).find((element) => element.dataset.tabId === pendingId);
       if (!targetTab) {
         if (retries > 0) {
           window.requestAnimationFrame(() => reveal(retries - 1));
@@ -1727,58 +2232,75 @@ function App() {
     revealTabById(id);
   };
 
-  const performRemoveTab = useCallback((id: string) => {
-    setTabs((prev) => {
-      const removed = prev.find((t) => t.id === id);
-      if (removed) {
-        pushRecentClosedFile(removed);
-      }
-      tabHistoryRef.current = tabHistoryRef.current.filter((tabId) => tabId !== id);
-      const nextTabs = prev.filter((t) => t.id !== id);
-      if (nextTabs.length === 0) {
-        const fallback: Tab = { id: "initial", title: messages.app.untitledTab, content: "" };
-        setActiveTabId(fallback.id);
-        return [fallback];
-      }
-      if (activeTabIdRef.current === id) {
-        const nextActiveId =
-          [...tabHistoryRef.current]
-            .reverse()
-            .find((tabId) => tabId !== id && nextTabs.some((tab) => tab.id === tabId)) ??
-          nextTabs[0].id;
-        setActiveTabId(nextActiveId);
-      }
-      return nextTabs;
-    });
-  }, [messages.app.untitledTab, pushRecentClosedFile]);
-
-  const closeTabWithAnimation = useCallback((id: string) => {
-    if (tabs.length === 1 && tabs[0]?.id === id) {
-      allowImmediateCloseRef.current = true;
-      void windowHandle.close().finally(() => {
-        allowImmediateCloseRef.current = false;
+  const performRemoveTab = useCallback(
+    (id: string) => {
+      setTabs((prev) => {
+        const removed = prev.find((t) => t.id === id);
+        if (removed) {
+          pushRecentClosedFile(removed);
+        }
+        tabHistoryRef.current = tabHistoryRef.current.filter(
+          (tabId) => tabId !== id,
+        );
+        const nextTabs = prev.filter((t) => t.id !== id);
+        if (nextTabs.length === 0) {
+          const fallback: Tab = {
+            id: "initial",
+            title: messages.app.untitledTab,
+            content: "",
+          };
+          setActiveTabId(fallback.id);
+          return [fallback];
+        }
+        if (activeTabIdRef.current === id) {
+          const nextActiveId =
+            [...tabHistoryRef.current]
+              .reverse()
+              .find(
+                (tabId) =>
+                  tabId !== id && nextTabs.some((tab) => tab.id === tabId),
+              ) ?? nextTabs[0].id;
+          setActiveTabId(nextActiveId);
+        }
+        return nextTabs;
       });
-      return;
-    }
-    if (tabCloseTimerRef.current[id]) return;
-    setClosingTabIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    tabCloseTimerRef.current[id] = window.setTimeout(() => {
-      delete tabCloseTimerRef.current[id];
-      setClosingTabIds((prev) => prev.filter((tabId) => tabId !== id));
-      performRemoveTab(id);
-    }, TAB_CLOSE_ANIMATION_MS);
-  }, [performRemoveTab, tabs, windowHandle]);
+    },
+    [messages.app.untitledTab, pushRecentClosedFile],
+  );
 
-  const requestRemoveTab = useCallback((id: string) => {
-    if (closingTabIds.includes(id)) return;
-    const tab = tabs.find((t) => t.id === id);
-    if (!tab) return;
-    if (isTabDirty(tab)) {
-      setDeletePromptTabId(tab.id);
-      return;
-    }
-    closeTabWithAnimation(id);
-  }, [closeTabWithAnimation, closingTabIds, isTabDirty, tabs]);
+  const closeTabWithAnimation = useCallback(
+    (id: string) => {
+      if (tabs.length === 1 && tabs[0]?.id === id) {
+        allowImmediateCloseRef.current = true;
+        void windowHandle.close().finally(() => {
+          allowImmediateCloseRef.current = false;
+        });
+        return;
+      }
+      if (tabCloseTimerRef.current[id]) return;
+      setClosingTabIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      tabCloseTimerRef.current[id] = window.setTimeout(() => {
+        delete tabCloseTimerRef.current[id];
+        setClosingTabIds((prev) => prev.filter((tabId) => tabId !== id));
+        performRemoveTab(id);
+      }, TAB_CLOSE_ANIMATION_MS);
+    },
+    [performRemoveTab, tabs, windowHandle],
+  );
+
+  const requestRemoveTab = useCallback(
+    (id: string) => {
+      if (closingTabIds.includes(id)) return;
+      const tab = tabs.find((t) => t.id === id);
+      if (!tab) return;
+      if (isTabDirty(tab)) {
+        setDeletePromptTabId(tab.id);
+        return;
+      }
+      closeTabWithAnimation(id);
+    },
+    [closeTabWithAnimation, closingTabIds, isTabDirty, tabs],
+  );
 
   useEffect(() => {
     return () => {
@@ -1795,40 +2317,66 @@ function App() {
     closeMenus();
   }, [activeTab, closeMenus, requestRemoveTab]);
 
-  const cycleActiveTab = useCallback((direction: 1 | -1) => {
-    if (tabs.length <= 1) return;
-    const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId);
-    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
-    const nextIndex = (safeIndex + direction + tabs.length) % tabs.length;
-    const nextTabId = tabs[nextIndex].id;
-    setActiveTabId(nextTabId);
-    revealTabById(nextTabId);
-  }, [activeTabId, revealTabById, tabs]);
+  const cycleActiveTab = useCallback(
+    (direction: 1 | -1) => {
+      if (tabs.length <= 1) return;
+      const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId);
+      const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+      const nextIndex = (safeIndex + direction + tabs.length) % tabs.length;
+      const nextTabId = tabs[nextIndex].id;
+      setActiveTabId(nextTabId);
+      revealTabById(nextTabId);
+    },
+    [activeTabId, revealTabById, tabs],
+  );
 
   const renameTab = (id: string, title: string) => {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
   };
 
-  const updateContent = useCallback((content: string) => {
-    if (!activeTab) return;
-    // Live editor DOM stays on a trusted path; strip transient search markup before persisting.
-    const clean = stripTrustedSearchHighlights(content);
-    if (clean === activeTab.content) return;
-    setTabs((prev) =>
-      prev.map((t) => (t.id === activeTab.id ? { ...t, content: clean } : t)),
-    );
-  }, [activeTab]);
+  const updateContent = useCallback(
+    (content: string) => {
+      if (!activeTab) return;
+      // Live editor DOM stays on a trusted path; strip transient search markup before persisting.
+      const clean = measurePastePerformance("content-cleanup", () =>
+        stripTrustedSearchHighlights(content),
+      );
+      if (clean === activeTab.content) return;
+      measurePastePerformance("queue-content-state", () =>
+        setTabs((prev) =>
+          prev.map((t) =>
+            t.id === activeTab.id ? { ...t, content: clean } : t,
+          ),
+        ),
+      );
+    },
+    [activeTab, measurePastePerformance],
+  );
 
-  const runEditorCommand = useCallback((command: string) => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    restoreEditorSelection();
-    document.execCommand(command);
-    window.requestAnimationFrame(() => {
-      updateContent(editor.innerHTML);
-      updateCursorIndex();
-    });
-  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
+  const runEditorCommand = useCallback(
+    (command: string) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      restoreEditorSelection();
+      document.execCommand(command);
+      window.requestAnimationFrame(() => {
+        updateContent(editor.innerHTML);
+        updateCursorIndex();
+      });
+    },
+    [restoreEditorSelection, updateContent, updateCursorIndex],
+  );
+
+  const insertPlainText = useCallback((text: string) => {
+    suppressEditorInputRef.current = true;
+    try {
+      if (!document.execCommand("insertHTML", false, textToHtml(text))) {
+        document.execCommand("insertText", false, text);
+      }
+    } finally {
+      suppressEditorInputRef.current = false;
+    }
+  }, []);
 
   const pasteFromClipboard = useCallback(async () => {
     const editor = editorRef.current;
@@ -1836,8 +2384,12 @@ function App() {
     restoreEditorSelection();
     if (navigator.clipboard?.readText) {
       try {
-        const text = normalizePlainText(await navigator.clipboard.readText());
-        document.execCommand("insertText", false, text);
+        const rawText = await navigator.clipboard.readText();
+        startPastePerformance(rawText.length);
+        const text = measurePastePerformance("normalize-text", () =>
+          normalizePlainText(rawText),
+        );
+        measurePastePerformance("insert-text", () => insertPlainText(text));
       } catch (error) {
         console.error("clipboard read failed", error);
         setStatus(messages.app.statuses.clipboardUnavailable);
@@ -1851,39 +2403,59 @@ function App() {
     });
   }, [
     messages.app.statuses.clipboardUnavailable,
+    insertPlainText,
     normalizePlainText,
+    measurePastePerformance,
     restoreEditorSelection,
+    startPastePerformance,
     updateContent,
     updateCursorIndex,
   ]);
 
-  const handleEditorPaste = useCallback((event: ReactClipboardEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    restoreEditorSelection();
-    const text = normalizePlainText(event.clipboardData.getData("text/plain"));
-    document.execCommand("insertText", false, text);
-    window.requestAnimationFrame(() => {
-      const editor = editorRef.current;
-      if (!editor) return;
-      updateContent(editor.innerHTML);
-      updateCursorIndex();
-    });
-  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
+  const handleEditorPaste = useCallback(
+    (event: ReactClipboardEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      restoreEditorSelection();
+      const rawText = event.clipboardData.getData("text/plain");
+      startPastePerformance(rawText.length);
+      const text = measurePastePerformance("normalize-text", () =>
+        normalizePlainText(rawText),
+      );
+      measurePastePerformance("insert-text", () => insertPlainText(text));
+      window.requestAnimationFrame(() => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        updateContent(editor.innerHTML);
+        updateCursorIndex();
+      });
+    },
+    [
+      insertPlainText,
+      measurePastePerformance,
+      restoreEditorSelection,
+      startPastePerformance,
+      updateContent,
+      updateCursorIndex,
+    ],
+  );
 
-  const handleEditorDrop = useCallback((event: ReactDragEvent<HTMLDivElement>) => {
-    // Dropped rich HTML/files bypass paste sanitization, so accept plain text only.
-    event.preventDefault();
-    restoreEditorSelection();
-    const text = normalizePlainText(event.dataTransfer.getData("text/plain"));
-    if (!text) return;
-    document.execCommand("insertText", false, text);
-    window.requestAnimationFrame(() => {
-      const editor = editorRef.current;
-      if (!editor) return;
-      updateContent(editor.innerHTML);
-      updateCursorIndex();
-    });
-  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
+  const handleEditorDrop = useCallback(
+    (event: ReactDragEvent<HTMLDivElement>) => {
+      // Dropped rich HTML/files bypass paste sanitization, so accept plain text only.
+      event.preventDefault();
+      restoreEditorSelection();
+      const text = normalizePlainText(event.dataTransfer.getData("text/plain"));
+      if (!text) return;
+      insertPlainText(text);
+      window.requestAnimationFrame(() => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        updateContent(editor.innerHTML);
+        updateCursorIndex();
+      });
+    },
+    [insertPlainText, restoreEditorSelection, updateContent, updateCursorIndex],
+  );
 
   const focusSearchBox = useCallback(() => {
     closeMenus();
@@ -1905,94 +2477,107 @@ function App() {
     setGoToLineOpen(true);
   }, [closeMenus, cursorPosition.line]);
 
-  const moveCursorToLine = useCallback((lineNumber: number) => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    const lines = activePlainText.split(/\r?\n/);
-    const safeLine = Math.min(Math.max(lineNumber, 1), Math.max(lines.length, 1));
-    let targetIndex = 0;
-    for (let i = 0; i < safeLine - 1; i += 1) {
-      targetIndex += (lines[i]?.length ?? 0) + 1;
-    }
+  const moveCursorToLine = useCallback(
+    (lineNumber: number) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const lines = activePlainText.split(/\r?\n/);
+      const safeLine = Math.min(
+        Math.max(lineNumber, 1),
+        Math.max(lines.length, 1),
+      );
+      let targetIndex = 0;
+      for (let i = 0; i < safeLine - 1; i += 1) {
+        targetIndex += (lines[i]?.length ?? 0) + 1;
+      }
 
-    const walker = document.createTreeWalker(
-      editor,
-      NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
-      {
-        acceptNode(node) {
-          if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
-          if (
-            node.nodeType === Node.ELEMENT_NODE &&
-            (node as HTMLElement).tagName === "BR"
-          ) {
-            return NodeFilter.FILTER_ACCEPT;
-          }
-          return NodeFilter.FILTER_SKIP;
+      const walker = document.createTreeWalker(
+        editor,
+        NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+        {
+          acceptNode(node) {
+            if (node.nodeType === Node.TEXT_NODE)
+              return NodeFilter.FILTER_ACCEPT;
+            if (
+              node.nodeType === Node.ELEMENT_NODE &&
+              (node as HTMLElement).tagName === "BR"
+            ) {
+              return NodeFilter.FILTER_ACCEPT;
+            }
+            return NodeFilter.FILTER_SKIP;
+          },
         },
-      },
-    );
+      );
 
-    let walked = 0;
-    let foundNode: Node | null = null;
-    let foundOffset = 0;
-    let current = walker.nextNode();
-    while (current) {
-      if (current.nodeType === Node.TEXT_NODE) {
-        const textLen = current.nodeValue?.length ?? 0;
-        if (targetIndex <= walked + textLen) {
-          foundNode = current;
-          foundOffset = Math.max(0, targetIndex - walked);
-          break;
-        }
-        walked += textLen;
-      } else {
-        if (targetIndex <= walked) {
-          foundNode = current.parentNode;
-          const siblings = current.parentNode?.childNodes;
-          if (siblings) {
-            for (let i = 0; i < siblings.length; i += 1) {
-              if (siblings[i] === current) {
-                foundOffset = i;
-                break;
+      let walked = 0;
+      let foundNode: Node | null = null;
+      let foundOffset = 0;
+      let current = walker.nextNode();
+      while (current) {
+        if (current.nodeType === Node.TEXT_NODE) {
+          const textLen = current.nodeValue?.length ?? 0;
+          if (targetIndex <= walked + textLen) {
+            foundNode = current;
+            foundOffset = Math.max(0, targetIndex - walked);
+            break;
+          }
+          walked += textLen;
+        } else {
+          if (targetIndex <= walked) {
+            foundNode = current.parentNode;
+            const siblings = current.parentNode?.childNodes;
+            if (siblings) {
+              for (let i = 0; i < siblings.length; i += 1) {
+                if (siblings[i] === current) {
+                  foundOffset = i;
+                  break;
+                }
               }
             }
+            break;
           }
-          break;
+          walked += 1;
         }
-        walked += 1;
+        current = walker.nextNode();
       }
-      current = walker.nextNode();
-    }
 
-    if (!foundNode) {
-      foundNode = editor;
-      foundOffset = editor.childNodes.length;
-    }
-
-    const range = document.createRange();
-    const selection = window.getSelection();
-    try {
-      if (foundNode.nodeType === Node.TEXT_NODE) {
-        range.setStart(foundNode, foundOffset);
-      } else {
-        range.setStart(foundNode, Math.max(0, foundOffset));
+      if (!foundNode) {
+        foundNode = editor;
+        foundOffset = editor.childNodes.length;
       }
-      range.collapse(true);
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-      editor.focus();
-      updateCursorIndex();
-    } catch (error) {
-      console.error("Failed to move cursor", error);
-    }
-  }, [activePlainText, updateCursorIndex]);
+
+      const range = document.createRange();
+      const selection = window.getSelection();
+      try {
+        if (foundNode.nodeType === Node.TEXT_NODE) {
+          range.setStart(foundNode, foundOffset);
+        } else {
+          range.setStart(foundNode, Math.max(0, foundOffset));
+        }
+        range.collapse(true);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        editor.focus();
+        updateCursorIndex();
+      } catch (error) {
+        console.error("Failed to move cursor", error);
+      }
+    },
+    [activePlainText, updateCursorIndex],
+  );
 
   const clampZoom = (value: number) => Math.min(2, Math.max(0.5, value));
   const applyZoom = useCallback((next: number) => {
     setZoomLevel(clampZoom(next));
   }, []);
-  const zoomIn = useCallback(() => applyZoom(zoomLevel + 0.1), [applyZoom, zoomLevel]);
-  const zoomOut = useCallback(() => applyZoom(zoomLevel - 0.1), [applyZoom, zoomLevel]);
+  const zoomIn = useCallback(
+    () => applyZoom(zoomLevel + 0.1),
+    [applyZoom, zoomLevel],
+  );
+  const zoomOut = useCallback(
+    () => applyZoom(zoomLevel - 0.1),
+    [applyZoom, zoomLevel],
+  );
   const resetZoom = useCallback(() => applyZoom(1), [applyZoom]);
 
   const submitGoToLine = useCallback(() => {
@@ -2038,7 +2623,9 @@ function App() {
           const start = match.index;
           const end = start + match[0].length;
           if (start > lastIndex) {
-            fragment.appendChild(document.createTextNode(text.slice(lastIndex, start)));
+            fragment.appendChild(
+              document.createTextNode(text.slice(lastIndex, start)),
+            );
           }
           const mark = document.createElement("mark");
           mark.className = "search-hit";
@@ -2054,7 +2641,9 @@ function App() {
       });
       // Search highlights are generated from sanitized DOM and inserted as nodes,
       // avoiding a second raw HTML string sink here.
-      editor.replaceChildren(...Array.from(container.childNodes).map((node) => node.cloneNode(true)));
+      editor.replaceChildren(
+        ...Array.from(container.childNodes).map((node) => node.cloneNode(true)),
+      );
       setSearchMatchCount(count);
       const firstHit = editor.querySelector("mark.search-hit");
       if (firstHit) {
@@ -2068,11 +2657,23 @@ function App() {
     (mode: "one" | "all") => {
       const trimmed = searchQuery.trim();
       if (!trimmed || !activeTab) return;
-      const nextHtml = replaceTextInHtml(activeHtml, trimmed, replaceQuery, mode);
+      const nextHtml = replaceTextInHtml(
+        activeHtml,
+        trimmed,
+        replaceQuery,
+        mode,
+      );
       updateContent(nextHtml);
       window.requestAnimationFrame(() => applySearchHighlights(trimmed));
     },
-    [activeHtml, activeTab, applySearchHighlights, replaceQuery, searchQuery, updateContent],
+    [
+      activeHtml,
+      activeTab,
+      applySearchHighlights,
+      replaceQuery,
+      searchQuery,
+      updateContent,
+    ],
   );
 
   useEffect(() => {
@@ -2084,7 +2685,14 @@ function App() {
     }
     setSearchMatchCount(0);
     applyEditorHtml(editor, activeHtml);
-  }, [activeHtml, activeTabId, applyEditorHtml, applySearchHighlights, searchQuery, showSearchBox]);
+  }, [
+    activeHtml,
+    activeTabId,
+    applyEditorHtml,
+    applySearchHighlights,
+    searchQuery,
+    showSearchBox,
+  ]);
 
   const moveTab = (fromId: string, toId: string) => {
     if (fromId === toId) return;
@@ -2138,16 +2746,19 @@ function App() {
     }, 180);
   }, [syncWindowMaximizedState, windowHandle]);
 
-  const handleWindowDragStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    if (event.detail === 2) {
-      void toggleMaximizeWindow();
-      return;
-    }
-    void windowHandle.startDragging().catch((error) => {
-      console.error("Failed to start dragging window", error);
-    });
-  }, [toggleMaximizeWindow, windowHandle]);
+  const handleWindowDragStart = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      if (event.detail === 2) {
+        void toggleMaximizeWindow();
+        return;
+      }
+      void windowHandle.startDragging().catch((error) => {
+        console.error("Failed to start dragging window", error);
+      });
+    },
+    [toggleMaximizeWindow, windowHandle],
+  );
 
   const closeWindow = useCallback(async () => {
     if (allowImmediateCloseRef.current) {
@@ -2204,24 +2815,75 @@ function App() {
       await windowHandle.setFocus();
       await windowHandle.requestUserAttention(UserAttentionType.Informational);
       restoreEditorSelection({ fallbackToEnd: true });
+      markOnboardingStepTested("focus");
     } catch (error) {
       console.error("Failed to focus AlwaysMemo", error);
     }
-  }, [restoreEditorSelection, windowHandle]);
+  }, [markOnboardingStepTested, restoreEditorSelection, windowHandle]);
 
   const shortcutActions = useMemo(
     () => [
-      { id: "focusAlwaysMemo", combo: "Ctrl+Alt+[", action: focusAlwaysMemo },
-      { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: toggleAlwaysOnTop },
-      { id: "snapLeft", combo: "Ctrl+Alt+Left", action: snapLeft },
-      { id: "snapRight", combo: "Ctrl+Alt+Right", action: snapRight },
-      { id: "snapTop", combo: "Ctrl+Alt+Up", action: snapTop },
-      { id: "snapBottom", combo: "Ctrl+Alt+Down", action: snapBottom },
+      {
+        id: "focusAlwaysMemo",
+        combo: "Ctrl+Alt+[",
+        action: () => {
+          pulseOnboardingKeys("focus", ["Ctrl", "Alt", "["]);
+          return focusAlwaysMemo();
+        },
+      },
+      {
+        id: "alwaysOnTop",
+        combo: "Ctrl+Alt+T",
+        action: () => {
+          pulseOnboardingKeys("alwaysOnTop", ["Ctrl", "Alt", "T"]);
+          return toggleAlwaysOnTop();
+        },
+      },
+      {
+        id: "snapLeft",
+        combo: "Ctrl+Alt+Left",
+        action: () => {
+          pulseOnboardingKeys("snap", ["Ctrl", "Alt", "←"]);
+          return snapLeft();
+        },
+      },
+      {
+        id: "snapRight",
+        combo: "Ctrl+Alt+Right",
+        action: () => {
+          pulseOnboardingKeys("snap", ["Ctrl", "Alt", "→"]);
+          return snapRight();
+        },
+      },
+      {
+        id: "snapTop",
+        combo: "Ctrl+Alt+Up",
+        action: () => {
+          pulseOnboardingKeys("snap", ["Ctrl", "Alt", "↑"]);
+          return snapTop();
+        },
+      },
+      {
+        id: "snapBottom",
+        combo: "Ctrl+Alt+Down",
+        action: () => {
+          pulseOnboardingKeys("snap", ["Ctrl", "Alt", "↓"]);
+          return snapBottom();
+        },
+      },
       { id: "minimumSize", combo: "Ctrl+Alt+J", action: resizeToMinimum },
-      { id: "fitContent", combo: "Ctrl+Alt+K", action: resizeToFitContent },
+      {
+        id: "fitContent",
+        combo: "Ctrl+Alt+K",
+        action: () => {
+          pulseOnboardingKeys("fitContent", ["Ctrl", "Alt", "K"]);
+          return resizeToFitContent();
+        },
+      },
     ],
     [
       focusAlwaysMemo,
+      pulseOnboardingKeys,
       resizeToFitContent,
       resizeToMinimum,
       snapBottom,
@@ -2234,42 +2896,39 @@ function App() {
 
   useEffect(() => {
     let unlistenResize: (() => void) | undefined;
-    let unlistenMove: (() => void) | undefined;
     void syncWindowMaximizedState();
-    void windowHandle.onResized(() => {
-      scheduleWindowMaximizedSync();
-    }).then((cleanup) => {
-      unlistenResize = cleanup;
-    }).catch((error) => {
-      console.error("Failed to listen for resize", error);
-    });
-    void windowHandle.onMoved(() => {
-      scheduleWindowMaximizedSync();
-    }).then((cleanup) => {
-      unlistenMove = cleanup;
-    }).catch((error) => {
-      console.error("Failed to listen for move", error);
-    });
+    void windowHandle
+      .onResized(() => {
+        scheduleWindowMaximizedSync();
+      })
+      .then((cleanup) => {
+        unlistenResize = cleanup;
+      })
+      .catch((error) => {
+        console.error("Failed to listen for resize", error);
+      });
     return () => {
       if (windowStateSyncTimerRef.current !== null) {
         window.clearTimeout(windowStateSyncTimerRef.current);
       }
       unlistenResize?.();
-      unlistenMove?.();
     };
   }, [scheduleWindowMaximizedSync, syncWindowMaximizedState, windowHandle]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    void windowHandle.onCloseRequested(async (event) => {
-      if (allowImmediateCloseRef.current) return;
-      event.preventDefault();
-      await closeWindow();
-    }).then((cleanup) => {
-      unlisten = cleanup;
-    }).catch((error) => {
-      console.error("Failed to listen for close requests", error);
-    });
+    void windowHandle
+      .onCloseRequested(async (event) => {
+        if (allowImmediateCloseRef.current) return;
+        event.preventDefault();
+        await closeWindow();
+      })
+      .then((cleanup) => {
+        unlisten = cleanup;
+      })
+      .catch((error) => {
+        console.error("Failed to listen for close requests", error);
+      });
     return () => {
       unlisten?.();
     };
@@ -2486,11 +3145,17 @@ function App() {
     const scroller = tabsScrollerRef.current;
     if (!scroller) return;
     if (scroller.scrollWidth <= scroller.clientWidth) return;
-    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    const delta =
+      Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        ? event.deltaX
+        : event.deltaY;
     if (delta === 0) return;
     const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
     const baseLeft = tabsWheelTargetRef.current ?? scroller.scrollLeft;
-    tabsWheelTargetRef.current = Math.max(0, Math.min(maxLeft, baseLeft + delta * 3));
+    tabsWheelTargetRef.current = Math.max(
+      0,
+      Math.min(maxLeft, baseLeft + delta * 3),
+    );
     if (tabsWheelRafRef.current !== null) return;
 
     const animate = () => {
@@ -2579,7 +3244,9 @@ function App() {
                     onDoubleClick={() => {
                       const next = window.prompt(
                         messages.app.renameTabPrompt,
-                        isUntitledTitle(tab.title) ? messages.app.untitledTab : tab.title,
+                        isUntitledTitle(tab.title)
+                          ? messages.app.untitledTab
+                          : tab.title,
                       );
                       if (next?.trim()) renameTab(tab.id, next.trim());
                     }}
@@ -2598,7 +3265,11 @@ function App() {
                     <span
                       className={`tab-close ${isTabDirty(tab) ? "dirty" : ""}`}
                       onPointerEnter={() => setHoveredTabCloseId(tab.id)}
-                      onPointerLeave={() => setHoveredTabCloseId((current) => (current === tab.id ? null : current))}
+                      onPointerLeave={() =>
+                        setHoveredTabCloseId((current) =>
+                          current === tab.id ? null : current,
+                        )
+                      }
                       onPointerDown={(event) => event.stopPropagation()}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -2612,7 +3283,12 @@ function App() {
                       }
                     >
                       {isTabDirty(tab) && hoveredTabCloseId !== tab.id ? (
-                        <span className="tab-close-icon dirty-indicator" aria-hidden="true">●</span>
+                        <span
+                          className="tab-close-icon dirty-indicator"
+                          aria-hidden="true"
+                        >
+                          ●
+                        </span>
                       ) : (
                         <span className="tab-close-icon" aria-hidden="true">
                           <X size={11} strokeWidth={2.2} aria-hidden="true" />
@@ -2631,10 +3307,7 @@ function App() {
               <Plus size={16} strokeWidth={1.8} aria-hidden="true" />
             </button>
           </div>
-          <div
-            className="drag-region"
-            onPointerDown={handleWindowDragStart}
-          />
+          <div className="drag-region" onPointerDown={handleWindowDragStart} />
           <div className="window-controls">
             <button
               type="button"
@@ -2642,7 +3315,11 @@ function App() {
               onClick={minimizeWindow}
               aria-label={messages.common.windowControls.minimize}
             >
-              <Minus className="window-icon" strokeWidth={1.2} aria-hidden="true" />
+              <Minus
+                className="window-icon"
+                strokeWidth={1.2}
+                aria-hidden="true"
+              />
             </button>
             <button
               type="button"
@@ -2655,9 +3332,17 @@ function App() {
               }
             >
               {isWindowMaximized ? (
-                <Copy className="window-icon" strokeWidth={1.2} aria-hidden="true" />
+                <Copy
+                  className="window-icon"
+                  strokeWidth={1.2}
+                  aria-hidden="true"
+                />
               ) : (
-                <Square className="window-icon" strokeWidth={1.2} aria-hidden="true" />
+                <Square
+                  className="window-icon"
+                  strokeWidth={1.2}
+                  aria-hidden="true"
+                />
               )}
             </button>
             <button
@@ -2666,7 +3351,11 @@ function App() {
               onClick={closeWindow}
               aria-label={messages.common.windowControls.close}
             >
-              <X className="window-icon close-window-icon" strokeWidth={1.2} aria-hidden="true" />
+              <X
+                className="window-icon close-window-icon"
+                strokeWidth={1.2}
+                aria-hidden="true"
+              />
             </button>
           </div>
         </div>
@@ -2677,7 +3366,9 @@ function App() {
                 <button
                   type="button"
                   className={`menu-button file-menu-button ${openMenu === "file" ? "active" : ""}`}
-                  onClick={() => setOpenMenu((prev) => (prev === "file" ? null : "file"))}
+                  onClick={() =>
+                    setOpenMenu((prev) => (prev === "file" ? null : "file"))
+                  }
                 >
                   {messages.app.menu.file}
                 </button>
@@ -2688,29 +3379,71 @@ function App() {
                     style={fileMenuStyle}
                     onMouseDown={(event) => event.stopPropagation()}
                   >
-                    <button type="button" className="menu-item" onClick={() => { addTab(); closeMenus(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        addTab();
+                        closeMenus();
+                      }}
+                    >
                       <span>{messages.app.menu.newTab}</span>
                       <span className="menu-shortcut">Ctrl+N</span>
                     </button>
-                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void openNewWindow(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        closeMenus();
+                        void openNewWindow();
+                      }}
+                    >
                       <span>{messages.app.menu.newWindow}</span>
                       <span className="menu-shortcut">Ctrl+Shift+N</span>
                     </button>
                     <div className="menu-divider" />
-                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void openFilePicker(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        closeMenus();
+                        void openFilePicker();
+                      }}
+                    >
                       <span>{messages.app.menu.open}</span>
                       <span className="menu-shortcut">Ctrl+O</span>
                     </button>
                     <div className="menu-divider" />
-                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void saveActiveTab(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        closeMenus();
+                        void saveActiveTab();
+                      }}
+                    >
                       <span>{messages.app.menu.save}</span>
                       <span className="menu-shortcut">Ctrl+S</span>
                     </button>
-                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void saveActiveTabAs(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        closeMenus();
+                        void saveActiveTabAs();
+                      }}
+                    >
                       <span>{messages.app.menu.saveAs}</span>
                       <span className="menu-shortcut">Ctrl+Shift+S</span>
                     </button>
-                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void saveAllTabs(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        closeMenus();
+                        void saveAllTabs();
+                      }}
+                    >
                       <span>{messages.app.menu.saveAll}</span>
                       <span className="menu-shortcut">Ctrl+Alt+S</span>
                     </button>
@@ -2723,7 +3456,10 @@ function App() {
                       }}
                     >
                       <span>{messages.app.menu.alwaysOnTop}</span>
-                      <span className={`menu-toggle ${alwaysOnTop ? "on" : ""}`} aria-hidden="true" />
+                      <span
+                        className={`menu-toggle ${alwaysOnTop ? "on" : ""}`}
+                        aria-hidden="true"
+                      />
                     </button>
                     <button
                       type="button"
@@ -2732,7 +3468,8 @@ function App() {
                         void (async () => {
                           const nextValue = !useGlobalShortcuts;
                           if (nextValue) {
-                            const canEnable = await ensureGlobalShortcutsSingleWindow();
+                            const canEnable =
+                              await ensureGlobalShortcutsSingleWindow();
                             if (!canEnable) return;
                           }
                           setGlobalShortcutsPreference(nextValue, "manual");
@@ -2740,18 +3477,42 @@ function App() {
                       }}
                     >
                       <span>{messages.app.menu.globalShortcuts}</span>
-                      <span className={`menu-toggle ${useGlobalShortcuts ? "on" : ""}`} aria-hidden="true" />
+                      <span
+                        className={`menu-toggle ${useGlobalShortcuts ? "on" : ""}`}
+                        aria-hidden="true"
+                      />
                     </button>
                     <div className="menu-divider" />
-                    <button type="button" className="menu-item" onClick={() => { closeActiveTab(); closeMenus(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        closeActiveTab();
+                        closeMenus();
+                      }}
+                    >
                       <span>{messages.app.menu.closeTab}</span>
                       <span className="menu-shortcut">Ctrl+W</span>
                     </button>
-                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void closeWindow(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        closeMenus();
+                        void closeWindow();
+                      }}
+                    >
                       <span>{messages.app.menu.closeWindow}</span>
                       <span className="menu-shortcut">Ctrl+Shift+W</span>
                     </button>
-                    <button type="button" className="menu-item" onClick={() => { closeMenus(); void closeWindow(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        closeMenus();
+                        void closeWindow();
+                      }}
+                    >
                       <span>{messages.app.menu.exit}</span>
                     </button>
                     {recentClosedFiles.length > 0 ? (
@@ -2761,7 +3522,9 @@ function App() {
                           type="button"
                           className="menu-section-toggle"
                           aria-expanded={recentFilesExpanded}
-                          onClick={() => setRecentFilesExpanded((prev) => !prev)}
+                          onClick={() =>
+                            setRecentFilesExpanded((prev) => !prev)
+                          }
                         >
                           <span>{messages.app.menu.recentFiles}</span>
                           <ChevronDown
@@ -2773,16 +3536,19 @@ function App() {
                         </button>
                         {recentFilesExpanded
                           ? recentClosedFiles.map((file) => (
-                            <button
-                              key={file.path}
-                              type="button"
-                              className="menu-item"
-                              title={file.path}
-                              onClick={() => { closeMenus(); void openFilesByPaths([file.path]); }}
-                            >
-                              <span>{file.title}</span>
-                            </button>
-                          ))
+                              <button
+                                key={file.path}
+                                type="button"
+                                className="menu-item"
+                                title={file.path}
+                                onClick={() => {
+                                  closeMenus();
+                                  void openFilesByPaths([file.path]);
+                                }}
+                              >
+                                <span>{file.title}</span>
+                              </button>
+                            ))
                           : null}
                       </>
                     ) : null}
@@ -2793,7 +3559,9 @@ function App() {
                 <button
                   type="button"
                   className={`menu-button ${openMenu === "edit" ? "active" : ""}`}
-                  onClick={() => setOpenMenu((prev) => (prev === "edit" ? null : "edit"))}
+                  onClick={() =>
+                    setOpenMenu((prev) => (prev === "edit" ? null : "edit"))
+                  }
                 >
                   {messages.app.menu.edit}
                 </button>
@@ -2804,37 +3572,87 @@ function App() {
                     style={editMenuStyle}
                     onMouseDown={(event) => event.stopPropagation()}
                   >
-                    <button type="button" className="menu-item" onClick={() => { runEditorCommand("undo"); closeMenus(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        runEditorCommand("undo");
+                        closeMenus();
+                      }}
+                    >
                       <span>{messages.app.menu.undo}</span>
                       <span className="menu-shortcut">Ctrl+Z</span>
                     </button>
-                    <button type="button" className="menu-item" onClick={() => { runEditorCommand("cut"); closeMenus(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        runEditorCommand("cut");
+                        closeMenus();
+                      }}
+                    >
                       <span>{messages.app.menu.cut}</span>
                       <span className="menu-shortcut">Ctrl+X</span>
                     </button>
-                    <button type="button" className="menu-item" onClick={() => { runEditorCommand("copy"); closeMenus(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        runEditorCommand("copy");
+                        closeMenus();
+                      }}
+                    >
                       <span>{messages.app.menu.copy}</span>
                       <span className="menu-shortcut">Ctrl+C</span>
                     </button>
-                    <button type="button" className="menu-item" onClick={() => { void pasteFromClipboard(); closeMenus(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        void pasteFromClipboard();
+                        closeMenus();
+                      }}
+                    >
                       <span>{messages.app.menu.paste}</span>
                       <span className="menu-shortcut">Ctrl+V</span>
                     </button>
                     <div className="menu-divider" />
-                    <button type="button" className="menu-item" onClick={() => { focusSearchBox(); closeMenus(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        focusSearchBox();
+                        closeMenus();
+                      }}
+                    >
                       <span>{messages.app.menu.find}</span>
                       <span className="menu-shortcut">Ctrl+F</span>
                     </button>
-                    <button type="button" className="menu-item" onClick={() => { focusReplaceBox(); closeMenus(); }}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={() => {
+                        focusReplaceBox();
+                        closeMenus();
+                      }}
+                    >
                       <span>{messages.app.menu.replace}</span>
                       <span className="menu-shortcut">Ctrl+H</span>
                     </button>
-                    <button type="button" className="menu-item" onClick={openGoToLine}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={openGoToLine}
+                    >
                       <span>{messages.app.menu.goTo}</span>
                       <span className="menu-shortcut">Ctrl+G</span>
                     </button>
                     <div className="menu-divider" />
-                    <button type="button" className="menu-item disabled" aria-disabled="true">
+                    <button
+                      type="button"
+                      className="menu-item disabled"
+                      aria-disabled="true"
+                    >
                       <span>{messages.app.menu.font}</span>
                     </button>
                   </div>
@@ -2844,7 +3662,9 @@ function App() {
                 <button
                   type="button"
                   className={`menu-button ${openMenu === "view" ? "active" : ""}`}
-                  onClick={() => setOpenMenu((prev) => (prev === "view" ? null : "view"))}
+                  onClick={() =>
+                    setOpenMenu((prev) => (prev === "view" ? null : "view"))
+                  }
                 >
                   {messages.app.menu.view}
                 </button>
@@ -2855,15 +3675,31 @@ function App() {
                     style={viewMenuStyle}
                     onMouseDown={(event) => event.stopPropagation()}
                   >
-                    <button type="button" className="menu-item" onClick={zoomIn}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={zoomIn}
+                    >
                       <span>{messages.app.menu.zoomIn}</span>
-                      <span className="menu-shortcut">{messages.app.menu.zoomInShortcut}</span>
+                      <span className="menu-shortcut">
+                        {messages.app.menu.zoomInShortcut}
+                      </span>
                     </button>
-                    <button type="button" className="menu-item" onClick={zoomOut}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={zoomOut}
+                    >
                       <span>{messages.app.menu.zoomOut}</span>
-                      <span className="menu-shortcut">{messages.app.menu.zoomOutShortcut}</span>
+                      <span className="menu-shortcut">
+                        {messages.app.menu.zoomOutShortcut}
+                      </span>
                     </button>
-                    <button type="button" className="menu-item" onClick={resetZoom}>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={resetZoom}
+                    >
                       <span>{messages.app.menu.resetZoom}</span>
                       <span className="menu-shortcut">Ctrl+0</span>
                     </button>
@@ -2872,7 +3708,9 @@ function App() {
                       className="menu-item"
                       onClick={() => setShowStatusBar((prev) => !prev)}
                     >
-                      <span className={`menu-check ${showStatusBar ? "on" : ""}`}>
+                      <span
+                        className={`menu-check ${showStatusBar ? "on" : ""}`}
+                      >
                         <Check size={13} strokeWidth={2.2} aria-hidden="true" />
                       </span>
                       <span>{messages.app.menu.statusBar}</span>
@@ -2882,7 +3720,9 @@ function App() {
                       className="menu-item"
                       onClick={() => setWrapAtRightEdge((prev) => !prev)}
                     >
-                      <span className={`menu-check ${wrapAtRightEdge ? "on" : ""}`}>
+                      <span
+                        className={`menu-check ${wrapAtRightEdge ? "on" : ""}`}
+                      >
                         <Check size={13} strokeWidth={2.2} aria-hidden="true" />
                       </span>
                       <span>{messages.app.menu.wrapAtRightEdge}</span>
@@ -2914,7 +3754,9 @@ function App() {
                     }}
                   />
                   {searchQuery.trim() ? (
-                    <span className="search-count">{messages.app.search.count(searchMatchCount)}</span>
+                    <span className="search-count">
+                      {messages.app.search.count(searchMatchCount)}
+                    </span>
                   ) : null}
                   <button
                     type="button"
@@ -2979,9 +3821,13 @@ function App() {
                     setHelpPanelOpen((prev) => !prev);
                   }}
                 >
-                  <CircleQuestionMark size={14} strokeWidth={1.9} aria-hidden="true" />
+                  <CircleQuestionMark
+                    size={14}
+                    strokeWidth={1.9}
+                    aria-hidden="true"
+                  />
                 </button>
-                {helpHintVisible && !helpPanelOpen ? (
+                {helpHintVisible && !helpPanelOpen && !onboardingStep ? (
                   <div
                     ref={helpHintRef}
                     className="help-hint-bubble"
@@ -3022,8 +3868,13 @@ function App() {
                       </button>
                     </div>
 
-                    <section className="help-panel-section" aria-labelledby="mini-help-shortcuts-title">
-                      <h3 id="mini-help-shortcuts-title">{messages.app.help.shortcutsTitle}</h3>
+                    <section
+                      className="help-panel-section"
+                      aria-labelledby="mini-help-shortcuts-title"
+                    >
+                      <h3 id="mini-help-shortcuts-title">
+                        {messages.app.help.shortcutsTitle}
+                      </h3>
                       <div className="help-shortcuts-list">
                         {messages.app.help.shortcuts.map((item) => (
                           <div
@@ -3031,13 +3882,24 @@ function App() {
                             className="help-shortcut-row"
                           >
                             {"groups" in item ? (
-                              <div className="help-shortcut-groups" aria-hidden="true">
+                              <div
+                                className="help-shortcut-groups"
+                                aria-hidden="true"
+                              >
                                 {item.groups.map((group, groupIndex) => (
-                                  <div key={`${item.label}-${groupIndex}`} className="help-shortcut-group">
-                                    {groupIndex > 0 ? <span className="help-plus">+</span> : null}
+                                  <div
+                                    key={`${item.label}-${groupIndex}`}
+                                    className="help-shortcut-group"
+                                  >
+                                    {groupIndex > 0 ? (
+                                      <span className="help-plus">+</span>
+                                    ) : null}
                                     <div className="help-shortcut-keys">
                                       {group.map((key) => (
-                                        <kbd key={`${item.label}-${key}`} className="help-keycap">
+                                        <kbd
+                                          key={`${item.label}-${key}`}
+                                          className="help-keycap"
+                                        >
                                           {key}
                                         </kbd>
                                       ))}
@@ -3046,23 +3908,35 @@ function App() {
                                 ))}
                               </div>
                             ) : (
-                              <div className="help-shortcut-keys" aria-hidden="true">
+                              <div
+                                className="help-shortcut-keys"
+                                aria-hidden="true"
+                              >
                                 {item.keys.map((key, index) => (
                                   <span key={`${item.label}-${key}`}>
-                                    {index > 0 ? <span className="help-plus">+</span> : null}
+                                    {index > 0 ? (
+                                      <span className="help-plus">+</span>
+                                    ) : null}
                                     <kbd className="help-keycap">{key}</kbd>
                                   </span>
                                 ))}
                               </div>
                             )}
-                            <span className="help-shortcut-label">{item.label}</span>
+                            <span className="help-shortcut-label">
+                              {item.label}
+                            </span>
                           </div>
                         ))}
                       </div>
                     </section>
 
-                    <section className="help-panel-section" aria-labelledby="mini-help-points-title">
-                      <h3 id="mini-help-points-title">{messages.app.help.pointsTitle}</h3>
+                    <section
+                      className="help-panel-section"
+                      aria-labelledby="mini-help-points-title"
+                    >
+                      <h3 id="mini-help-points-title">
+                        {messages.app.help.pointsTitle}
+                      </h3>
                       <ul className="help-points-list">
                         {messages.app.help.points.map((item) => (
                           <li key={item}>{item}</li>
@@ -3078,7 +3952,11 @@ function App() {
                       }}
                     >
                       <span>{messages.app.help.openDetailedHelp}</span>
-                      <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
+                      <ExternalLink
+                        size={13}
+                        strokeWidth={2}
+                        aria-hidden="true"
+                      />
                     </button>
                   </div>
                 ) : null}
@@ -3100,8 +3978,7 @@ function App() {
 
       <section className="card memo" style={{ zoom: zoomLevel }}>
         <div className="editor">
-          <div className="editor-header">
-          </div>
+          <div className="editor-header"></div>
 
           <div
             ref={editorRef}
@@ -3117,6 +3994,7 @@ function App() {
             suppressContentEditableWarning
             data-placeholder={messages.app.editorPlaceholder}
             onInput={(event) => {
+              if (suppressEditorInputRef.current) return;
               updateContent(event.currentTarget.innerHTML);
               scheduleCursorIndexUpdate();
             }}
@@ -3182,9 +4060,13 @@ function App() {
             aria-labelledby="delete-choice-title"
             aria-describedby="delete-choice-desc"
           >
-            <h2 id="delete-choice-title">{messages.app.dialogs.confirmTitle}</h2>
+            <h2 id="delete-choice-title">
+              {messages.app.dialogs.confirmTitle}
+            </h2>
             <p id="delete-choice-desc">
-              {messages.app.dialogs.saveChangesTo(deletePromptTab.filePath ?? deletePromptTab.title)}
+              {messages.app.dialogs.saveChangesTo(
+                deletePromptTab.filePath ?? deletePromptTab.title,
+              )}
             </p>
             <div className="delete-choice-actions">
               <button
@@ -3234,7 +4116,9 @@ function App() {
             aria-labelledby="goto-line-title"
           >
             <h2 id="goto-line-title">{messages.app.dialogs.goToLineTitle}</h2>
-            <label htmlFor="goto-line-input">{messages.app.dialogs.lineNumber}</label>
+            <label htmlFor="goto-line-input">
+              {messages.app.dialogs.lineNumber}
+            </label>
             <input
               ref={goToLineInputRef}
               id="goto-line-input"
@@ -3250,7 +4134,11 @@ function App() {
               }}
             />
             <div className="goto-line-actions">
-              <button type="button" className="goto-line-button primary" onClick={submitGoToLine}>
+              <button
+                type="button"
+                className="goto-line-button primary"
+                onClick={submitGoToLine}
+              >
                 {messages.app.dialogs.move}
               </button>
               <button
@@ -3268,22 +4156,152 @@ function App() {
       {showStatusBar ? (
         <div className="bottom-bar">
           <span className="bottom-item">
-            {messages.app.statusBar.lineColumn(cursorPosition.line, cursorPosition.column)}
+            {messages.app.statusBar.lineColumn(
+              cursorPosition.line,
+              cursorPosition.column,
+            )}
           </span>
-          <span className="bottom-item">{messages.app.statusBar.characters(activePlainText.length)}</span>
+          <span className="bottom-item">
+            {messages.app.statusBar.characters(activePlainText.length)}
+          </span>
           <span className="bottom-item">{zoomPercentLabel}</span>
           <span className="bottom-item">{messages.app.statusBar.encoding}</span>
-          <span className="bottom-item status-item">
-            <span className="bottom-label">{messages.app.statusBar.alwaysOnTop}: </span>
-            <span className="bottom-value">{alwaysOnTop ? messages.common.on : messages.common.off}</span>
+          <span
+            className={`bottom-item status-item ${onboardingStep === "alwaysOnTop" ? "onboarding-target" : ""}`}
+          >
+            <span className="bottom-label">
+              {messages.app.statusBar.alwaysOnTop}:{" "}
+            </span>
+            <span className="bottom-value">
+              {alwaysOnTop ? messages.common.on : messages.common.off}
+            </span>
           </span>
           <span className="bottom-item status-item">
-            <span className="bottom-label">{messages.app.statusBar.shortcuts}: </span>
-            <span className="bottom-value">{useGlobalShortcuts ? messages.common.on : messages.common.off}</span>
+            <span className="bottom-label">
+              {messages.app.statusBar.shortcuts}:{" "}
+            </span>
+            <span className="bottom-value">
+              {useGlobalShortcuts ? messages.common.on : messages.common.off}
+            </span>
           </span>
         </div>
       ) : null}
 
+      {onboardingStep && onboardingContent && onboardingStepIndex !== null ? (
+        <aside
+          className="onboarding-card"
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="onboarding-title"
+        >
+          <div className="onboarding-header">
+            <span>
+              {onboardingStepIndex + 1} / {ONBOARDING_STEPS.length}
+            </span>
+            <button type="button" onClick={finishOnboarding}>
+              {messages.app.onboarding.skip}
+            </button>
+          </div>
+          <div className="onboarding-content">
+            <h2 id="onboarding-title">{onboardingContent.title}</h2>
+            <div
+              className="onboarding-shortcut"
+              aria-label={onboardingContent.shortcutLabel}
+            >
+              {ONBOARDING_KEY_GROUPS[onboardingStep].map(
+                (group, groupIndex) => (
+                  <span
+                    className="onboarding-key-group"
+                    key={`${onboardingStep}-${groupIndex}`}
+                  >
+                    {groupIndex > 0 ? (
+                      <span className="onboarding-plus">+</span>
+                    ) : null}
+                    {group.map((key) => (
+                      <kbd
+                        key={key}
+                        className={
+                          pressedOnboardingKeys.has(key) ? "pressed" : ""
+                        }
+                      >
+                        {key}
+                      </kbd>
+                    ))}
+                  </span>
+                ),
+              )}
+            </div>
+            <p>{onboardingContent.body}</p>
+            <p
+              className={
+                onboardingStepTested
+                  ? "onboarding-tested"
+                  : "onboarding-instruction"
+              }
+            >
+              {onboardingStepTested
+                ? messages.app.onboarding.tested
+                : onboardingContent.instruction}
+            </p>
+          </div>
+          <div className="onboarding-footer">
+            <div className="onboarding-dots" aria-hidden="true">
+              {ONBOARDING_STEPS.map((step, index) => (
+                <span
+                  key={step}
+                  className={index === onboardingStepIndex ? "active" : ""}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              className="onboarding-next"
+              disabled={!onboardingStepTested}
+              onClick={advanceOnboarding}
+            >
+              {onboardingStepIndex === ONBOARDING_STEPS.length - 1
+                ? messages.app.onboarding.finish
+                : messages.app.onboarding.next}
+              <ChevronRight size={16} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+          </div>
+        </aside>
+      ) : null}
+
+      {reviewPromptVisible && !onboardingStep ? (
+        <aside
+          className={`review-prompt ${showStatusBar ? "" : "without-status"}`}
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="review-prompt-title"
+        >
+          <button
+            type="button"
+            className="review-prompt-close"
+            aria-label={messages.app.reviewPrompt.close}
+            onClick={() => setReviewPromptVisible(false)}
+          >
+            <X size={16} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+          <strong id="review-prompt-title">
+            {messages.app.reviewPrompt.title}
+          </strong>
+          <p>{messages.app.reviewPrompt.body}</p>
+          <div className="review-prompt-actions">
+            <button type="button" onClick={() => setReviewPromptVisible(false)}>
+              {messages.app.reviewPrompt.later}
+            </button>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => void openReviewPage()}
+            >
+              <Star size={15} strokeWidth={1.9} aria-hidden="true" />
+              {messages.app.reviewPrompt.review}
+            </button>
+          </div>
+        </aside>
+      ) : null}
     </div>
   );
 }

@@ -24,10 +24,17 @@
     "core:webview:allow-create-webview-window",
     "core:window:allow-close",
     "core:window:allow-destroy",
-    "global-shortcut:default",
     "global-shortcut:allow-unregister-all",
     "global-shortcut:allow-register",
-    "opener:default",
-    "dialog:default"
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://alwaysmemo.pages.dev/help" },
+        { "url": "https://alwaysmemo.pages.dev/terms" },
+        { "url": "https://alwaysmemo.pages.dev/privacy" },
+        { "url": "https://apps.microsoft.com/detail/9n22tl7m39q3" }
+      ]
+    },
+    "dialog:allow-save"
   ]
 }
