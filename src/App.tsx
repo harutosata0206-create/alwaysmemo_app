@@ -100,7 +100,6 @@ type SessionBehavior = "restore" | "new";
 type FileOpenBehavior = "existing" | "new_window";
 type LineSpacing = "standard" | "relaxed";
 
-type ThemeMode = "light" | "dark" | "system";
 type OnboardingStep = "snap" | "alwaysOnTop" | "fitContent" | "focus";
 const ONBOARDING_STEPS: OnboardingStep[] = [
   "snap",

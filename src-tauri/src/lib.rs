@@ -557,6 +557,7 @@ mod tests {
         assert_eq!(read_settings_value(&backup_path), Some(first));
         fs::remove_dir_all(directory).unwrap();
     }
+}
 
 #[tauri::command]
 #[cfg(target_os = "windows")]
@@ -655,12 +656,9 @@ pub fn run() {
             take_pending_open_files,
             save_text_file_dialog,
             write_text_file,
-
             read_settings_file,
-            write_settings_file
-
+            write_settings_file,
             open_store_review
-
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
