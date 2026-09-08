@@ -119,6 +119,13 @@ type Messages = {
       review: string;
       close: string;
     };
+    defaultAppPrompt: {
+      title: string;
+      body: string;
+      later: string;
+      openSettings: string;
+      close: string;
+    };
     dialogs: {
       confirmTitle: string;
       unsavedMemosBeforeExit: (count: number) => string;
@@ -370,6 +377,13 @@ const translations: Record<AppLanguage, Messages> = {
         later: "あとで",
         review: "評価する",
         close: "レビュー依頼を閉じる",
+      },
+      defaultAppPrompt: {
+        title: "AlwaysMemoを既定のアプリにしますか？",
+        body: ".txtや.mdをAlwaysMemoで開けるように、Windowsの既定アプリ設定を確認できます。",
+        later: "あとで",
+        openSettings: "設定を開く",
+        close: "既定アプリ案内を閉じる",
       },
       dialogs: {
         confirmTitle: "確認",
@@ -624,6 +638,13 @@ const translations: Record<AppLanguage, Messages> = {
         review: "Rate AlwaysMemo",
         close: "Close review request",
       },
+      defaultAppPrompt: {
+        title: "Make AlwaysMemo your default app?",
+        body: "Open Windows settings to use AlwaysMemo for .txt, .md, and .markdown files.",
+        later: "Later",
+        openSettings: "Open settings",
+        close: "Close default app prompt",
+      },
       dialogs: {
         confirmTitle: "Confirm",
         unsavedMemosBeforeExit: (count) =>
@@ -876,6 +897,13 @@ const translations: Record<AppLanguage, Messages> = {
         later: "Más tarde",
         review: "Valorar",
         close: "Cerrar solicitud de valoración",
+      },
+      defaultAppPrompt: {
+        title: "Usar AlwaysMemo como app predeterminada?",
+        body: "Abre la configuracion de Windows para usar AlwaysMemo con archivos .txt, .md y .markdown.",
+        later: "Mas tarde",
+        openSettings: "Abrir configuracion",
+        close: "Cerrar aviso de app predeterminada",
       },
       dialogs: {
         confirmTitle: "Confirmar",
@@ -1130,6 +1158,13 @@ const translations: Record<AppLanguage, Messages> = {
         review: "Avaliar",
         close: "Fechar pedido de avaliação",
       },
+      defaultAppPrompt: {
+        title: "Usar AlwaysMemo como app padrao?",
+        body: "Abra as configuracoes do Windows para usar AlwaysMemo com arquivos .txt, .md e .markdown.",
+        later: "Mais tarde",
+        openSettings: "Abrir configuracoes",
+        close: "Fechar aviso de app padrao",
+      },
       dialogs: {
         confirmTitle: "Confirmar",
         unsavedMemosBeforeExit: (count) =>
@@ -1382,6 +1417,13 @@ const translations: Record<AppLanguage, Messages> = {
         later: "나중에",
         review: "평가하기",
         close: "리뷰 요청 닫기",
+      },
+      defaultAppPrompt: {
+        title: "AlwaysMemo를 기본 앱으로 설정할까요?",
+        body: "Windows 설정에서 .txt, .md, .markdown 파일을 AlwaysMemo로 열도록 지정할 수 있습니다.",
+        later: "나중에",
+        openSettings: "설정 열기",
+        close: "기본 앱 안내 닫기",
       },
       dialogs: {
         confirmTitle: "확인",

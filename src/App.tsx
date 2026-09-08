@@ -63,6 +63,10 @@ import {
   useMessages,
   type LanguagePreference,
 } from "./lib/i18n";
+import {
+  markDefaultAppPromptShown,
+  shouldShowDefaultAppPrompt,
+} from "./lib/defaultAppPrompt";
 import { markReviewSessionError, startReviewPromptSession } from "./lib/reviewPrompt";
 import "./App.css";
 
@@ -253,12 +257,14 @@ function App() {
   const [recentClosedFiles, setRecentClosedFiles] = useState<RecentClosedFile[]>([]);
   const [recentFilesExpanded, setRecentFilesExpanded] = useState(true);
   const [reviewPromptVisible, setReviewPromptVisible] = useState(false);
+  const [defaultAppPromptVisible, setDefaultAppPromptVisible] = useState(false);
   const [onboardingStepIndex, setOnboardingStepIndex] = useState<number | null>(null);
   const [onboardingStepTested, setOnboardingStepTested] = useState(false);
   const [heldOnboardingKeys, setHeldOnboardingKeys] = useState<string[]>([]);
   const [pulsedOnboardingKeys, setPulsedOnboardingKeys] = useState<string[]>([]);
   const onboardingStepRef = useRef<OnboardingStep | null>(null);
   const onboardingKeyPulseTimerRef = useRef<number | null>(null);
+  const defaultAppPromptShownRef = useRef(false);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
@@ -1598,6 +1604,28 @@ function App() {
 
   useEffect(() => {
     if (!startupStateReady || currentWindowLabel !== "main") return;
+    let cancelled = false;
+
+    void (async () => {
+      let isDefaultFileApp = false;
+      try {
+        isDefaultFileApp = await invoke<boolean>("is_default_file_app");
+      } catch (error) {
+        console.error("Failed to check default app association", error);
+      }
+      if (cancelled || isDefaultFileApp) return;
+      if (shouldShowDefaultAppPrompt(window.localStorage)) {
+        setDefaultAppPromptVisible(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentWindowLabel, startupStateReady]);
+
+  useEffect(() => {
+    if (!startupStateReady || currentWindowLabel !== "main") return;
     try {
       if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY)) return;
     } catch (error) {
@@ -1644,6 +1672,18 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (
+      !defaultAppPromptVisible ||
+      onboardingStep ||
+      defaultAppPromptShownRef.current
+    ) {
+      return;
+    }
+    markDefaultAppPromptShown(window.localStorage);
+    defaultAppPromptShownRef.current = true;
+  }, [defaultAppPromptVisible, onboardingStep]);
+
   const openReviewPage = useCallback(async () => {
     try {
       await invoke("open_store_review");
@@ -1656,6 +1696,19 @@ function App() {
       } catch (fallbackError) {
         console.error("Failed to open review page", fallbackError);
       }
+    }
+  }, []);
+
+  const dismissDefaultAppPrompt = useCallback(() => {
+    setDefaultAppPromptVisible(false);
+  }, []);
+
+  const openDefaultAppsSettings = useCallback(async () => {
+    try {
+      await invoke("open_default_apps_settings");
+      setDefaultAppPromptVisible(false);
+    } catch (error) {
+      console.error("Failed to open default apps settings", error);
     }
   }, []);
 
@@ -3669,7 +3722,36 @@ function App() {
         </aside>
       ) : null}
 
-      {reviewPromptVisible && !onboardingStep ? (
+      {defaultAppPromptVisible && !onboardingStep ? (
+        <aside
+          className={`review-prompt ${showStatusBar ? "" : "without-status"}`}
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="default-app-prompt-title"
+        >
+          <button
+            type="button"
+            className="review-prompt-close"
+            aria-label={messages.app.defaultAppPrompt.close}
+            onClick={dismissDefaultAppPrompt}
+          >
+            <X size={16} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+          <strong id="default-app-prompt-title">{messages.app.defaultAppPrompt.title}</strong>
+          <p>{messages.app.defaultAppPrompt.body}</p>
+          <div className="review-prompt-actions">
+            <button type="button" onClick={dismissDefaultAppPrompt}>
+              {messages.app.defaultAppPrompt.later}
+            </button>
+            <button type="button" className="primary" onClick={() => void openDefaultAppsSettings()}>
+              <Settings size={15} strokeWidth={1.9} aria-hidden="true" />
+              {messages.app.defaultAppPrompt.openSettings}
+            </button>
+          </div>
+        </aside>
+      ) : null}
+
+      {reviewPromptVisible && !onboardingStep && !defaultAppPromptVisible ? (
         <aside
           className={`review-prompt ${showStatusBar ? "" : "without-status"}`}
           role="dialog"

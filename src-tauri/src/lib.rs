@@ -18,6 +18,7 @@ const SINGLE_INSTANCE_ADDR: &str = "127.0.0.1:47652";
 const SINGLE_INSTANCE_ACK: &str = "alwaysmemo-single-instance-ok";
 const PENDING_OPEN_FILES_EVENT: &str = "alwaysmemo:pending-open-files";
 const STORE_REVIEW_URI: &str = "ms-windows-store://review/?ProductId=9N22TL7M39Q3";
+const DEFAULT_APPS_SETTINGS_URI: &str = "ms-settings:defaultapps";
 
 fn has_allowed_text_extension(path: &Path) -> bool {
     path.extension()
@@ -429,7 +430,71 @@ fn write_text_file(path: String, contents: String) -> Result<(), String> {
 
 #[tauri::command]
 #[cfg(target_os = "windows")]
-fn open_store_review() -> Result<(), String> {
+fn is_default_file_app() -> Result<bool, String> {
+    Ok([".txt", ".md", ".markdown"]
+        .iter()
+        .any(|extension| is_alwaysmemo_file_association(extension)))
+}
+
+#[tauri::command]
+#[cfg(not(target_os = "windows"))]
+fn is_default_file_app() -> Result<bool, String> {
+    Ok(true)
+}
+
+#[cfg(target_os = "windows")]
+fn assoc_query_string(extension: &str, assoc_string: u32) -> Option<String> {
+    #[link(name = "shlwapi")]
+    unsafe extern "system" {
+        fn AssocQueryStringW(
+            flags: u32,
+            assoc_string: u32,
+            assoc: *const u16,
+            extra: *const u16,
+            output: *mut u16,
+            output_len: *mut u32,
+        ) -> i32;
+    }
+
+    let assoc: Vec<u16> = OsStr::new(extension)
+        .encode_wide()
+        .chain(iter::once(0))
+        .collect();
+    let mut output = vec![0u16; 4096];
+    let mut output_len = output.len() as u32;
+    let result = unsafe {
+        AssocQueryStringW(
+            0,
+            assoc_string,
+            assoc.as_ptr(),
+            ptr::null(),
+            output.as_mut_ptr(),
+            &mut output_len,
+        )
+    };
+    if result < 0 {
+        return None;
+    }
+    let value_len = output
+        .iter()
+        .position(|character| *character == 0)
+        .unwrap_or(output_len as usize);
+    Some(String::from_utf16_lossy(&output[..value_len]))
+}
+
+#[cfg(target_os = "windows")]
+fn is_alwaysmemo_file_association(extension: &str) -> bool {
+    const ASSOCSTR_EXECUTABLE: u32 = 2;
+    const ASSOCSTR_FRIENDLYAPPNAME: u32 = 4;
+
+    [ASSOCSTR_EXECUTABLE, ASSOCSTR_FRIENDLYAPPNAME]
+        .iter()
+        .filter_map(|assoc_string| assoc_query_string(extension, *assoc_string))
+        .any(|value| value.to_ascii_lowercase().contains("alwaysmemo"))
+}
+
+#[cfg(target_os = "windows")]
+fn open_uri_with_shell(uri: &str) -> Result<(), String> {
     #[link(name = "shell32")]
     unsafe extern "system" {
         fn ShellExecuteW(
@@ -446,10 +511,7 @@ fn open_store_review() -> Result<(), String> {
         .encode_wide()
         .chain(iter::once(0))
         .collect();
-    let uri: Vec<u16> = OsStr::new(STORE_REVIEW_URI)
-        .encode_wide()
-        .chain(iter::once(0))
-        .collect();
+    let uri: Vec<u16> = OsStr::new(uri).encode_wide().chain(iter::once(0)).collect();
     let result = unsafe {
         ShellExecuteW(
             ptr::null_mut(),
@@ -463,16 +525,32 @@ fn open_store_review() -> Result<(), String> {
     if result > 32 {
         Ok(())
     } else {
-        Err(format!(
-            "failed to open Microsoft Store review page: {result}"
-        ))
+        Err(format!("failed to open URI: {result}"))
     }
+}
+
+#[tauri::command]
+#[cfg(target_os = "windows")]
+fn open_store_review() -> Result<(), String> {
+    open_uri_with_shell(STORE_REVIEW_URI)
 }
 
 #[tauri::command]
 #[cfg(not(target_os = "windows"))]
 fn open_store_review() -> Result<(), String> {
     Err("Microsoft Store review page is only available on Windows".to_string())
+}
+
+#[tauri::command]
+#[cfg(target_os = "windows")]
+fn open_default_apps_settings() -> Result<(), String> {
+    open_uri_with_shell(DEFAULT_APPS_SETTINGS_URI)
+}
+
+#[tauri::command]
+#[cfg(not(target_os = "windows"))]
+fn open_default_apps_settings() -> Result<(), String> {
+    Err("Default apps settings are only available on Windows".to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -523,7 +601,9 @@ pub fn run() {
             take_pending_open_files,
             save_text_file_dialog,
             write_text_file,
-            open_store_review
+            open_store_review,
+            is_default_file_app,
+            open_default_apps_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
