@@ -1,11 +1,12 @@
 {
   "name": "alwaysmemo",
   "private": true,
-  "version": "0.1.7",
+  "version": "0.1.8",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test:analytics": "node --experimental-strip-types --test analytics-worker/test/*.test.js",
     "preview": "vite preview",
     "tauri": "tauri"
   },

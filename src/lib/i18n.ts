@@ -126,6 +126,12 @@ type Messages = {
       openSettings: string;
       close: string;
     };
+    analyticsPrompt: {
+      title: string;
+      body: string;
+      later: string;
+      enable: string;
+    };
     dialogs: {
       confirmTitle: string;
       unsavedMemosBeforeExit: (count: number) => string;
@@ -200,6 +206,7 @@ type Messages = {
         formatting: string;
         features: string;
         startup: string;
+        privacy: string;
         about: string;
       };
       language: {
@@ -249,6 +256,12 @@ type Messages = {
       fileOpenLabel: string;
       openInExistingWindow: string;
       openInNewWindow: string;
+    };
+    privacy: {
+      title: string;
+      description: string;
+      analyticsLabel: string;
+      analyticsDescription: string;
     };
     about: {
       description: string;
@@ -385,6 +398,12 @@ const translations: Record<AppLanguage, Messages> = {
         openSettings: "設定を開く",
         close: "既定アプリ案内を閉じる",
       },
+      analyticsPrompt: {
+        title: "AlwaysMemoの改善にご協力ください",
+        body: "利用機能や操作結果をランダムな識別子とともにCloudflareへ送信し、最大90日保持します。メモ本文、ファイル名、ファイルパスは送信しません。",
+        later: "あとで",
+        enable: "改善に協力する",
+      },
       dialogs: {
         confirmTitle: "確認",
         unsavedMemosBeforeExit: (count) =>
@@ -462,6 +481,7 @@ const translations: Record<AppLanguage, Messages> = {
         formatting: "書式設定",
         features: "機能",
         startup: "起動時",
+        privacy: "プライバシー",
         about: "情報",
       },
       language: {
@@ -511,6 +531,12 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenLabel: "ファイルの開き方",
         openInExistingWindow: "既存ウィンドウに追加",
         openInNewWindow: "新しいウィンドウで開く",
+      },
+      privacy: {
+        title: "プライバシー",
+        description: "AlwaysMemoの改善に使用する仮名化した利用状況を管理します。",
+        analyticsLabel: "利用状況データを送信",
+        analyticsDescription: "ランダムな識別子を使用し、メモ本文、ファイル名、ファイルパスは送信しません。停止すると識別子と未送信データも削除します。",
       },
       about: {
         description: "作業を中断せず、必要なメモをすぐ残せるツールです。",
@@ -645,6 +671,12 @@ const translations: Record<AppLanguage, Messages> = {
         openSettings: "Open settings",
         close: "Close default app prompt",
       },
+      analyticsPrompt: {
+        title: "Help improve AlwaysMemo",
+        body: "Send feature usage and operation results with a random identifier to Cloudflare for up to 90 days. Memo content, file names, and file paths are never sent.",
+        later: "Later",
+        enable: "Help improve",
+      },
       dialogs: {
         confirmTitle: "Confirm",
         unsavedMemosBeforeExit: (count) =>
@@ -722,6 +754,7 @@ const translations: Record<AppLanguage, Messages> = {
         formatting: "Formatting",
         features: "Features",
         startup: "Startup",
+        privacy: "Privacy",
         about: "About",
       },
       language: {
@@ -771,6 +804,12 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenLabel: "Opening Files",
         openInExistingWindow: "Add to the current window",
         openInNewWindow: "Open in a new window",
+      },
+      privacy: {
+        title: "Privacy",
+        description: "Manage pseudonymous data used to improve AlwaysMemo.",
+        analyticsLabel: "Send usage data",
+        analyticsDescription: "A random identifier is used. Memo content, file names, and file paths are never sent. Turning this off deletes the identifier and unsent data.",
       },
       about: {
         description: "A memo tool that lets you capture ideas right away without breaking your flow.",
@@ -905,6 +944,12 @@ const translations: Record<AppLanguage, Messages> = {
         openSettings: "Abrir configuracion",
         close: "Cerrar aviso de app predeterminada",
       },
+      analyticsPrompt: {
+        title: "Ayuda a mejorar AlwaysMemo",
+        body: "Envía a Cloudflare el uso de funciones y resultados con un identificador aleatorio, por hasta 90 días. Nunca se envían el contenido, los nombres ni las rutas.",
+        later: "Más tarde",
+        enable: "Ayudar a mejorar",
+      },
       dialogs: {
         confirmTitle: "Confirmar",
         unsavedMemosBeforeExit: (count) =>
@@ -982,6 +1027,7 @@ const translations: Record<AppLanguage, Messages> = {
         formatting: "Formato",
         features: "Funciones",
         startup: "Inicio",
+        privacy: "Privacidad",
         about: "Acerca de",
       },
       language: {
@@ -1031,6 +1077,12 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenLabel: "Apertura de archivos",
         openInExistingWindow: "Añadir a la ventana actual",
         openInNewWindow: "Abrir en una ventana nueva",
+      },
+      privacy: {
+        title: "Privacidad",
+        description: "Administra los datos seudonimizados usados para mejorar AlwaysMemo.",
+        analyticsLabel: "Enviar datos de uso",
+        analyticsDescription: "Se usa un identificador aleatorio. Nunca se envían el contenido, los nombres ni las rutas. Al desactivarlo se borran el identificador y los datos pendientes.",
       },
       about: {
         description: "Una herramienta de memos que te permite capturar ideas al instante sin romper tu flujo.",
@@ -1165,6 +1217,12 @@ const translations: Record<AppLanguage, Messages> = {
         openSettings: "Abrir configuracoes",
         close: "Fechar aviso de app padrao",
       },
+      analyticsPrompt: {
+        title: "Ajude a melhorar o AlwaysMemo",
+        body: "Envie uso de recursos e resultados com um identificador aleatório à Cloudflare por até 90 dias. Conteúdo, nomes e caminhos de arquivos nunca são enviados.",
+        later: "Mais tarde",
+        enable: "Ajudar a melhorar",
+      },
       dialogs: {
         confirmTitle: "Confirmar",
         unsavedMemosBeforeExit: (count) =>
@@ -1242,6 +1300,7 @@ const translations: Record<AppLanguage, Messages> = {
         formatting: "Formatação",
         features: "Recursos",
         startup: "Inicialização",
+        privacy: "Privacidade",
         about: "Sobre",
       },
       language: {
@@ -1291,6 +1350,12 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenLabel: "Abertura de arquivos",
         openInExistingWindow: "Adicionar à janela atual",
         openInNewWindow: "Abrir em uma nova janela",
+      },
+      privacy: {
+        title: "Privacidade",
+        description: "Gerencie os dados pseudonimizados usados para melhorar o AlwaysMemo.",
+        analyticsLabel: "Enviar dados de uso",
+        analyticsDescription: "Um identificador aleatório é usado. Conteúdo, nomes e caminhos nunca são enviados. Desativar exclui o identificador e dados pendentes.",
       },
       about: {
         description: "Uma ferramenta de memos para capturar ideias na hora sem quebrar seu fluxo.",
@@ -1425,6 +1490,12 @@ const translations: Record<AppLanguage, Messages> = {
         openSettings: "설정 열기",
         close: "기본 앱 안내 닫기",
       },
+      analyticsPrompt: {
+        title: "AlwaysMemo 개선에 참여해 주세요",
+        body: "기능 사용과 작업 결과를 무작위 식별자와 함께 Cloudflare로 전송해 최대 90일 보관합니다. 메모 내용, 파일 이름, 파일 경로는 전송하지 않습니다.",
+        later: "나중에",
+        enable: "개선에 참여",
+      },
       dialogs: {
         confirmTitle: "확인",
         unsavedMemosBeforeExit: (count) =>
@@ -1502,6 +1573,7 @@ const translations: Record<AppLanguage, Messages> = {
         formatting: "서식",
         features: "기능",
         startup: "시작",
+        privacy: "개인정보",
         about: "정보",
       },
       language: {
@@ -1551,6 +1623,12 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenLabel: "파일 열기",
         openInExistingWindow: "현재 창에 추가",
         openInNewWindow: "새 창에서 열기",
+      },
+      privacy: {
+        title: "개인정보",
+        description: "AlwaysMemo 개선에 사용하는 가명 데이터를 관리합니다.",
+        analyticsLabel: "사용 데이터 전송",
+        analyticsDescription: "무작위 식별자를 사용하며 메모 내용, 파일 이름, 파일 경로는 전송하지 않습니다. 끄면 식별자와 대기 데이터도 삭제됩니다.",
       },
       about: {
         description: "흐름을 끊지 않고 아이디어를 바로 적을 수 있는 메모 도구입니다.",

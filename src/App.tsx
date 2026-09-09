@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { save } from "@tauri-apps/plugin-dialog";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -68,6 +69,18 @@ import {
   shouldShowDefaultAppPrompt,
 } from "./lib/defaultAppPrompt";
 import { markReviewSessionError, startReviewPromptSession } from "./lib/reviewPrompt";
+import {
+  captureAnalyticsInstallEvidence,
+  deferAnalytics,
+  disableAnalytics,
+  enableAnalytics,
+  getAnalyticsConsent,
+  initializeAnalytics,
+  shouldShowAnalyticsPrompt,
+  trackAnalytics,
+  trackAnalyticsOnce,
+  updateAnalyticsLanguage,
+} from "./lib/analytics";
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 300;
@@ -82,6 +95,7 @@ const REVIEW_URL = "https://apps.microsoft.com/detail/9n22tl7m39q3";
 const HELP_HINT_STORAGE_KEY = "alwaysmemo-help-hint-seen";
 const ONBOARDING_STORAGE_KEY = "alwaysmemo-onboarding-completed";
 const DEFAULT_USE_GLOBAL_SHORTCUTS = true;
+const ANALYTICS_SESSION_IDLE_MS = 30 * 60 * 1000;
 
 type Tab = {
   id: string;
@@ -168,9 +182,9 @@ type OpenedTextFile = {
 function App() {
   const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(DEFAULT_USE_GLOBAL_SHORTCUTS);
   const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
-  const [, setStatus] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const [languagePreference, setLanguagePreference] = useState<LanguagePreference>("system");
-  const { messages } = useMessages(languagePreference);
+  const { language, messages } = useMessages(languagePreference);
   const [tabs, setTabs] = useState<Tab[]>([
     { id: "initial", title: messages.app.untitledTab, content: "" },
   ]);
@@ -241,6 +255,7 @@ function App() {
     sessionBehavior: "restore",
     fileOpenBehavior: "existing",
     languagePreference: "system",
+    analyticsEnabled: getAnalyticsConsent() === "enabled",
   });
   const settingsReadyRef = useRef(false);
   const [startupStateReady, setStartupStateReady] = useState(false);
@@ -258,6 +273,14 @@ function App() {
   const [recentFilesExpanded, setRecentFilesExpanded] = useState(true);
   const [reviewPromptVisible, setReviewPromptVisible] = useState(false);
   const [defaultAppPromptVisible, setDefaultAppPromptVisible] = useState(false);
+  const [analyticsPromptVisible, setAnalyticsPromptVisible] = useState(false);
+  const [analyticsConsentReady, setAnalyticsConsentReady] = useState(false);
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(
+    () => {
+      captureAnalyticsInstallEvidence();
+      return getAnalyticsConsent() === "enabled";
+    },
+  );
   const [onboardingStepIndex, setOnboardingStepIndex] = useState<number | null>(null);
   const [onboardingStepTested, setOnboardingStepTested] = useState(false);
   const [heldOnboardingKeys, setHeldOnboardingKeys] = useState<string[]>([]);
@@ -265,6 +288,8 @@ function App() {
   const onboardingStepRef = useRef<OnboardingStep | null>(null);
   const onboardingKeyPulseTimerRef = useRef<number | null>(null);
   const defaultAppPromptShownRef = useRef(false);
+  const editorComposingRef = useRef(false);
+  const memoEditRecordedAtRef = useRef<number | null>(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
@@ -288,7 +313,11 @@ function App() {
     [heldOnboardingKeys, pulsedOnboardingKeys],
   );
 
-  const finishOnboarding = useCallback(() => {
+  const finishOnboarding = useCallback((result: "completed" | "skipped" = "skipped") => {
+    trackAnalytics({
+      name: "onboarding_event",
+      properties: { action: result },
+    });
     try {
       window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
     } catch (error) {
@@ -308,6 +337,10 @@ function App() {
   const markOnboardingStepTested = useCallback((step: OnboardingStep) => {
     if (onboardingStepRef.current === step) {
       setOnboardingStepTested(true);
+      trackAnalyticsOnce(`onboarding-step-succeeded:${step}`, {
+        name: "onboarding_event",
+        properties: { action: "step_succeeded", step },
+      });
     }
   }, []);
 
@@ -327,7 +360,7 @@ function App() {
     if (onboardingStepIndex === null || !onboardingStepTested) return;
     const nextIndex = onboardingStepIndex + 1;
     if (nextIndex >= ONBOARDING_STEPS.length) {
-      finishOnboarding();
+      finishOnboarding("completed");
       return;
     }
     onboardingStepRef.current = ONBOARDING_STEPS[nextIndex];
@@ -741,13 +774,18 @@ function App() {
     async (paths: string[], options?: { announce?: boolean }) => {
       if (paths.length === 0) return;
       for (const path of paths) {
-        const opened = await invoke<OpenedTextFile | null>("open_text_file_by_path", {
-          path,
-        });
-        if (!opened) {
-          continue;
+        try {
+          const opened = await invoke<OpenedTextFile | null>("open_text_file_by_path", { path });
+          if (!opened) {
+            trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: "read" } });
+            continue;
+          }
+          appendOpenedFileTab(opened, options);
+          trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "success" } });
+        } catch (error) {
+          trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: "read" } });
+          throw error;
         }
-        appendOpenedFileTab(opened, options);
       }
     },
     [appendOpenedFileTab],
@@ -788,7 +826,11 @@ function App() {
       const opened = await invoke<OpenedTextFile | null>(
         "open_text_file_dialog",
       );
-      if (!opened) return;
+      if (!opened) {
+        trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "cancelled" } });
+        return;
+      }
+      trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "success" } });
       if (fileOpenBehavior === "new_window") {
         const label = `alwaysmemo-${crypto.randomUUID()}`;
         const size = await windowHandle.outerSize();
@@ -824,6 +866,7 @@ function App() {
       closeMenus();
     } catch (error) {
       console.error(error);
+      trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: "read" } });
       setStatus(messages.app.statuses.failedOpenFile);
     }
   }, [
@@ -844,6 +887,7 @@ function App() {
         : (tab.title.trim() || messages.app.defaultSaveName);
       const resolvedPath = await pickSavePath(suggested);
       if (!resolvedPath) {
+        trackAnalytics({ name: "file_operation", properties: { operation: "save_as", outcome: "cancelled" } });
         setStatus(messages.app.statuses.saveDialogReturnedNoPath);
         return false;
       }
@@ -870,10 +914,12 @@ function App() {
       };
       setSavedVersion((prev) => prev + 1);
       setStatus(messages.app.statuses.saved(nextTitle));
+      trackAnalytics({ name: "file_operation", properties: { operation: "save_as", outcome: "success" } });
       closeMenus();
       return true;
     } catch (error) {
       console.error(error);
+      trackAnalytics({ name: "file_operation", properties: { operation: "save_as", outcome: "failure", error_category: "write" } });
       setStatus(messages.app.statuses.failedSaveFile(String(error)));
       return false;
     }
@@ -926,10 +972,12 @@ function App() {
         return prev;
       });
       setStatus(messages.app.statuses.saved(tab.title));
+      trackAnalytics({ name: "file_operation", properties: { operation: "save", outcome: "success" } });
       closeMenus();
       return true;
     } catch (error) {
       console.error(error);
+      trackAnalytics({ name: "file_operation", properties: { operation: "save", outcome: "failure", error_category: "write" } });
       setStatus(messages.app.statuses.failedSaveFile(String(error)));
       return false;
     }
@@ -973,9 +1021,11 @@ function App() {
       setSavedVersion((prev) => prev + 1);
       persistState(tabs);
       setStatus(messages.app.statuses.savedAll);
+      trackAnalytics({ name: "file_operation", properties: { operation: "save_all", outcome: "success" } });
       closeMenus();
     } catch (error) {
       console.error(error);
+      trackAnalytics({ name: "file_operation", properties: { operation: "save_all", outcome: "failure", error_category: "write" } });
       setStatus(messages.app.statuses.failedSaveAll);
     }
   }, [closeMenus, htmlToText, messages.app.statuses, persistState, tabs]);
@@ -1051,7 +1101,7 @@ function App() {
   }, [ensureGlobalShortcutsSingleWindow, setGlobalShortcutsPreference, windowHandle]);
 
   const setAlwaysOnTop = useCallback(
-    async (value: boolean) => {
+    async (value: boolean, trigger: "menu" | "settings" = "menu") => {
       try {
         const confirmed = await invoke<boolean>("set_always_on_top", { value });
         setAlwaysOnTopState(confirmed);
@@ -1060,6 +1110,14 @@ function App() {
             ? messages.app.statuses.alwaysOnTopEnabled
             : messages.app.statuses.alwaysOnTopDisabled,
         );
+        trackAnalytics({
+          name: "core_action_succeeded",
+          properties: {
+            action: "always_on_top",
+            context: onboardingStepRef.current ? "onboarding" : "normal",
+            trigger,
+          },
+        });
       } catch (error) {
         console.error(error);
         setStatus(messages.app.statuses.failedSetAlwaysOnTop);
@@ -1079,7 +1137,9 @@ function App() {
     sessionBehavior,
     fileOpenBehavior,
     languagePreference,
+    analyticsEnabled,
   }), [
+    analyticsEnabled,
     alwaysOnTop,
     editorFontSizePx,
     fileOpenBehavior,
@@ -1144,8 +1204,17 @@ function App() {
       setLanguagePreference(patch.languagePreference);
       nextSnapshot = { ...nextSnapshot, languagePreference: patch.languagePreference };
     }
+    if (patch.analyticsEnabled !== undefined) {
+      setAnalyticsEnabled(patch.analyticsEnabled);
+      if (patch.analyticsEnabled) {
+        memoEditRecordedAtRef.current = null;
+        enableAnalytics();
+      }
+      else disableAnalytics();
+      nextSnapshot = { ...nextSnapshot, analyticsEnabled: patch.analyticsEnabled };
+    }
     if (patch.alwaysOnTop !== undefined) {
-      await setAlwaysOnTop(patch.alwaysOnTop);
+      await setAlwaysOnTop(patch.alwaysOnTop, "settings");
       nextSnapshot = { ...nextSnapshot, alwaysOnTop: patch.alwaysOnTop };
     }
     if (patch.useGlobalShortcuts !== undefined) {
@@ -1267,7 +1336,7 @@ function App() {
     void emitSettingsSnapshot();
   }, [emitSettingsSnapshot, settingsSnapshot]);
 
-  const toggleAlwaysOnTop = useCallback(async () => {
+  const toggleAlwaysOnTop = useCallback(async (trigger: "global_shortcut" | "local_shortcut") => {
     const now = performance.now();
     if (now - toggleLockRef.current < 300) return;
     toggleLockRef.current = now;
@@ -1280,71 +1349,84 @@ function App() {
           ? messages.app.statuses.alwaysOnTopEnabled
           : messages.app.statuses.alwaysOnTopDisabled,
       );
+      trackAnalytics({
+        name: "core_action_succeeded",
+        properties: {
+          action: "always_on_top",
+          context: onboardingStepRef.current ? "onboarding" : "normal",
+          trigger,
+        },
+      });
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedToggleAlwaysOnTop);
     }
   }, [markOnboardingStepTested, messages.app.statuses]);
 
-  const snapLeft = useCallback(async () => {
+  const snapLeft = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" | null = "menu") => {
     try {
       await invoke("snap_left");
       setSnap("left");
       markOnboardingStepTested("snap");
       setStatus(messages.app.statuses.snappedLeft);
+      if (trigger) trackAnalytics({ name: "core_action_succeeded", properties: { action: "snap_left", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedSnapLeft);
     }
   }, [markOnboardingStepTested, messages.app.statuses.failedSnapLeft, messages.app.statuses.snappedLeft]);
 
-  const snapRight = useCallback(async () => {
+  const snapRight = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" | null = "menu") => {
     try {
       await invoke("snap_right");
       setSnap("right");
       markOnboardingStepTested("snap");
       setStatus(messages.app.statuses.snappedRight);
+      if (trigger) trackAnalytics({ name: "core_action_succeeded", properties: { action: "snap_right", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedSnapRight);
     }
   }, [markOnboardingStepTested, messages.app.statuses.failedSnapRight, messages.app.statuses.snappedRight]);
 
-  const snapTop = useCallback(async () => {
+  const snapTop = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" | null = "menu") => {
     try {
       await invoke("snap_top");
       setSnap("top");
       markOnboardingStepTested("snap");
       setStatus(messages.app.statuses.snappedTop);
+      if (trigger) trackAnalytics({ name: "core_action_succeeded", properties: { action: "snap_top", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedSnapTop);
     }
   }, [markOnboardingStepTested, messages.app.statuses.failedSnapTop, messages.app.statuses.snappedTop]);
 
-  const snapBottom = useCallback(async () => {
+  const snapBottom = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" | null = "menu") => {
     try {
       await invoke("snap_bottom");
       setSnap("bottom");
       markOnboardingStepTested("snap");
       setStatus(messages.app.statuses.snappedBottom);
+      if (trigger) trackAnalytics({ name: "core_action_succeeded", properties: { action: "snap_bottom", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedSnapBottom);
     }
   }, [markOnboardingStepTested, messages.app.statuses.failedSnapBottom, messages.app.statuses.snappedBottom]);
 
-  const resizeToMinimum = useCallback(async () => {
+  const resizeToMinimum = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" = "menu") => {
     try {
       await windowHandle.setSize(new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT));
       setStatus(messages.app.statuses.resizedMinimum);
+      trackAnalytics({ name: "core_action_succeeded", properties: { action: "minimum_size", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedResizeMinimum);
     }
   }, [messages.app.statuses.failedResizeMinimum, messages.app.statuses.resizedMinimum, windowHandle]);
 
-  const resizeToFitContent = useCallback(async () => {
+  const resizeToFitContent = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" = "menu") => {
     const editor = editorRef.current;
     if (!editor) return;
     try {
@@ -1401,6 +1483,7 @@ function App() {
       );
       markOnboardingStepTested("fitContent");
       setStatus(messages.app.statuses.resizedFitContent);
+      trackAnalytics({ name: "core_action_succeeded", properties: { action: "fit_content", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
       setStatus(messages.app.statuses.failedResizeFitContent);
@@ -1468,13 +1551,13 @@ function App() {
             await invoke("set_always_on_top", { value: true });
           }
           if (parsed.snap === "left") {
-            await snapLeft();
+            await snapLeft(null);
           } else if (parsed.snap === "right") {
-            await snapRight();
+            await snapRight(null);
           } else if (parsed.snap === "top") {
-            await snapTop();
+            await snapTop(null);
           } else if (parsed.snap === "bottom") {
-            await snapBottom();
+            await snapBottom(null);
           }
         } else {
           setSessionBehavior("restore");
@@ -1580,6 +1663,44 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!startupStateReady) return;
+    let cancelled = false;
+    void getVersion().then((appVersion) => {
+      if (cancelled) return;
+      initializeAnalytics({
+        endpoint: import.meta.env.VITE_ANALYTICS_ENDPOINT ?? "",
+        appVersion,
+        language,
+        environment:
+          import.meta.env.VITE_ANALYTICS_ENV ?? (import.meta.env.DEV ? "development" : "production"),
+      });
+      const consent = getAnalyticsConsent();
+      setAnalyticsEnabled(consent === "enabled");
+      if (currentWindowLabel === "main" && shouldShowAnalyticsPrompt()) {
+        setAnalyticsPromptVisible(true);
+      } else {
+        setAnalyticsConsentReady(true);
+      }
+    }).catch((error) => {
+      console.error("Failed to initialize anonymous analytics", error);
+      if (!cancelled) setAnalyticsConsentReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentWindowLabel, language, startupStateReady]);
+
+  useEffect(() => {
+    updateAnalyticsLanguage(language);
+  }, [language]);
+
+  useEffect(() => {
+    if (!status) return;
+    const timer = window.setTimeout(() => setStatus(null), 6_000);
+    return () => window.clearTimeout(timer);
+  }, [status]);
+
+  useEffect(() => {
     try {
       const seen = window.localStorage.getItem(HELP_HINT_STORAGE_KEY);
       if (!seen) {
@@ -1591,19 +1712,20 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (currentWindowLabel !== "main") return;
+    if (!startupStateReady || !analyticsConsentReady || currentWindowLabel !== "main") return;
     const recordError = () => markReviewSessionError(window.localStorage);
     window.addEventListener("error", recordError);
     window.addEventListener("unhandledrejection", recordError);
-    setReviewPromptVisible(startReviewPromptSession(window.localStorage));
+    const shouldShow = startReviewPromptSession(window.localStorage);
+    setReviewPromptVisible(shouldShow);
     return () => {
       window.removeEventListener("error", recordError);
       window.removeEventListener("unhandledrejection", recordError);
     };
-  }, [currentWindowLabel]);
+  }, [analyticsConsentReady, currentWindowLabel, startupStateReady]);
 
   useEffect(() => {
-    if (!startupStateReady || currentWindowLabel !== "main") return;
+    if (!startupStateReady || !analyticsConsentReady || currentWindowLabel !== "main") return;
     let cancelled = false;
 
     void (async () => {
@@ -1622,10 +1744,10 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentWindowLabel, startupStateReady]);
+  }, [analyticsConsentReady, currentWindowLabel, startupStateReady]);
 
   useEffect(() => {
-    if (!startupStateReady || currentWindowLabel !== "main") return;
+    if (!startupStateReady || !analyticsConsentReady || currentWindowLabel !== "main") return;
     try {
       if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY)) return;
     } catch (error) {
@@ -1634,10 +1756,18 @@ function App() {
     onboardingStepRef.current = ONBOARDING_STEPS[0];
     setOnboardingStepIndex(0);
     setOnboardingStepTested(false);
-  }, [currentWindowLabel, startupStateReady]);
+    trackAnalytics({
+      name: "onboarding_event",
+      properties: { action: "shown" },
+    });
+  }, [analyticsConsentReady, currentWindowLabel, startupStateReady]);
 
   useEffect(() => {
     if (!onboardingStep) return;
+    trackAnalyticsOnce(`onboarding-step-viewed:${onboardingStep}`, {
+      name: "onboarding_event",
+      properties: { action: "step_viewed", step: onboardingStep },
+    });
     const visibleKeys = new Set(ONBOARDING_KEY_GROUPS[onboardingStep].flat());
     const updateHeldKey = (event: KeyboardEvent, pressed: boolean) => {
       const label = ONBOARDING_KEY_LABELS[event.code];
@@ -1682,34 +1812,70 @@ function App() {
     }
     markDefaultAppPromptShown(window.localStorage);
     defaultAppPromptShownRef.current = true;
+    trackAnalytics({
+      name: "prompt_event",
+      properties: { prompt: "default_app", action: "shown" },
+    });
   }, [defaultAppPromptVisible, onboardingStep]);
+
+  useEffect(() => {
+    if (
+      !reviewPromptVisible ||
+      analyticsPromptVisible ||
+      onboardingStep ||
+      defaultAppPromptVisible
+    ) {
+      return;
+    }
+    trackAnalyticsOnce("review-prompt-shown", {
+      name: "prompt_event",
+      properties: { prompt: "review", action: "shown" },
+    });
+  }, [analyticsPromptVisible, defaultAppPromptVisible, onboardingStep, reviewPromptVisible]);
 
   const openReviewPage = useCallback(async () => {
     try {
       await invoke("open_store_review");
       setReviewPromptVisible(false);
+      trackAnalytics({ name: "prompt_event", properties: { prompt: "review", action: "opened" } });
     } catch (error) {
       console.error("Failed to open Microsoft Store review page", error);
       try {
         await openUrl(REVIEW_URL);
         setReviewPromptVisible(false);
+        trackAnalytics({ name: "prompt_event", properties: { prompt: "review", action: "opened" } });
       } catch (fallbackError) {
         console.error("Failed to open review page", fallbackError);
       }
     }
   }, []);
 
-  const dismissDefaultAppPrompt = useCallback(() => {
+  const dismissDefaultAppPrompt = useCallback((action: "later" | "dismissed") => {
     setDefaultAppPromptVisible(false);
+    trackAnalytics({ name: "prompt_event", properties: { prompt: "default_app", action } });
   }, []);
 
   const openDefaultAppsSettings = useCallback(async () => {
     try {
       await invoke("open_default_apps_settings");
       setDefaultAppPromptVisible(false);
+      trackAnalytics({ name: "prompt_event", properties: { prompt: "default_app", action: "opened" } });
     } catch (error) {
       console.error("Failed to open default apps settings", error);
     }
+  }, []);
+
+  const acceptAnalytics = useCallback(() => {
+    enableAnalytics();
+    setAnalyticsEnabled(true);
+    setAnalyticsPromptVisible(false);
+    setAnalyticsConsentReady(true);
+  }, []);
+
+  const postponeAnalytics = useCallback(() => {
+    deferAnalytics();
+    setAnalyticsPromptVisible(false);
+    setAnalyticsConsentReady(true);
   }, []);
 
   useEffect(() => {
@@ -2146,6 +2312,22 @@ function App() {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
   };
 
+  const recordFirstMemoEdit = useCallback((content: string) => {
+    const now = Date.now();
+    if (
+      !analyticsEnabled ||
+      (memoEditRecordedAtRef.current !== null &&
+        now - memoEditRecordedAtRef.current < ANALYTICS_SESSION_IDLE_MS)
+    ) {
+      return;
+    }
+    memoEditRecordedAtRef.current = now;
+    trackAnalyticsOnce("memo-first-edited", {
+      name: "memo_first_edited",
+      properties: { became_non_empty: trustedHtmlToText(content).trim().length > 0 },
+    });
+  }, [analyticsEnabled]);
+
   const updateContent = useCallback((content: string) => {
     if (!activeTab) return;
     // Live editor DOM stays on a trusted path; strip transient search markup before persisting.
@@ -2168,10 +2350,11 @@ function App() {
     restoreEditorSelection();
     document.execCommand(command);
     window.requestAnimationFrame(() => {
+      recordFirstMemoEdit(editor.innerHTML);
       updateContent(editor.innerHTML);
       updateCursorIndex();
     });
-  }, [restoreEditorSelection, updateContent, updateCursorIndex]);
+  }, [recordFirstMemoEdit, restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const insertPlainText = useCallback((text: string) => {
     suppressEditorInputRef.current = true;
@@ -2194,6 +2377,7 @@ function App() {
         startPastePerformance(rawText.length);
         const text = measurePastePerformance("normalize-text", () => normalizePlainText(rawText));
         measurePastePerformance("insert-text", () => insertPlainText(text));
+        if (rawText.length > 0) recordFirstMemoEdit(editor.innerHTML);
       } catch (error) {
         console.error("clipboard read failed", error);
         setStatus(messages.app.statuses.clipboardUnavailable);
@@ -2211,6 +2395,7 @@ function App() {
     normalizePlainText,
     measurePastePerformance,
     restoreEditorSelection,
+    recordFirstMemoEdit,
     startPastePerformance,
     updateContent,
     updateCursorIndex,
@@ -2226,12 +2411,14 @@ function App() {
     window.requestAnimationFrame(() => {
       const editor = editorRef.current;
       if (!editor) return;
+      if (rawText.length > 0) recordFirstMemoEdit(editor.innerHTML);
       updateContent(editor.innerHTML);
       updateCursorIndex();
     });
   }, [
     insertPlainText,
     measurePastePerformance,
+    recordFirstMemoEdit,
     restoreEditorSelection,
     startPastePerformance,
     updateContent,
@@ -2248,10 +2435,11 @@ function App() {
     window.requestAnimationFrame(() => {
       const editor = editorRef.current;
       if (!editor) return;
+      recordFirstMemoEdit(editor.innerHTML);
       updateContent(editor.innerHTML);
       updateCursorIndex();
     });
-  }, [insertPlainText, restoreEditorSelection, updateContent, updateCursorIndex]);
+  }, [insertPlainText, recordFirstMemoEdit, restoreEditorSelection, updateContent, updateCursorIndex]);
 
   const focusSearchBox = useCallback(() => {
     closeMenus();
@@ -2563,7 +2751,7 @@ function App() {
     }
   }, [isTabDirty, saveTab, tabs, windowHandle]);
 
-  const focusAlwaysMemo = useCallback(async () => {
+  const focusAlwaysMemo = useCallback(async (trigger: "global_shortcut" | "local_shortcut") => {
     try {
       if (await windowHandle.isMinimized()) {
         await windowHandle.unminimize();
@@ -2573,6 +2761,7 @@ function App() {
       await windowHandle.requestUserAttention(UserAttentionType.Informational);
       restoreEditorSelection({ fallbackToEnd: true });
       markOnboardingStepTested("focus");
+      trackAnalytics({ name: "core_action_succeeded", properties: { action: "focus", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error("Failed to focus AlwaysMemo", error);
     }
@@ -2582,32 +2771,32 @@ function App() {
     () => [
       { id: "focusAlwaysMemo", combo: "Ctrl+Alt+[", action: () => {
         pulseOnboardingKeys("focus", ["Ctrl", "Alt", "["]);
-        return focusAlwaysMemo();
+        return focusAlwaysMemo("global_shortcut");
       } },
       { id: "alwaysOnTop", combo: "Ctrl+Alt+T", action: () => {
         pulseOnboardingKeys("alwaysOnTop", ["Ctrl", "Alt", "T"]);
-        return toggleAlwaysOnTop();
+        return toggleAlwaysOnTop("global_shortcut");
       } },
       { id: "snapLeft", combo: "Ctrl+Alt+Left", action: () => {
         pulseOnboardingKeys("snap", ["Ctrl", "Alt", "←"]);
-        return snapLeft();
+        return snapLeft("global_shortcut");
       } },
       { id: "snapRight", combo: "Ctrl+Alt+Right", action: () => {
         pulseOnboardingKeys("snap", ["Ctrl", "Alt", "→"]);
-        return snapRight();
+        return snapRight("global_shortcut");
       } },
       { id: "snapTop", combo: "Ctrl+Alt+Up", action: () => {
         pulseOnboardingKeys("snap", ["Ctrl", "Alt", "↑"]);
-        return snapTop();
+        return snapTop("global_shortcut");
       } },
       { id: "snapBottom", combo: "Ctrl+Alt+Down", action: () => {
         pulseOnboardingKeys("snap", ["Ctrl", "Alt", "↓"]);
-        return snapBottom();
+        return snapBottom("global_shortcut");
       } },
-      { id: "minimumSize", combo: "Ctrl+Alt+J", action: resizeToMinimum },
+      { id: "minimumSize", combo: "Ctrl+Alt+J", action: () => resizeToMinimum("global_shortcut") },
       { id: "fitContent", combo: "Ctrl+Alt+K", action: () => {
         pulseOnboardingKeys("fitContent", ["Ctrl", "Alt", "K"]);
-        return resizeToFitContent();
+        return resizeToFitContent("global_shortcut");
       } },
     ],
     [
@@ -2739,47 +2928,47 @@ function App() {
       switch (event.code) {
         case "BracketLeft": {
           event.preventDefault();
-          void focusAlwaysMemo();
+          void focusAlwaysMemo("local_shortcut");
           break;
         }
         case "KeyT": {
           event.preventDefault();
           setStatus(messages.app.statuses.hotkeyToggleAlwaysOnTop);
-          void toggleAlwaysOnTop();
+          void toggleAlwaysOnTop("local_shortcut");
           break;
         }
         case "ArrowLeft": {
           event.preventDefault();
           setStatus(messages.app.statuses.hotkeySnapLeft);
-          void snapLeft();
+          void snapLeft("local_shortcut");
           break;
         }
         case "ArrowRight": {
           event.preventDefault();
           setStatus(messages.app.statuses.hotkeySnapRight);
-          void snapRight();
+          void snapRight("local_shortcut");
           break;
         }
         case "ArrowUp": {
           event.preventDefault();
           setStatus(messages.app.statuses.hotkeySnapTop);
-          void snapTop();
+          void snapTop("local_shortcut");
           break;
         }
         case "ArrowDown": {
           event.preventDefault();
           setStatus(messages.app.statuses.hotkeySnapBottom);
-          void snapBottom();
+          void snapBottom("local_shortcut");
           break;
         }
         case "KeyJ": {
           event.preventDefault();
-          void resizeToMinimum();
+          void resizeToMinimum("local_shortcut");
           break;
         }
         case "KeyK": {
           event.preventDefault();
-          void resizeToFitContent();
+          void resizeToFitContent("local_shortcut");
           break;
         }
         default:
@@ -3497,8 +3686,18 @@ function App() {
             data-placeholder={messages.app.editorPlaceholder}
             onInput={(event) => {
               if (suppressEditorInputRef.current) return;
+              if (!editorComposingRef.current) {
+                recordFirstMemoEdit(event.currentTarget.innerHTML);
+              }
               updateContent(event.currentTarget.innerHTML);
               scheduleCursorIndexUpdate();
+            }}
+            onCompositionStart={() => {
+              editorComposingRef.current = true;
+            }}
+            onCompositionEnd={(event) => {
+              editorComposingRef.current = false;
+              recordFirstMemoEdit(event.currentTarget.innerHTML);
             }}
             onPaste={handleEditorPaste}
             onDrop={handleEditorDrop}
@@ -3664,7 +3863,36 @@ function App() {
         </div>
       ) : null}
 
-      {onboardingStep && onboardingContent && onboardingStepIndex !== null ? (
+      {status ? (
+        <div className={`operation-status ${showStatusBar ? "" : "without-status"}`} role="status">
+          <span>{status}</span>
+          <button type="button" onClick={() => setStatus(null)} aria-label={messages.common.windowControls.close}>
+            <X size={14} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+
+      {analyticsPromptVisible ? (
+        <aside
+          className={`review-prompt ${showStatusBar ? "" : "without-status"}`}
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="analytics-prompt-title"
+        >
+          <strong id="analytics-prompt-title">{messages.app.analyticsPrompt.title}</strong>
+          <p>{messages.app.analyticsPrompt.body}</p>
+          <div className="review-prompt-actions">
+            <button type="button" onClick={postponeAnalytics}>
+              {messages.app.analyticsPrompt.later}
+            </button>
+            <button type="button" className="primary" onClick={acceptAnalytics}>
+              {messages.app.analyticsPrompt.enable}
+            </button>
+          </div>
+        </aside>
+      ) : null}
+
+      {!analyticsPromptVisible && onboardingStep && onboardingContent && onboardingStepIndex !== null ? (
         <aside
           className="onboarding-card"
           role="dialog"
@@ -3673,7 +3901,7 @@ function App() {
         >
           <div className="onboarding-header">
             <span>{onboardingStepIndex + 1} / {ONBOARDING_STEPS.length}</span>
-            <button type="button" onClick={finishOnboarding}>
+            <button type="button" onClick={() => finishOnboarding("skipped")}>
               {messages.app.onboarding.skip}
             </button>
           </div>
@@ -3722,7 +3950,7 @@ function App() {
         </aside>
       ) : null}
 
-      {defaultAppPromptVisible && !onboardingStep ? (
+      {defaultAppPromptVisible && !analyticsPromptVisible && !onboardingStep ? (
         <aside
           className={`review-prompt ${showStatusBar ? "" : "without-status"}`}
           role="dialog"
@@ -3733,14 +3961,14 @@ function App() {
             type="button"
             className="review-prompt-close"
             aria-label={messages.app.defaultAppPrompt.close}
-            onClick={dismissDefaultAppPrompt}
+            onClick={() => dismissDefaultAppPrompt("dismissed")}
           >
             <X size={16} strokeWidth={1.8} aria-hidden="true" />
           </button>
           <strong id="default-app-prompt-title">{messages.app.defaultAppPrompt.title}</strong>
           <p>{messages.app.defaultAppPrompt.body}</p>
           <div className="review-prompt-actions">
-            <button type="button" onClick={dismissDefaultAppPrompt}>
+            <button type="button" onClick={() => dismissDefaultAppPrompt("later")}>
               {messages.app.defaultAppPrompt.later}
             </button>
             <button type="button" className="primary" onClick={() => void openDefaultAppsSettings()}>
@@ -3751,7 +3979,7 @@ function App() {
         </aside>
       ) : null}
 
-      {reviewPromptVisible && !onboardingStep && !defaultAppPromptVisible ? (
+      {reviewPromptVisible && !analyticsPromptVisible && !onboardingStep && !defaultAppPromptVisible ? (
         <aside
           className={`review-prompt ${showStatusBar ? "" : "without-status"}`}
           role="dialog"
@@ -3762,14 +3990,20 @@ function App() {
             type="button"
             className="review-prompt-close"
             aria-label={messages.app.reviewPrompt.close}
-            onClick={() => setReviewPromptVisible(false)}
+            onClick={() => {
+              setReviewPromptVisible(false);
+              trackAnalytics({ name: "prompt_event", properties: { prompt: "review", action: "dismissed" } });
+            }}
           >
             <X size={16} strokeWidth={1.8} aria-hidden="true" />
           </button>
           <strong id="review-prompt-title">{messages.app.reviewPrompt.title}</strong>
           <p>{messages.app.reviewPrompt.body}</p>
           <div className="review-prompt-actions">
-            <button type="button" onClick={() => setReviewPromptVisible(false)}>
+            <button type="button" onClick={() => {
+              setReviewPromptVisible(false);
+              trackAnalytics({ name: "prompt_event", properties: { prompt: "review", action: "later" } });
+            }}>
               {messages.app.reviewPrompt.later}
             </button>
             <button type="button" className="primary" onClick={() => void openReviewPage()}>

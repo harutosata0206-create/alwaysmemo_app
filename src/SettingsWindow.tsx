@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, Monitor, Minus, Moon, Square, Sun, X, Copy } from "lucide-react";
 import {
@@ -36,8 +37,9 @@ function SettingsWindow() {
   }, []);
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null);
   const [settingsNav, setSettingsNav] = useState<
-    "language" | "appearance" | "formatting" | "features" | "startup" | "about"
+    "language" | "appearance" | "formatting" | "features" | "startup" | "privacy" | "about"
   >("language");
+  const [appVersion, setAppVersion] = useState("");
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
   const [systemPrefersDark, setSystemPrefersDark] = useState(() =>
     window.matchMedia("(prefers-color-scheme: dark)").matches,
@@ -105,7 +107,7 @@ function SettingsWindow() {
   );
 
   const jumpToSettingsSection = useCallback(
-    (key: "language" | "appearance" | "formatting" | "features" | "startup" | "about") => {
+    (key: "language" | "appearance" | "formatting" | "features" | "startup" | "privacy" | "about") => {
       setSettingsNav(key);
       const container = settingsContentRef.current;
       const target = document.getElementById(`settings-${key}`);
@@ -189,6 +191,12 @@ function SettingsWindow() {
       unlistenFocus?.();
     };
   }, [requestSnapshot, sourceLabel, syncWindowState, windowHandle]);
+
+  useEffect(() => {
+    void getVersion().then(setAppVersion).catch((error) => {
+      console.error("Failed to read app version", error);
+    });
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -348,6 +356,7 @@ function SettingsWindow() {
               <button type="button" className={`settings-nav-item ${settingsNav === "formatting" ? "active" : ""}`} onClick={() => jumpToSettingsSection("formatting")}>{messages.settings.navigation.formatting}</button>
               <button type="button" className={`settings-nav-item ${settingsNav === "features" ? "active" : ""}`} onClick={() => jumpToSettingsSection("features")}>{messages.settings.navigation.features}</button>
               <button type="button" className={`settings-nav-item ${settingsNav === "startup" ? "active" : ""}`} onClick={() => jumpToSettingsSection("startup")}>{messages.settings.navigation.startup}</button>
+              <button type="button" className={`settings-nav-item ${settingsNav === "privacy" ? "active" : ""}`} onClick={() => jumpToSettingsSection("privacy")}>{messages.settings.navigation.privacy}</button>
               <button type="button" className={`settings-nav-item ${settingsNav === "about" ? "active" : ""}`} onClick={() => jumpToSettingsSection("about")}>{messages.settings.navigation.about}</button>
             </div>
           </aside>
@@ -551,12 +560,31 @@ function SettingsWindow() {
                 </div>
               </section>
 
+              <section id="settings-privacy" className="settings-block">
+                <h2>{messages.settings.privacy.title}</h2>
+                <p className="settings-desc">{messages.settings.privacy.description}</p>
+                <div className="feature-row">
+                  <div>
+                    <strong>{messages.settings.privacy.analyticsLabel}</strong>
+                    <small>{messages.settings.privacy.analyticsDescription}</small>
+                  </div>
+                  <label className="modern-switch">
+                    <input
+                      type="checkbox"
+                      checked={snapshot.analyticsEnabled}
+                      onChange={(event) => void sendPatch({ analyticsEnabled: event.target.checked })}
+                    />
+                    <span />
+                  </label>
+                </div>
+              </section>
+
               <section id="settings-about" className="settings-about-card">
                 <div className="about-logo">🗒</div>
                 <h3>AlwaysMemo</h3>
                 <p>{messages.settings.about.description}</p>
                 <div className="about-meta">
-                  <span>{messages.settings.about.version("0.1")}</span>
+                  <span>{messages.settings.about.version(appVersion || "—")}</span>
                   <span>{messages.settings.about.settingsWindow}</span>
                   <span>{messages.settings.about.license}</span>
                 </div>

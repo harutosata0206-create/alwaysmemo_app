@@ -15,6 +15,7 @@ export type SettingsSnapshot = {
   sessionBehavior: SessionBehavior;
   fileOpenBehavior: FileOpenBehavior;
   languagePreference: LanguagePreference;
+  analyticsEnabled: boolean;
 };
 
 export type SettingsPatch = Partial<SettingsSnapshot>;
