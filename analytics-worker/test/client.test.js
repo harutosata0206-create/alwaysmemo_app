@@ -6,6 +6,7 @@ import {
   enableAnalytics,
   flushAnalytics,
   initializeAnalytics,
+  resetAnalyticsForDevelopment,
   trackAnalytics,
 } from "../../src/lib/analytics.ts";
 import worker from "../src/index.js";
@@ -69,6 +70,21 @@ test("disabling purges the anonymous id, session, and unsent queue", () => {
   setup(storage);
   enableAnalytics();
   disableAnalytics(storage);
+  assert.equal(storage.getItem("alwaysmemo-analytics-installation"), null);
+  assert.equal(storage.getItem("alwaysmemo-analytics-session"), null);
+  assert.equal(storage.getItem("alwaysmemo-analytics-queue"), null);
+});
+
+test("development analytics reset preserves memo and settings state", () => {
+  const storage = new MemoryStorage();
+  setup(storage);
+  enableAnalytics();
+  storage.setItem("alwaysmemo-state", "memo-and-settings");
+
+  resetAnalyticsForDevelopment(storage);
+
+  assert.equal(storage.getItem("alwaysmemo-state"), "memo-and-settings");
+  assert.equal(storage.getItem("alwaysmemo-analytics-consent"), null);
   assert.equal(storage.getItem("alwaysmemo-analytics-installation"), null);
   assert.equal(storage.getItem("alwaysmemo-analytics-session"), null);
   assert.equal(storage.getItem("alwaysmemo-analytics-queue"), null);

@@ -221,6 +221,18 @@ export function disableAnalytics(storage: Storage = window.localStorage): void {
   } catch { /* Keep the app usable. */ }
 }
 
+export function resetAnalyticsForDevelopment(
+  storage: Storage = window.localStorage,
+): void {
+  try {
+    storage.removeItem(CONSENT_KEY);
+    storage.removeItem(INSTALLATION_KEY);
+    storage.removeItem(INSTALL_EVIDENCE_KEY);
+    storage.removeItem(SESSION_KEY);
+    storage.removeItem(QUEUE_KEY);
+  } catch { /* Keep the app usable. */ }
+}
+
 function enqueue(event: AnalyticsEvent, onceKey?: string): void {
   if (!runtime || getConsent(runtime.storage) !== "enabled") return;
   try {

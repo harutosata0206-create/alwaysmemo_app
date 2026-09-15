@@ -154,49 +154,6 @@ type Messages = {
       main: string;
       settings: string;
     };
-    statuses: {
-      disabledShortcutsMultiWindow: string;
-      failedOpenNewWindow: string;
-      opened: (title: string) => string;
-      failedOpenFile: string;
-      openingSaveDialog: string;
-      saveDialogReturnedNoPath: string;
-      savingTo: (path: string) => string;
-      saved: (title: string) => string;
-      failedSaveFile: (error: string) => string;
-      noSavedFilesToUpdate: string;
-      savedAll: string;
-      failedSaveAll: string;
-      alwaysOnTopEnabled: string;
-      alwaysOnTopDisabled: string;
-      failedSetAlwaysOnTop: string;
-      failedOpenSettingsWindow: string;
-      failedOpenDetailedHelp: string;
-      failedToggleAlwaysOnTop: string;
-      snappedLeft: string;
-      failedSnapLeft: string;
-      snappedRight: string;
-      failedSnapRight: string;
-      snappedTop: string;
-      failedSnapTop: string;
-      snappedBottom: string;
-      failedSnapBottom: string;
-      resizedMinimum: string;
-      failedResizeMinimum: string;
-      resizedFitContent: string;
-      failedResizeFitContent: string;
-      failedReadAlwaysOnTopState: string;
-      clipboardUnavailable: string;
-      hotkeyToggleAlwaysOnTop: string;
-      hotkeySnapLeft: string;
-      hotkeySnapRight: string;
-      hotkeySnapTop: string;
-      hotkeySnapBottom: string;
-      globalShortcutError: (message: string) => string;
-      globalShortcutsActive: string;
-      localShortcutsActive: string;
-      failedConfigureShortcuts: string;
-    };
   };
     settings: {
       loading: string;
@@ -429,49 +386,6 @@ const translations: Record<AppLanguage, Messages> = {
         main: "AlwaysMemo",
         settings: "AlwaysMemo 設定",
       },
-      statuses: {
-        disabledShortcutsMultiWindow: "複数ウィンドウのためグローバルショートカットをオフにしました",
-        failedOpenNewWindow: "新しいウィンドウを開けませんでした",
-        opened: (title) => `${title} を開きました`,
-        failedOpenFile: "ファイルを開けませんでした",
-        openingSaveDialog: "保存ダイアログを開いています...",
-        saveDialogReturnedNoPath: "保存先が選択されませんでした",
-        savingTo: (path) => `${path} に保存しています...`,
-        saved: (title) => `${title} を保存しました`,
-        failedSaveFile: (error) => `保存に失敗しました: ${error}`,
-        noSavedFilesToUpdate: "更新できる保存済みファイルがありません",
-        savedAll: "すべて保存しました",
-        failedSaveAll: "一括保存に失敗しました",
-        alwaysOnTopEnabled: "常に手前に表示を有効にしました",
-        alwaysOnTopDisabled: "常に手前に表示を無効にしました",
-        failedSetAlwaysOnTop: "常に手前に表示を設定できませんでした",
-        failedOpenSettingsWindow: "設定ウィンドウを開けませんでした",
-        failedOpenDetailedHelp: "詳細ヘルプを開けませんでした",
-        failedToggleAlwaysOnTop: "常に手前に表示を切り替えられませんでした",
-        snappedLeft: "左上に移動しました (ホットキー)",
-        failedSnapLeft: "左への移動に失敗しました",
-        snappedRight: "右上に移動しました (ホットキー)",
-        failedSnapRight: "右への移動に失敗しました",
-        snappedTop: "上端に移動しました (ホットキー)",
-        failedSnapTop: "上への移動に失敗しました",
-        snappedBottom: "下端に移動しました (ホットキー)",
-        failedSnapBottom: "下への移動に失敗しました",
-        resizedMinimum: "最小サイズに変更しました (ホットキー)",
-        failedResizeMinimum: "最小サイズへの変更に失敗しました",
-        resizedFitContent: "内容に合わせてサイズを変更しました (ホットキー)",
-        failedResizeFitContent: "内容に合わせたサイズ変更に失敗しました",
-        failedReadAlwaysOnTopState: "常に手前に表示の状態を取得できませんでした",
-        clipboardUnavailable: "クリップボードにアクセスできませんでした",
-        hotkeyToggleAlwaysOnTop: "ホットキー: 常に手前に表示を切り替えました",
-        hotkeySnapLeft: "ホットキー: 左に移動しました",
-        hotkeySnapRight: "ホットキー: 右に移動しました",
-        hotkeySnapTop: "ホットキー: 上に移動しました",
-        hotkeySnapBottom: "ホットキー: 下に移動しました",
-        globalShortcutError: (message) => `グローバルショートカットのエラー: ${message}`,
-        globalShortcutsActive: "グローバルショートカットが有効です",
-        localShortcutsActive: "ローカルショートカットが有効です (ウィンドウ選択中)",
-        failedConfigureShortcuts: "ショートカットの設定に失敗しました",
-      },
     },
     settings: {
       loading: "設定を読み込んでいます...",
@@ -701,49 +615,6 @@ const translations: Record<AppLanguage, Messages> = {
       windowTitles: {
         main: "AlwaysMemo",
         settings: "AlwaysMemo Settings",
-      },
-      statuses: {
-        disabledShortcutsMultiWindow: "Global shortcuts were turned off because multiple windows are open",
-        failedOpenNewWindow: "Failed to open a new window",
-        opened: (title) => `Opened ${title}`,
-        failedOpenFile: "Failed to open the file",
-        openingSaveDialog: "Opening the save dialog...",
-        saveDialogReturnedNoPath: "No save location was selected",
-        savingTo: (path) => `Saving to ${path}...`,
-        saved: (title) => `Saved ${title}`,
-        failedSaveFile: (error) => `Failed to save the file: ${error}`,
-        noSavedFilesToUpdate: "There are no saved files to update",
-        savedAll: "Saved all files",
-        failedSaveAll: "Failed to save all files",
-        alwaysOnTopEnabled: "Always on top enabled",
-        alwaysOnTopDisabled: "Always on top disabled",
-        failedSetAlwaysOnTop: "Failed to update always-on-top",
-        failedOpenSettingsWindow: "Failed to open the settings window",
-        failedOpenDetailedHelp: "Failed to open detailed help",
-        failedToggleAlwaysOnTop: "Failed to toggle always-on-top",
-        snappedLeft: "Snapped to the top-left (hotkey)",
-        failedSnapLeft: "Failed to snap left",
-        snappedRight: "Snapped to the top-right (hotkey)",
-        failedSnapRight: "Failed to snap right",
-        snappedTop: "Snapped to the top edge (hotkey)",
-        failedSnapTop: "Failed to snap to the top edge",
-        snappedBottom: "Snapped to the bottom edge (hotkey)",
-        failedSnapBottom: "Failed to snap to the bottom edge",
-        resizedMinimum: "Resized to the minimum size (hotkey)",
-        failedResizeMinimum: "Failed to resize to the minimum size",
-        resizedFitContent: "Resized to fit the content (hotkey)",
-        failedResizeFitContent: "Failed to resize to fit the content",
-        failedReadAlwaysOnTopState: "Failed to read the always-on-top state",
-        clipboardUnavailable: "Clipboard access is unavailable",
-        hotkeyToggleAlwaysOnTop: "Hotkey: toggled always-on-top",
-        hotkeySnapLeft: "Hotkey: snapped left",
-        hotkeySnapRight: "Hotkey: snapped right",
-        hotkeySnapTop: "Hotkey: snapped to the top edge",
-        hotkeySnapBottom: "Hotkey: snapped to the bottom edge",
-        globalShortcutError: (message) => `Global shortcut error: ${message}`,
-        globalShortcutsActive: "Global shortcuts are active",
-        localShortcutsActive: "Local shortcuts are active (window focused)",
-        failedConfigureShortcuts: "Failed to configure shortcuts",
       },
     },
     settings: {
@@ -975,49 +846,6 @@ const translations: Record<AppLanguage, Messages> = {
         main: "AlwaysMemo",
         settings: "Configuración de AlwaysMemo",
       },
-      statuses: {
-        disabledShortcutsMultiWindow: "Los atajos globales se desactivaron porque hay varias ventanas abiertas",
-        failedOpenNewWindow: "No se pudo abrir una nueva ventana",
-        opened: (title) => `Se abrió ${title}`,
-        failedOpenFile: "No se pudo abrir el archivo",
-        openingSaveDialog: "Abriendo el diálogo de guardado...",
-        saveDialogReturnedNoPath: "No se seleccionó ninguna ubicación para guardar",
-        savingTo: (path) => `Guardando en ${path}...`,
-        saved: (title) => `Se guardó ${title}`,
-        failedSaveFile: (error) => `No se pudo guardar el archivo: ${error}`,
-        noSavedFilesToUpdate: "No hay archivos guardados para actualizar",
-        savedAll: "Se guardaron todos los archivos",
-        failedSaveAll: "No se pudieron guardar todos los archivos",
-        alwaysOnTopEnabled: "Siempre visible activado",
-        alwaysOnTopDisabled: "Siempre visible desactivado",
-        failedSetAlwaysOnTop: "No se pudo actualizar el modo siempre visible",
-        failedOpenSettingsWindow: "No se pudo abrir la ventana de configuración",
-        failedOpenDetailedHelp: "No se pudo abrir la ayuda detallada",
-        failedToggleAlwaysOnTop: "No se pudo cambiar el modo siempre visible",
-        snappedLeft: "Ajustado arriba a la izquierda (atajo)",
-        failedSnapLeft: "No se pudo ajustar a la izquierda",
-        snappedRight: "Ajustado arriba a la derecha (atajo)",
-        failedSnapRight: "No se pudo ajustar a la derecha",
-        snappedTop: "Ajustado al borde superior (atajo)",
-        failedSnapTop: "No se pudo ajustar al borde superior",
-        snappedBottom: "Ajustado al borde inferior (atajo)",
-        failedSnapBottom: "No se pudo ajustar al borde inferior",
-        resizedMinimum: "Redimensionado al tamaño mínimo (atajo)",
-        failedResizeMinimum: "No se pudo redimensionar al tamaño mínimo",
-        resizedFitContent: "Redimensionado para ajustarse al contenido (atajo)",
-        failedResizeFitContent: "No se pudo redimensionar para ajustarse al contenido",
-        failedReadAlwaysOnTopState: "No se pudo leer el estado de siempre visible",
-        clipboardUnavailable: "El acceso al portapapeles no está disponible",
-        hotkeyToggleAlwaysOnTop: "Atajo: se cambió el modo siempre visible",
-        hotkeySnapLeft: "Atajo: ajustado a la izquierda",
-        hotkeySnapRight: "Atajo: ajustado a la derecha",
-        hotkeySnapTop: "Atajo: ajustado al borde superior",
-        hotkeySnapBottom: "Atajo: ajustado al borde inferior",
-        globalShortcutError: (message) => `Error de atajo global: ${message}`,
-        globalShortcutsActive: "Los atajos globales están activos",
-        localShortcutsActive: "Los atajos locales están activos (ventana enfocada)",
-        failedConfigureShortcuts: "No se pudieron configurar los atajos",
-      },
     },
     settings: {
       loading: "Cargando configuración...",
@@ -1248,49 +1076,6 @@ const translations: Record<AppLanguage, Messages> = {
         main: "AlwaysMemo",
         settings: "Configurações do AlwaysMemo",
       },
-      statuses: {
-        disabledShortcutsMultiWindow: "Os atalhos globais foram desativados porque há várias janelas abertas",
-        failedOpenNewWindow: "Não foi possível abrir uma nova janela",
-        opened: (title) => `${title} foi aberto`,
-        failedOpenFile: "Não foi possível abrir o arquivo",
-        openingSaveDialog: "Abrindo a caixa de diálogo de salvamento...",
-        saveDialogReturnedNoPath: "Nenhum local de salvamento foi selecionado",
-        savingTo: (path) => `Salvando em ${path}...`,
-        saved: (title) => `${title} foi salvo`,
-        failedSaveFile: (error) => `Não foi possível salvar o arquivo: ${error}`,
-        noSavedFilesToUpdate: "Não há arquivos salvos para atualizar",
-        savedAll: "Todos os arquivos foram salvos",
-        failedSaveAll: "Não foi possível salvar todos os arquivos",
-        alwaysOnTopEnabled: "Sempre no topo ativado",
-        alwaysOnTopDisabled: "Sempre no topo desativado",
-        failedSetAlwaysOnTop: "Não foi possível atualizar o modo sempre no topo",
-        failedOpenSettingsWindow: "Não foi possível abrir a janela de configurações",
-        failedOpenDetailedHelp: "Não foi possível abrir a ajuda detalhada",
-        failedToggleAlwaysOnTop: "Não foi possível alternar o modo sempre no topo",
-        snappedLeft: "Ajustado para o canto superior esquerdo (atalho)",
-        failedSnapLeft: "Não foi possível ajustar à esquerda",
-        snappedRight: "Ajustado para o canto superior direito (atalho)",
-        failedSnapRight: "Não foi possível ajustar à direita",
-        snappedTop: "Ajustado à borda superior (atalho)",
-        failedSnapTop: "Não foi possível ajustar à borda superior",
-        snappedBottom: "Ajustado à borda inferior (atalho)",
-        failedSnapBottom: "Não foi possível ajustar à borda inferior",
-        resizedMinimum: "Redimensionado para o tamanho mínimo (atalho)",
-        failedResizeMinimum: "Não foi possível redimensionar para o tamanho mínimo",
-        resizedFitContent: "Redimensionado para caber no conteúdo (atalho)",
-        failedResizeFitContent: "Não foi possível redimensionar para caber no conteúdo",
-        failedReadAlwaysOnTopState: "Não foi possível ler o estado de sempre no topo",
-        clipboardUnavailable: "O acesso à área de transferência não está disponível",
-        hotkeyToggleAlwaysOnTop: "Atalho: sempre no topo alternado",
-        hotkeySnapLeft: "Atalho: ajustado à esquerda",
-        hotkeySnapRight: "Atalho: ajustado à direita",
-        hotkeySnapTop: "Atalho: ajustado à borda superior",
-        hotkeySnapBottom: "Atalho: ajustado à borda inferior",
-        globalShortcutError: (message) => `Erro de atalho global: ${message}`,
-        globalShortcutsActive: "Os atalhos globais estão ativos",
-        localShortcutsActive: "Os atalhos locais estão ativos (janela em foco)",
-        failedConfigureShortcuts: "Não foi possível configurar os atalhos",
-      },
     },
     settings: {
       loading: "Carregando configurações...",
@@ -1520,49 +1305,6 @@ const translations: Record<AppLanguage, Messages> = {
       windowTitles: {
         main: "AlwaysMemo",
         settings: "AlwaysMemo 설정",
-      },
-      statuses: {
-        disabledShortcutsMultiWindow: "여러 창이 열려 있어 전역 단축키를 껐습니다",
-        failedOpenNewWindow: "새 창을 열지 못했습니다",
-        opened: (title) => `${title}을(를) 열었습니다`,
-        failedOpenFile: "파일을 열지 못했습니다",
-        openingSaveDialog: "저장 대화 상자를 여는 중...",
-        saveDialogReturnedNoPath: "저장 위치가 선택되지 않았습니다",
-        savingTo: (path) => `${path}에 저장하는 중...`,
-        saved: (title) => `${title}을(를) 저장했습니다`,
-        failedSaveFile: (error) => `파일 저장에 실패했습니다: ${error}`,
-        noSavedFilesToUpdate: "업데이트할 저장된 파일이 없습니다",
-        savedAll: "모든 파일을 저장했습니다",
-        failedSaveAll: "모든 파일을 저장하지 못했습니다",
-        alwaysOnTopEnabled: "항상 위에 표시를 켰습니다",
-        alwaysOnTopDisabled: "항상 위에 표시를 껐습니다",
-        failedSetAlwaysOnTop: "항상 위에 표시 설정을 변경하지 못했습니다",
-        failedOpenSettingsWindow: "설정 창을 열지 못했습니다",
-        failedOpenDetailedHelp: "자세한 도움말을 열지 못했습니다",
-        failedToggleAlwaysOnTop: "항상 위에 표시를 전환하지 못했습니다",
-        snappedLeft: "왼쪽 위로 이동했습니다(단축키)",
-        failedSnapLeft: "왼쪽으로 이동하지 못했습니다",
-        snappedRight: "오른쪽 위로 이동했습니다(단축키)",
-        failedSnapRight: "오른쪽으로 이동하지 못했습니다",
-        snappedTop: "위쪽 가장자리로 이동했습니다(단축키)",
-        failedSnapTop: "위쪽 가장자리로 이동하지 못했습니다",
-        snappedBottom: "아래쪽 가장자리로 이동했습니다(단축키)",
-        failedSnapBottom: "아래쪽 가장자리로 이동하지 못했습니다",
-        resizedMinimum: "최소 크기로 변경했습니다(단축키)",
-        failedResizeMinimum: "최소 크기로 변경하지 못했습니다",
-        resizedFitContent: "내용에 맞게 크기를 변경했습니다(단축키)",
-        failedResizeFitContent: "내용에 맞게 크기를 변경하지 못했습니다",
-        failedReadAlwaysOnTopState: "항상 위에 표시 상태를 읽지 못했습니다",
-        clipboardUnavailable: "클립보드에 접근할 수 없습니다",
-        hotkeyToggleAlwaysOnTop: "단축키: 항상 위에 표시를 전환했습니다",
-        hotkeySnapLeft: "단축키: 왼쪽으로 이동했습니다",
-        hotkeySnapRight: "단축키: 오른쪽으로 이동했습니다",
-        hotkeySnapTop: "단축키: 위쪽 가장자리로 이동했습니다",
-        hotkeySnapBottom: "단축키: 아래쪽 가장자리로 이동했습니다",
-        globalShortcutError: (message) => `전역 단축키 오류: ${message}`,
-        globalShortcutsActive: "전역 단축키가 활성화되었습니다",
-        localShortcutsActive: "로컬 단축키가 활성화되었습니다(창 포커스 중)",
-        failedConfigureShortcuts: "단축키를 설정하지 못했습니다",
       },
     },
     settings: {

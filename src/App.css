@@ -1847,6 +1847,41 @@ body::-webkit-scrollbar-thumb,
   font-size: 12px;
 }
 
+.development-tools {
+  border: 1px dashed #c07a14;
+  border-radius: 14px;
+  background: #fffaf0;
+  padding: 16px 18px;
+}
+
+.development-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.development-actions button {
+  border: 1px solid #d39a43;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #754509;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.development-actions button:hover {
+  transform: none;
+  box-shadow: none;
+  background: #fff3d8;
+}
+
+.development-note {
+  display: block;
+  margin-top: 10px;
+  color: #80571b;
+  font-size: 12px;
+}
+
 .startup-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -2267,6 +2302,25 @@ body::-webkit-scrollbar-thumb,
 .app.theme-dark .startup-card {
   border-color: #1f3155;
   background: #0c1a35;
+}
+
+.app.theme-dark .development-tools {
+  border-color: #8d6428;
+  background: #261d0f;
+}
+
+.app.theme-dark .development-actions button {
+  border-color: #765321;
+  background: #342512;
+  color: #f0c77f;
+}
+
+.app.theme-dark .development-actions button:hover {
+  background: #49341a;
+}
+
+.app.theme-dark .development-note {
+  color: #d1ac6d;
 }
 
 .app.theme-dark .settings-field-row {
@@ -2938,43 +2992,6 @@ button:active {
   color: #202124;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
   overflow-y: auto;
-}
-
-.operation-status {
-  position: fixed;
-  right: 14px;
-  bottom: 36px;
-  z-index: 25;
-  display: flex;
-  max-width: min(560px, calc(100vw - 28px));
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px 9px 12px;
-  border: 1px solid rgba(99, 102, 241, 0.22);
-  border-radius: 9px;
-  color: #263044;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 7px 22px rgba(36, 43, 67, 0.16);
-  font-size: 12px;
-}
-
-.operation-status.without-status {
-  bottom: 14px;
-}
-
-.operation-status button {
-  display: inline-flex;
-  padding: 2px;
-  border: 0;
-  color: inherit;
-  background: transparent;
-  cursor: pointer;
-}
-
-.app.theme-dark .operation-status {
-  border-color: rgba(148, 163, 184, 0.22);
-  color: #e2e8f0;
-  background: rgba(30, 41, 59, 0.96);
 }
 
 .review-prompt.without-status {

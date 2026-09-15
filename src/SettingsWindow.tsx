@@ -11,9 +11,12 @@ import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, Monitor, Minus, Moon, Square, Sun, X, Copy } from "lucide-react";
 import {
+  DEVELOPMENT_RESET_EVENT,
   SETTINGS_REQUEST_EVENT,
   SETTINGS_SYNC_EVENT,
   SETTINGS_UPDATE_EVENT,
+  type DevelopmentResetPayload,
+  type DevelopmentResetTarget,
   type LanguagePreference,
   type LineSpacing,
   type SettingsPatch,
@@ -78,6 +81,22 @@ function SettingsWindow() {
         settingsLabel: currentLabel,
         patch,
       });
+    },
+    [currentLabel, sourceLabel, windowHandle],
+  );
+
+  const resetDevelopmentState = useCallback(
+    async (target: DevelopmentResetTarget) => {
+      if (!import.meta.env.DEV) return;
+      const confirmed = window.confirm(
+        "選択した案内の開発用状態をリセットし、メイン画面を再読み込みします。メモ本文と通常設定は削除しません。",
+      );
+      if (!confirmed) return;
+      await windowHandle.emitTo<DevelopmentResetPayload>(sourceLabel, DEVELOPMENT_RESET_EVENT, {
+        settingsLabel: currentLabel,
+        target,
+      });
+      await windowHandle.close();
     },
     [currentLabel, sourceLabel, windowHandle],
   );
@@ -578,6 +597,30 @@ function SettingsWindow() {
                   </label>
                 </div>
               </section>
+
+              {import.meta.env.DEV ? (
+                <section className="settings-block development-tools">
+                  <h2>開発モード</h2>
+                  <p className="settings-desc">
+                    <code>npm run tauri dev</code>でのみ表示されます。本番Workerには送信せず、
+                    メモ本文と通常設定を保持したまま初回案内を再検証できます。
+                  </p>
+                  <div className="development-actions">
+                    <button type="button" onClick={() => void resetDevelopmentState("analytics")}>
+                      同意案内を再表示
+                    </button>
+                    <button type="button" onClick={() => void resetDevelopmentState("onboarding")}>
+                      オンボーディングを再表示
+                    </button>
+                    <button type="button" onClick={() => void resetDevelopmentState("all")}>
+                      初回案内をすべてリセット
+                    </button>
+                  </div>
+                  <small className="development-note">
+                    「すべて」では仮名ID、未送信キュー、案内の表示履歴だけを削除します。
+                  </small>
+                </section>
+              ) : null}
 
               <section id="settings-about" className="settings-about-card">
                 <div className="about-logo">🗒</div>

@@ -50,11 +50,13 @@ import {
   trustedHtmlToText,
 } from "./lib/editorContent";
 import {
+  DEVELOPMENT_RESET_EVENT,
   SETTINGS_REQUEST_EVENT,
   SETTINGS_SYNC_EVENT,
   SETTINGS_UPDATE_EVENT,
   createSettingsWindowLabel,
   isSettingsWindowLabel,
+  type DevelopmentResetPayload,
   type SettingsPatch,
   type SettingsRequestPayload,
   type SettingsSnapshot as BridgeSettingsSnapshot,
@@ -81,6 +83,11 @@ import {
   trackAnalyticsOnce,
   updateAnalyticsLanguage,
 } from "./lib/analytics";
+import {
+  HELP_HINT_STORAGE_KEY,
+  ONBOARDING_STORAGE_KEY,
+  resetDevelopmentState,
+} from "./lib/developmentTools";
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 300;
@@ -92,8 +99,6 @@ const PENDING_OPEN_FILES_EVENT = "alwaysmemo:pending-open-files";
 const TAB_CLOSE_ANIMATION_MS = 140;
 const HELP_URL = "https://alwaysmemo.pages.dev/help";
 const REVIEW_URL = "https://apps.microsoft.com/detail/9n22tl7m39q3";
-const HELP_HINT_STORAGE_KEY = "alwaysmemo-help-hint-seen";
-const ONBOARDING_STORAGE_KEY = "alwaysmemo-onboarding-completed";
 const DEFAULT_USE_GLOBAL_SHORTCUTS = true;
 const ANALYTICS_SESSION_IDLE_MS = 30 * 60 * 1000;
 
@@ -182,7 +187,6 @@ type OpenedTextFile = {
 function App() {
   const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(DEFAULT_USE_GLOBAL_SHORTCUTS);
   const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
   const [languagePreference, setLanguagePreference] = useState<LanguagePreference>("system");
   const { language, messages } = useMessages(languagePreference);
   const [tabs, setTabs] = useState<Tab[]>([
@@ -294,7 +298,7 @@ function App() {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const deletePromptTab =
     deletePromptTabId ? tabs.find((tab) => tab.id === deletePromptTabId) ?? null : null;
-  const windowHandle = getCurrentWindow();
+  const windowHandle = useMemo(() => getCurrentWindow(), []);
   const currentWebviewWindow = useMemo(() => WebviewWindow.getCurrent(), []);
   const currentWindowLabel = currentWebviewWindow.label;
   const settingsWindowLabel = useMemo(
@@ -618,9 +622,6 @@ function App() {
       options?: { broadcast?: boolean },
     ) => {
       setUseGlobalShortcuts(enabled);
-      if (reason === "auto-multi-window" && !enabled) {
-        setStatus(messages.app.statuses.disabledShortcutsMultiWindow);
-      }
       if (options?.broadcast === false) return;
       try {
         const payload: GlobalShortcutSyncMessage = {
@@ -633,7 +634,7 @@ function App() {
         // Ignore storage sync failures; local state already changed.
       }
     },
-    [messages.app.statuses.disabledShortcutsMultiWindow],
+    [],
   );
 
   const revealAuxWindow = useCallback(async (target: WebviewWindow) => {
@@ -738,7 +739,7 @@ function App() {
   };
 
   const appendOpenedFileTab = useCallback(
-    (opened: OpenedTextFile, options?: { announce?: boolean }) => {
+    (opened: OpenedTextFile) => {
       const id = crypto.randomUUID();
       const title = getFileNameFromPath(opened.path) || messages.app.untitledTab;
       const content = textToHtml(opened.contents);
@@ -755,14 +756,10 @@ function App() {
         return next;
       });
       setActiveTabId(id);
-      if (options?.announce !== false) {
-        setStatus(messages.app.statuses.opened(title));
-      }
     },
     [
       getFileNameFromPath,
       getPathMap,
-      messages.app.statuses,
       messages.app.untitledTab,
       persistState,
       setPathMap,
@@ -771,7 +768,7 @@ function App() {
   );
 
   const openFilesByPaths = useCallback(
-    async (paths: string[], options?: { announce?: boolean }) => {
+    async (paths: string[]) => {
       if (paths.length === 0) return;
       for (const path of paths) {
         try {
@@ -780,7 +777,7 @@ function App() {
             trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: "read" } });
             continue;
           }
-          appendOpenedFileTab(opened, options);
+          appendOpenedFileTab(opened);
           trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "success" } });
         } catch (error) {
           trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: "read" } });
@@ -792,10 +789,10 @@ function App() {
   );
 
   const drainPendingOpenFiles = useCallback(
-    async (options?: { announce?: boolean }) => {
+    async () => {
       const paths = await invoke<string[]>("take_pending_open_files");
       if (paths.length === 0) return;
-      await openFilesByPaths(paths, options);
+      await openFilesByPaths(paths);
     },
     [openFilesByPaths],
   );
@@ -857,7 +854,6 @@ function App() {
         });
         newWindow.once("tauri://error", (error) => {
           console.error("Failed to create new window", error);
-          setStatus(messages.app.statuses.failedOpenNewWindow);
         });
         closeMenus();
         return;
@@ -867,31 +863,26 @@ function App() {
     } catch (error) {
       console.error(error);
       trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: "read" } });
-      setStatus(messages.app.statuses.failedOpenFile);
     }
   }, [
     appendOpenedFileTab,
     alwaysOnTop,
     closeMenus,
     fileOpenBehavior,
-    messages.app.statuses,
     messages.app.windowTitles.main,
     windowHandle,
   ]);
 
   const saveTabAs = useCallback(async (tab: Tab) => {
     try {
-      setStatus(messages.app.statuses.openingSaveDialog);
       const suggested = isUntitledTitle(tab.title)
         ? messages.app.defaultSaveName
         : (tab.title.trim() || messages.app.defaultSaveName);
       const resolvedPath = await pickSavePath(suggested);
       if (!resolvedPath) {
         trackAnalytics({ name: "file_operation", properties: { operation: "save_as", outcome: "cancelled" } });
-        setStatus(messages.app.statuses.saveDialogReturnedNoPath);
         return false;
       }
-      setStatus(messages.app.statuses.savingTo(resolvedPath));
       await invoke("write_text_file", {
         path: resolvedPath,
         contents: htmlToText(tab.content),
@@ -913,14 +904,12 @@ function App() {
         [tab.id]: { title: nextTitle, content: tab.content },
       };
       setSavedVersion((prev) => prev + 1);
-      setStatus(messages.app.statuses.saved(nextTitle));
       trackAnalytics({ name: "file_operation", properties: { operation: "save_as", outcome: "success" } });
       closeMenus();
       return true;
     } catch (error) {
       console.error(error);
       trackAnalytics({ name: "file_operation", properties: { operation: "save_as", outcome: "failure", error_category: "write" } });
-      setStatus(messages.app.statuses.failedSaveFile(String(error)));
       return false;
     }
   }, [
@@ -929,7 +918,6 @@ function App() {
     htmlToText,
     getPathMap,
     messages.app.defaultSaveName,
-    messages.app.statuses,
     pickSavePath,
     persistState,
     setPathMap,
@@ -950,7 +938,6 @@ function App() {
       return await saveTabAs(tab);
     }
     try {
-      setStatus(messages.app.statuses.savingTo(resolvedPath));
       await invoke("write_text_file", {
         path: resolvedPath,
         contents: htmlToText(tab.content),
@@ -971,21 +958,18 @@ function App() {
         persistState(prev);
         return prev;
       });
-      setStatus(messages.app.statuses.saved(tab.title));
       trackAnalytics({ name: "file_operation", properties: { operation: "save", outcome: "success" } });
       closeMenus();
       return true;
     } catch (error) {
       console.error(error);
       trackAnalytics({ name: "file_operation", properties: { operation: "save", outcome: "failure", error_category: "write" } });
-      setStatus(messages.app.statuses.failedSaveFile(String(error)));
       return false;
     }
   }, [
     closeMenus,
     htmlToText,
     getPathMap,
-    messages.app.statuses,
     persistState,
     saveTabAs,
     setPathMap,
@@ -999,7 +983,6 @@ function App() {
   const saveAllTabs = useCallback(async () => {
     const tabsWithPath = tabs.filter((tab) => tab.filePath);
     if (tabsWithPath.length === 0) {
-      setStatus(messages.app.statuses.noSavedFilesToUpdate);
       closeMenus();
       return;
     }
@@ -1020,15 +1003,13 @@ function App() {
       };
       setSavedVersion((prev) => prev + 1);
       persistState(tabs);
-      setStatus(messages.app.statuses.savedAll);
       trackAnalytics({ name: "file_operation", properties: { operation: "save_all", outcome: "success" } });
       closeMenus();
     } catch (error) {
       console.error(error);
       trackAnalytics({ name: "file_operation", properties: { operation: "save_all", outcome: "failure", error_category: "write" } });
-      setStatus(messages.app.statuses.failedSaveAll);
     }
-  }, [closeMenus, htmlToText, messages.app.statuses, persistState, tabs]);
+  }, [closeMenus, htmlToText, persistState, tabs]);
 
   const openNewWindow = useCallback(async () => {
     try {
@@ -1056,17 +1037,14 @@ function App() {
       });
       newWindow.once("tauri://error", (error) => {
         console.error("Failed to create new window", error);
-        setStatus(messages.app.statuses.failedOpenNewWindow);
       });
       closeMenus();
     } catch (error) {
       console.error(error);
-      setStatus(messages.app.statuses.failedOpenNewWindow);
     }
   }, [
     alwaysOnTop,
     closeMenus,
-    messages.app.statuses.failedOpenNewWindow,
     messages.app.windowTitles.main,
     windowHandle,
   ]);
@@ -1105,11 +1083,6 @@ function App() {
       try {
         const confirmed = await invoke<boolean>("set_always_on_top", { value });
         setAlwaysOnTopState(confirmed);
-        setStatus(
-          confirmed
-            ? messages.app.statuses.alwaysOnTopEnabled
-            : messages.app.statuses.alwaysOnTopDisabled,
-        );
         trackAnalytics({
           name: "core_action_succeeded",
           properties: {
@@ -1120,10 +1093,9 @@ function App() {
         });
       } catch (error) {
         console.error(error);
-        setStatus(messages.app.statuses.failedSetAlwaysOnTop);
       }
     },
-    [messages.app.statuses],
+    [],
   );
 
   const settingsSnapshot = useMemo<BridgeSettingsSnapshot>(() => ({
@@ -1272,13 +1244,11 @@ function App() {
 
     settingsWindow.once("tauri://error", (error) => {
       console.error("Failed to create settings window", error);
-      setStatus(messages.app.statuses.failedOpenSettingsWindow);
     });
   }, [
     closeMenus,
     currentWindowLabel,
     emitSettingsSnapshot,
-    messages.app.statuses.failedOpenSettingsWindow,
     messages.app.windowTitles.settings,
     revealAuxWindow,
     settingsWindowLabel,
@@ -1290,13 +1260,28 @@ function App() {
       setHelpPanelOpen(false);
     } catch (error) {
       console.error("Failed to open help URL", error);
-      setStatus(messages.app.statuses.failedOpenDetailedHelp);
     }
-  }, [messages.app.statuses.failedOpenDetailedHelp]);
+  }, []);
 
   useEffect(() => {
+    let unlistenDevelopmentReset: (() => void) | undefined;
     let unlistenRequest: (() => void) | undefined;
     let unlistenUpdate: (() => void) | undefined;
+
+    if (import.meta.env.DEV) {
+      void currentWebviewWindow.listen<DevelopmentResetPayload>(
+        DEVELOPMENT_RESET_EVENT,
+        ({ payload }) => {
+          if (payload.settingsLabel !== settingsWindowLabel) return;
+          resetDevelopmentState(payload.target, window.localStorage);
+          window.location.reload();
+        },
+      ).then((cleanup) => {
+        unlistenDevelopmentReset = cleanup;
+      }).catch((error) => {
+        console.error("Failed to listen for development resets", error);
+      });
+    }
 
     void currentWebviewWindow.listen<SettingsRequestPayload>(SETTINGS_REQUEST_EVENT, ({ payload }) => {
       void emitSettingsSnapshot(payload.settingsLabel);
@@ -1322,6 +1307,7 @@ function App() {
     });
 
     return () => {
+      unlistenDevelopmentReset?.();
       unlistenRequest?.();
       unlistenUpdate?.();
     };
@@ -1344,11 +1330,6 @@ function App() {
       const next = await invoke<boolean>("toggle_always_on_top");
       setAlwaysOnTopState(next);
       markOnboardingStepTested("alwaysOnTop");
-      setStatus(
-        next
-          ? messages.app.statuses.alwaysOnTopEnabled
-          : messages.app.statuses.alwaysOnTopDisabled,
-      );
       trackAnalytics({
         name: "core_action_succeeded",
         properties: {
@@ -1359,72 +1340,61 @@ function App() {
       });
     } catch (error) {
       console.error(error);
-      setStatus(messages.app.statuses.failedToggleAlwaysOnTop);
     }
-  }, [markOnboardingStepTested, messages.app.statuses]);
+  }, [markOnboardingStepTested]);
 
   const snapLeft = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" | null = "menu") => {
     try {
       await invoke("snap_left");
       setSnap("left");
       markOnboardingStepTested("snap");
-      setStatus(messages.app.statuses.snappedLeft);
       if (trigger) trackAnalytics({ name: "core_action_succeeded", properties: { action: "snap_left", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
-      setStatus(messages.app.statuses.failedSnapLeft);
     }
-  }, [markOnboardingStepTested, messages.app.statuses.failedSnapLeft, messages.app.statuses.snappedLeft]);
+  }, [markOnboardingStepTested]);
 
   const snapRight = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" | null = "menu") => {
     try {
       await invoke("snap_right");
       setSnap("right");
       markOnboardingStepTested("snap");
-      setStatus(messages.app.statuses.snappedRight);
       if (trigger) trackAnalytics({ name: "core_action_succeeded", properties: { action: "snap_right", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
-      setStatus(messages.app.statuses.failedSnapRight);
     }
-  }, [markOnboardingStepTested, messages.app.statuses.failedSnapRight, messages.app.statuses.snappedRight]);
+  }, [markOnboardingStepTested]);
 
   const snapTop = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" | null = "menu") => {
     try {
       await invoke("snap_top");
       setSnap("top");
       markOnboardingStepTested("snap");
-      setStatus(messages.app.statuses.snappedTop);
       if (trigger) trackAnalytics({ name: "core_action_succeeded", properties: { action: "snap_top", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
-      setStatus(messages.app.statuses.failedSnapTop);
     }
-  }, [markOnboardingStepTested, messages.app.statuses.failedSnapTop, messages.app.statuses.snappedTop]);
+  }, [markOnboardingStepTested]);
 
   const snapBottom = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" | null = "menu") => {
     try {
       await invoke("snap_bottom");
       setSnap("bottom");
       markOnboardingStepTested("snap");
-      setStatus(messages.app.statuses.snappedBottom);
       if (trigger) trackAnalytics({ name: "core_action_succeeded", properties: { action: "snap_bottom", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
-      setStatus(messages.app.statuses.failedSnapBottom);
     }
-  }, [markOnboardingStepTested, messages.app.statuses.failedSnapBottom, messages.app.statuses.snappedBottom]);
+  }, [markOnboardingStepTested]);
 
   const resizeToMinimum = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" = "menu") => {
     try {
       await windowHandle.setSize(new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT));
-      setStatus(messages.app.statuses.resizedMinimum);
       trackAnalytics({ name: "core_action_succeeded", properties: { action: "minimum_size", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
-      setStatus(messages.app.statuses.failedResizeMinimum);
     }
-  }, [messages.app.statuses.failedResizeMinimum, messages.app.statuses.resizedMinimum, windowHandle]);
+  }, [windowHandle]);
 
   const resizeToFitContent = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" = "menu") => {
     const editor = editorRef.current;
@@ -1482,13 +1452,11 @@ function App() {
         new LogicalSize(Math.min(nextWidth, maxWidth), Math.min(nextHeight, maxHeight)),
       );
       markOnboardingStepTested("fitContent");
-      setStatus(messages.app.statuses.resizedFitContent);
       trackAnalytics({ name: "core_action_succeeded", properties: { action: "fit_content", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
-      setStatus(messages.app.statuses.failedResizeFitContent);
     }
-  }, [markOnboardingStepTested, messages.app.statuses.failedResizeFitContent, messages.app.statuses.resizedFitContent, windowHandle]);
+  }, [markOnboardingStepTested, windowHandle]);
 
   useEffect(() => {
     const initState = async () => {
@@ -1583,14 +1551,13 @@ function App() {
         if (openPathParam) {
           try {
             const decodedPath = decodeURIComponent(openPathParam);
-            await openFilesByPaths([decodedPath], { announce: false });
+            await openFilesByPaths([decodedPath]);
           } catch (error) {
             console.error("Failed to open startup path", error);
           }
         }
       } catch (error) {
         console.error(error);
-        setStatus(messages.app.statuses.failedReadAlwaysOnTopState);
       } finally {
         settingsReadyRef.current = true;
         setStartupStateReady(true);
@@ -1619,7 +1586,6 @@ function App() {
           await drainPendingOpenFiles();
         } catch (error) {
           console.error("Failed to drain pending external file opens", error);
-          setStatus(messages.app.statuses.failedOpenFile);
         } finally {
           busy = false;
           if (rerunRequested && !cancelled) {
@@ -1637,7 +1603,6 @@ function App() {
       pumpPendingOpenFiles();
     }).catch((error) => {
       console.error("Failed to listen for pending open files", error);
-      setStatus(messages.app.statuses.failedOpenFile);
     });
 
     return () => {
@@ -1648,7 +1613,6 @@ function App() {
     currentWindowLabel,
     currentWebviewWindow,
     drainPendingOpenFiles,
-    messages.app.statuses.failedOpenFile,
     startupStateReady,
   ]);
 
@@ -1693,12 +1657,6 @@ function App() {
   useEffect(() => {
     updateAnalyticsLanguage(language);
   }, [language]);
-
-  useEffect(() => {
-    if (!status) return;
-    const timer = window.setTimeout(() => setStatus(null), 6_000);
-    return () => window.clearTimeout(timer);
-  }, [status]);
 
   useEffect(() => {
     try {
@@ -2380,17 +2338,13 @@ function App() {
         if (rawText.length > 0) recordFirstMemoEdit(editor.innerHTML);
       } catch (error) {
         console.error("clipboard read failed", error);
-        setStatus(messages.app.statuses.clipboardUnavailable);
       }
-    } else {
-      setStatus(messages.app.statuses.clipboardUnavailable);
     }
     window.requestAnimationFrame(() => {
       updateContent(editor.innerHTML);
       updateCursorIndex();
     });
   }, [
-    messages.app.statuses.clipboardUnavailable,
     insertPlainText,
     normalizePlainText,
     measurePastePerformance,
@@ -2933,31 +2887,26 @@ function App() {
         }
         case "KeyT": {
           event.preventDefault();
-          setStatus(messages.app.statuses.hotkeyToggleAlwaysOnTop);
           void toggleAlwaysOnTop("local_shortcut");
           break;
         }
         case "ArrowLeft": {
           event.preventDefault();
-          setStatus(messages.app.statuses.hotkeySnapLeft);
           void snapLeft("local_shortcut");
           break;
         }
         case "ArrowRight": {
           event.preventDefault();
-          setStatus(messages.app.statuses.hotkeySnapRight);
           void snapRight("local_shortcut");
           break;
         }
         case "ArrowUp": {
           event.preventDefault();
-          setStatus(messages.app.statuses.hotkeySnapTop);
           void snapTop("local_shortcut");
           break;
         }
         case "ArrowDown": {
           event.preventDefault();
-          setStatus(messages.app.statuses.hotkeySnapBottom);
           void snapBottom("local_shortcut");
           break;
         }
@@ -2992,7 +2941,6 @@ function App() {
     snapLeft,
     snapRight,
     snapTop,
-    messages.app.statuses,
     toggleAlwaysOnTop,
   ]);
 
@@ -3014,11 +2962,9 @@ function App() {
           await unregisterAll();
           await attemptRegister();
         } else {
-          setStatus(messages.app.statuses.globalShortcutError(message));
           throw error;
         }
       }
-      setStatus(messages.app.statuses.globalShortcutsActive);
     };
 
     const configure = async () => {
@@ -3028,11 +2974,9 @@ function App() {
           await registerGlobalShortcuts();
         } else {
           await unregisterAll();
-          setStatus(messages.app.statuses.localShortcutsActive);
         }
       } catch (error) {
         console.error(error);
-        setStatus(messages.app.statuses.failedConfigureShortcuts);
       }
     };
 
@@ -3045,7 +2989,6 @@ function App() {
     };
   }, [
     ensureGlobalShortcutsSingleWindow,
-    messages.app.statuses,
     setGlobalShortcutsPreference,
     shortcutActions,
     useGlobalShortcuts,
@@ -3860,15 +3803,6 @@ function App() {
             <span className="bottom-label">{messages.app.statusBar.shortcuts}: </span>
             <span className="bottom-value">{useGlobalShortcuts ? messages.common.on : messages.common.off}</span>
           </span>
-        </div>
-      ) : null}
-
-      {status ? (
-        <div className={`operation-status ${showStatusBar ? "" : "without-status"}`} role="status">
-          <span>{status}</span>
-          <button type="button" onClick={() => setStatus(null)} aria-label={messages.common.windowControls.close}>
-            <X size={14} strokeWidth={1.8} aria-hidden="true" />
-          </button>
         </div>
       ) : null}
 

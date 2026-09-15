@@ -1,4 +1,4 @@
-const DEFAULT_APP_PROMPT_STORAGE_KEY = "alwaysmemo-default-app-prompt";
+export const DEFAULT_APP_PROMPT_STORAGE_KEY = "alwaysmemo-default-app-prompt";
 const PROMPT_INTERVAL_MS = 14 * 24 * 60 * 60 * 1000;
 
 type DefaultAppPromptRecord = {

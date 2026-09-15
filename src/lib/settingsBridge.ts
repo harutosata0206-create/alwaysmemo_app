@@ -34,9 +34,17 @@ export type SettingsUpdatePayload = {
   patch: SettingsPatch;
 };
 
+export type DevelopmentResetTarget = "analytics" | "onboarding" | "all";
+
+export type DevelopmentResetPayload = {
+  settingsLabel: string;
+  target: DevelopmentResetTarget;
+};
+
 export const SETTINGS_REQUEST_EVENT = "alwaysmemo:settings-request";
 export const SETTINGS_SYNC_EVENT = "alwaysmemo:settings-sync";
 export const SETTINGS_UPDATE_EVENT = "alwaysmemo:settings-update";
+export const DEVELOPMENT_RESET_EVENT = "alwaysmemo:development-reset";
 
 export const createSettingsWindowLabel = (sourceLabel: string) =>
   `alwaysmemo-settings-${sourceLabel}`;

@@ -1,4 +1,4 @@
-const REVIEW_PROMPT_STORAGE_KEY = "alwaysmemo-review-prompt";
+export const REVIEW_PROMPT_STORAGE_KEY = "alwaysmemo-review-prompt";
 const MINIMUM_FIRST_LAUNCH_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MINIMUM_LAUNCH_COUNT = 8;
 const MINIMUM_USAGE_DAYS = 3;
