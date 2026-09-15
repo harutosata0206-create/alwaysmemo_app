@@ -7,6 +7,16 @@
   "vars": {
     "ALLOWED_ORIGINS": "http://tauri.localhost,https://tauri.localhost"
   },
+  "ratelimits": [
+    {
+      "name": "EVENTS_RATE_LIMITER",
+      "namespace_id": "731842019",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

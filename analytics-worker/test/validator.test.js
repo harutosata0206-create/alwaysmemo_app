@@ -32,6 +32,18 @@ test("rejects unknown events and oversized batches", () => {
   assert.equal(validateBatch({ events: Array(21).fill(event) }).ok, false);
 });
 
+test("rejects batches containing multiple installations", () => {
+  const otherInstallation = {
+    ...event,
+    event_id: "44444444-4444-4444-8444-444444444444",
+    installation_id: "55555555-5555-4555-8555-555555555555",
+  };
+  assert.deepEqual(validateBatch({ events: [event, otherInstallation] }), {
+    ok: false,
+    error: "mixed_installations",
+  });
+});
+
 test("the Worker accepts a validated batch and binds it to D1", async () => {
   const bound = [];
   const DB = {
@@ -51,8 +63,37 @@ test("the Worker accepts a validated batch and binds it to D1", async () => {
   const response = await worker.fetch(request, {
     DB,
     ALLOWED_ORIGINS: "http://tauri.localhost",
+    EVENTS_RATE_LIMITER: { limit: async () => ({ success: true }) },
   });
   assert.equal(response.status, 202);
   assert.equal(bound.length, 1);
   assert.equal(bound[0][0], event.event_id);
+});
+
+test("returns 429 without writing to D1 when rate limited", async () => {
+  let prepared = false;
+  const request = new Request("https://worker.example/v1/events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Origin": "http://tauri.localhost" },
+    body: JSON.stringify({ events: [event] }),
+  });
+  const response = await worker.fetch(request, {
+    ALLOWED_ORIGINS: "http://tauri.localhost",
+    EVENTS_RATE_LIMITER: { limit: async () => ({ success: false }) },
+    DB: { prepare: () => { prepared = true; } },
+  });
+  assert.equal(response.status, 429);
+  assert.equal(prepared, false);
+});
+
+test("rejects request bodies larger than 64 KiB", async () => {
+  const request = new Request("https://worker.example/v1/events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Origin": "http://tauri.localhost" },
+    body: "x".repeat(64 * 1024 + 1),
+  });
+  const response = await worker.fetch(request, {
+    ALLOWED_ORIGINS: "http://tauri.localhost",
+  });
+  assert.equal(response.status, 413);
 });

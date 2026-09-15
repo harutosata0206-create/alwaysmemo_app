@@ -100,6 +100,10 @@ export function validateBatch(body, now = Date.now()) {
       return { ok: false, error: "invalid_event" };
     }
   }
+  const installationId = body.events[0].installation_id;
+  if (body.events.some((event) => event.installation_id !== installationId)) {
+    return { ok: false, error: "mixed_installations" };
+  }
   return { ok: true };
 }
 
@@ -150,6 +154,11 @@ export default {
     }
     const validation = validateBatch(body);
     if (!validation.ok) return json({ error: validation.error }, 400, origin);
+
+    const rateLimit = await env.EVENTS_RATE_LIMITER.limit({
+      key: body.events[0].installation_id,
+    });
+    if (!rateLimit.success) return json({ error: "rate_limited" }, 429, origin);
 
     const statement = env.DB.prepare(
       `INSERT OR IGNORE INTO analytics_events

@@ -107,11 +107,45 @@ test("a network failure keeps the event with a limited retry count", async () =>
   assert.equal(queue[0].attempts, 1);
 });
 
+test("a timed out request keeps the event for retry", async () => {
+  const storage = new MemoryStorage();
+  setup(storage, "https://example.invalid/v1/events");
+  enableAnalytics();
+  globalThis.window.setTimeout = (callback) => {
+    queueMicrotask(callback);
+    return 1;
+  };
+  globalThis.fetch = async (_url, init) => new Promise((_resolve, reject) => {
+    init.signal.addEventListener("abort", () => reject(new Error("timeout")));
+  });
+  await flushAnalytics();
+  const queue = JSON.parse(storage.getItem("alwaysmemo-analytics-queue"));
+  assert.equal(queue.length, 2);
+  assert.equal(queue[0].attempts, 1);
+});
+
+test("events are discarded after the bounded retry schedule", async () => {
+  const storage = new MemoryStorage();
+  setup(storage, "https://example.invalid/v1/events");
+  globalThis.fetch = async () => { throw new Error("offline"); };
+  enableAnalytics();
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await flushAnalytics();
+    const queue = JSON.parse(storage.getItem("alwaysmemo-analytics-queue") ?? "[]");
+    for (const item of queue) item.nextAttemptAt = 0;
+    if (queue.length > 0) {
+      storage.setItem("alwaysmemo-analytics-queue", JSON.stringify(queue));
+    }
+  }
+  assert.equal(storage.getItem("alwaysmemo-analytics-queue"), null);
+});
+
 test("client events pass through the Worker receiver and leave the queue", async () => {
   const storage = new MemoryStorage();
   const bound = [];
   const env = {
     ALLOWED_ORIGINS: "http://tauri.localhost",
+    EVENTS_RATE_LIMITER: { limit: async () => ({ success: true }) },
     DB: {
       prepare: () => ({
         bind: (...values) => {

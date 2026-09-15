@@ -5,10 +5,13 @@ names and fields, including memo content, file names, file paths, window titles,
 raw errors, and account or hardware identifiers. D1 deduplicates by event ID.
 The scheduled handler deletes raw rows after 90 days.
 
+Production receiver (deployed September 16, 2026):
+`https://alwaysmemo-analytics.ugomemo.workers.dev/v1/events`.
+Requests are limited to 60 per minute for each validated installation ID.
+
 ## Release order
 
-1. Publish the revised privacy policy. The current public policy says that no
-   usage analytics are collected, so the app must not be released first.
+1. Confirm that the revised privacy policy is public before releasing the app.
 2. Create a D1 database with `npx wrangler d1 create alwaysmemo-analytics`.
 3. Copy `wrangler.jsonc.example` to `wrangler.jsonc` and replace only
    `<D1_DATABASE_ID>` with the returned ID. Do not add client secrets.
