@@ -18,6 +18,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   getCurrentWindow,
   LogicalSize,
+  type PhysicalSize,
   UserAttentionType,
 } from "@tauri-apps/api/window";
 import {
@@ -101,6 +102,13 @@ const HELP_URL = "https://alwaysmemo.pages.dev/help";
 const REVIEW_URL = "https://apps.microsoft.com/detail/9n22tl7m39q3";
 const DEFAULT_USE_GLOBAL_SHORTCUTS = true;
 const ANALYTICS_SESSION_IDLE_MS = 30 * 60 * 1000;
+const MIN_ZOOM_LEVEL = 0.5;
+const MAX_ZOOM_LEVEL = 2;
+const ZOOM_STEP = 0.1;
+const ONBOARDING_SIZE_RESTORE_MS = 1_000;
+
+const clampZoom = (value: number) =>
+  Math.min(MAX_ZOOM_LEVEL, Math.max(MIN_ZOOM_LEVEL, value));
 
 type Tab = {
   id: string;
@@ -144,6 +152,7 @@ type PersistedState = {
   useGlobalShortcuts: boolean;
   showStatusBar?: boolean;
   wrapAtRightEdge?: boolean;
+  spellCheckEnabled?: boolean;
   sessionBehavior?: SessionBehavior;
   fileOpenBehavior?: FileOpenBehavior;
   editorFontSizePx?: number;
@@ -232,6 +241,7 @@ function App() {
   const [viewMenuStyle, setViewMenuStyle] = useState<CSSProperties | undefined>(undefined);
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
+  const [spellCheckEnabled, setSpellCheckEnabled] = useState(true);
   const [editorFontSizePx, setEditorFontSizePx] = useState(14);
   const [, setEditorFontSizeInput] = useState("14");
   const [lineSpacing, setLineSpacing] = useState<LineSpacing>("standard");
@@ -253,6 +263,7 @@ function App() {
     useGlobalShortcuts: DEFAULT_USE_GLOBAL_SHORTCUTS,
     showStatusBar: true,
     wrapAtRightEdge: true,
+    spellCheckEnabled: true,
     editorFontSizePx: 14,
     lineSpacing: "standard",
     themeMode: "system",
@@ -291,6 +302,8 @@ function App() {
   const [pulsedOnboardingKeys, setPulsedOnboardingKeys] = useState<string[]>([]);
   const onboardingStepRef = useRef<OnboardingStep | null>(null);
   const onboardingKeyPulseTimerRef = useRef<number | null>(null);
+  const onboardingOriginalSizeRef = useRef<PhysicalSize | null>(null);
+  const onboardingSizeRestoreTimerRef = useRef<number | null>(null);
   const defaultAppPromptShownRef = useRef(false);
   const editorComposingRef = useRef(false);
   const memoEditRecordedAtRef = useRef<number | null>(null);
@@ -587,6 +600,7 @@ function App() {
         useGlobalShortcuts,
         showStatusBar,
         wrapAtRightEdge,
+        spellCheckEnabled,
         sessionBehavior,
         fileOpenBehavior,
         editorFontSizePx,
@@ -608,6 +622,7 @@ function App() {
       sessionBehavior,
       showStatusBar,
       snap,
+      spellCheckEnabled,
       storageKey,
       themeMode,
       useGlobalShortcuts,
@@ -1103,6 +1118,7 @@ function App() {
     useGlobalShortcuts,
     showStatusBar,
     wrapAtRightEdge,
+    spellCheckEnabled,
     editorFontSizePx,
     lineSpacing,
     themeMode,
@@ -1119,6 +1135,7 @@ function App() {
     lineSpacing,
     sessionBehavior,
     showStatusBar,
+    spellCheckEnabled,
     themeMode,
     useGlobalShortcuts,
     wrapAtRightEdge,
@@ -1159,6 +1176,10 @@ function App() {
     if (patch.wrapAtRightEdge !== undefined) {
       setWrapAtRightEdge(patch.wrapAtRightEdge);
       nextSnapshot = { ...nextSnapshot, wrapAtRightEdge: patch.wrapAtRightEdge };
+    }
+    if (patch.spellCheckEnabled !== undefined) {
+      setSpellCheckEnabled(patch.spellCheckEnabled);
+      nextSnapshot = { ...nextSnapshot, spellCheckEnabled: patch.spellCheckEnabled };
     }
     if (patch.showStatusBar !== undefined) {
       setShowStatusBar(patch.showStatusBar);
@@ -1399,7 +1420,15 @@ function App() {
   const resizeToFitContent = useCallback(async (trigger: "global_shortcut" | "local_shortcut" | "menu" = "menu") => {
     const editor = editorRef.current;
     if (!editor) return;
+    const shouldRestoreOnboardingSize = onboardingStepRef.current === "fitContent";
     try {
+      if (shouldRestoreOnboardingSize && onboardingOriginalSizeRef.current === null) {
+        try {
+          onboardingOriginalSizeRef.current = await windowHandle.outerSize();
+        } catch (error) {
+          console.error("Failed to capture the onboarding window size", error);
+        }
+      }
       const maxWidth = window.screen?.availWidth ?? window.innerWidth;
       const maxHeight = window.screen?.availHeight ?? window.innerHeight;
       const computed = window.getComputedStyle(editor);
@@ -1452,6 +1481,20 @@ function App() {
         new LogicalSize(Math.min(nextWidth, maxWidth), Math.min(nextHeight, maxHeight)),
       );
       markOnboardingStepTested("fitContent");
+      if (shouldRestoreOnboardingSize && onboardingOriginalSizeRef.current !== null) {
+        if (onboardingSizeRestoreTimerRef.current !== null) {
+          window.clearTimeout(onboardingSizeRestoreTimerRef.current);
+        }
+        onboardingSizeRestoreTimerRef.current = window.setTimeout(() => {
+          const originalSize = onboardingOriginalSizeRef.current;
+          onboardingOriginalSizeRef.current = null;
+          onboardingSizeRestoreTimerRef.current = null;
+          if (!originalSize) return;
+          void windowHandle.setSize(originalSize).catch((error) => {
+            console.error("Failed to restore the onboarding window size", error);
+          });
+        }, ONBOARDING_SIZE_RESTORE_MS);
+      }
       trackAnalytics({ name: "core_action_succeeded", properties: { action: "fit_content", context: onboardingStepRef.current ? "onboarding" : "normal", trigger } });
     } catch (error) {
       console.error(error);
@@ -1482,6 +1525,7 @@ function App() {
           const nextLanguagePreference = parsed.languagePreference ?? "system";
           const nextShowStatusBar = parsed.showStatusBar ?? true;
           const nextWrapAtRightEdge = parsed.wrapAtRightEdge ?? true;
+          const nextSpellCheckEnabled = parsed.spellCheckEnabled ?? true;
           setSessionBehavior(nextSessionBehavior);
           setFileOpenBehavior(nextFileOpenBehavior);
           setEditorFontSizePx(nextEditorFontSizePx);
@@ -1490,6 +1534,7 @@ function App() {
           setLanguagePreference(nextLanguagePreference);
           setShowStatusBar(nextShowStatusBar);
           setWrapAtRightEdge(nextWrapAtRightEdge);
+          setSpellCheckEnabled(nextSpellCheckEnabled);
           const pathMap = getPathMap();
           const shouldRestoreTabs = nextSessionBehavior === "restore";
           const restoredTabs = ((shouldRestoreTabs && parsed.tabs.length)
@@ -1537,6 +1582,7 @@ function App() {
           setUseGlobalShortcuts(DEFAULT_USE_GLOBAL_SHORTCUTS);
           setShowStatusBar(true);
           setWrapAtRightEdge(true);
+          setSpellCheckEnabled(true);
           const nextAlwaysOnTop = forceAlwaysOnTopDefined
             ? forceAlwaysOnTop
             : current;
@@ -1757,6 +1803,9 @@ function App() {
   useEffect(() => () => {
     if (onboardingKeyPulseTimerRef.current !== null) {
       window.clearTimeout(onboardingKeyPulseTimerRef.current);
+    }
+    if (onboardingSizeRestoreTimerRef.current !== null) {
+      window.clearTimeout(onboardingSizeRestoreTimerRef.current);
     }
   }, []);
 
@@ -2497,13 +2546,12 @@ function App() {
     }
   }, [activePlainText, updateCursorIndex]);
 
-  const clampZoom = (value: number) => Math.min(2, Math.max(0.5, value));
-  const applyZoom = useCallback((next: number) => {
-    setZoomLevel(clampZoom(next));
+  const changeZoomByStep = useCallback((direction: 1 | -1) => {
+    setZoomLevel((current) => clampZoom(current + direction * ZOOM_STEP));
   }, []);
-  const zoomIn = useCallback(() => applyZoom(zoomLevel + 0.1), [applyZoom, zoomLevel]);
-  const zoomOut = useCallback(() => applyZoom(zoomLevel - 0.1), [applyZoom, zoomLevel]);
-  const resetZoom = useCallback(() => applyZoom(1), [applyZoom]);
+  const zoomIn = useCallback(() => changeZoomByStep(1), [changeZoomByStep]);
+  const zoomOut = useCallback(() => changeZoomByStep(-1), [changeZoomByStep]);
+  const resetZoom = useCallback(() => setZoomLevel(1), []);
 
   const submitGoToLine = useCallback(() => {
     const parsed = Number.parseInt(goToLineValue, 10);
@@ -2812,27 +2860,27 @@ function App() {
         const noShift = !event.shiftKey;
         if (noShift && (key === "+" || key === "=")) {
           event.preventDefault();
-          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
+          changeZoomByStep(1);
           return;
         }
         if (noShift && event.code === "Semicolon") {
           event.preventDefault();
-          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
+          changeZoomByStep(1);
           return;
         }
         if (noShift && event.code === "NumpadAdd") {
           event.preventDefault();
-          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev + 0.1)));
+          changeZoomByStep(1);
           return;
         }
         if (noShift && key === "-") {
           event.preventDefault();
-          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev - 0.1)));
+          changeZoomByStep(-1);
           return;
         }
         if (noShift && event.code === "NumpadSubtract") {
           event.preventDefault();
-          setZoomLevel((prev) => Math.min(2, Math.max(0.5, prev - 0.1)));
+          changeZoomByStep(-1);
           return;
         }
         if (noShift && key === "0") {
@@ -2928,6 +2976,7 @@ function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [
     addTab,
+    changeZoomByStep,
     cycleActiveTab,
     closeActiveTab,
     closeWindow,
@@ -2943,6 +2992,23 @@ function App() {
     snapTop,
     toggleAlwaysOnTop,
   ]);
+
+  useEffect(() => {
+    const handleZoomWheel = (event: WheelEvent) => {
+      if (
+        (!event.ctrlKey && !event.metaKey) ||
+        event.altKey ||
+        event.shiftKey ||
+        event.deltaY === 0
+      ) {
+        return;
+      }
+      event.preventDefault();
+      changeZoomByStep(event.deltaY < 0 ? 1 : -1);
+    };
+    window.addEventListener("wheel", handleZoomWheel, { passive: false });
+    return () => window.removeEventListener("wheel", handleZoomWheel);
+  }, [changeZoomByStep]);
 
   useEffect(() => {
     const registerGlobalShortcuts = async () => {
@@ -2995,6 +3061,7 @@ function App() {
   ]);
 
   const handleTopTabsWheel = useCallback((event: WheelEvent) => {
+    if (event.ctrlKey || event.metaKey) return;
     // While pointer is on the top bar, block vertical page/editor scrolling.
     event.preventDefault();
     const scroller = tabsScrollerRef.current;
@@ -3619,6 +3686,7 @@ function App() {
             className="editor-body"
             data-wrap={wrapAtRightEdge ? "on" : "off"}
             data-line-spacing={lineSpacing}
+            spellCheck={spellCheckEnabled}
             style={{
               fontSize: `${editorFontSizePx}px`,
               lineHeight: editorLineHeight,

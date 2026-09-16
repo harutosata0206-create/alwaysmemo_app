@@ -79,6 +79,7 @@ test("development analytics reset preserves memo and settings state", () => {
   const storage = new MemoryStorage();
   setup(storage);
   enableAnalytics();
+  deferAnalytics(storage);
   storage.setItem("alwaysmemo-state", "memo-and-settings");
 
   resetAnalyticsForDevelopment(storage);
@@ -88,6 +89,7 @@ test("development analytics reset preserves memo and settings state", () => {
   assert.equal(storage.getItem("alwaysmemo-analytics-installation"), null);
   assert.equal(storage.getItem("alwaysmemo-analytics-session"), null);
   assert.equal(storage.getItem("alwaysmemo-analytics-queue"), null);
+  assert.equal(storage.getItem("alwaysmemo-analytics-prompt"), null);
 });
 
 test("the local queue stays within 500 events", () => {

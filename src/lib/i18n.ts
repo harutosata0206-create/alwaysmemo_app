@@ -192,6 +192,8 @@ type Messages = {
       lineSpacingRelaxed: string;
       wrapLabel: string;
       wrapDescription: string;
+      spellCheckLabel: string;
+      spellCheckDescription: string;
       previewTitle: string;
       previewLine1: string;
       previewLine2: string;
@@ -337,7 +339,7 @@ const translations: Record<AppLanguage, Messages> = {
         steps: {
           snap: { title: "ウィンドウをすばやく移動", shortcutLabel: "移動ショートカット", body: "矢印キーに合わせて、AlwaysMemoを画面内の好きな位置へ移動できます。", instruction: "実際に押して試してください。" },
           alwaysOnTop: { title: "メモを常に手前に表示", shortcutLabel: "最前面表示ショートカット", body: "他のアプリを操作している間も、AlwaysMemoを手前に表示できます。", instruction: "ショートカットを押して試してください。" },
-          fitContent: { title: "内容に合わせてサイズ調整", shortcutLabel: "サイズ調整ショートカット", body: "メモの内容に合わせて、ウィンドウサイズをすばやく整えます。", instruction: "ショートカットを押して試してください。" },
+          fitContent: { title: "内容に合わせてサイズ調整", shortcutLabel: "サイズ調整ショートカット", body: "メモの内容に合わせて、ウィンドウサイズをすばやく整えます。オンボーディング中は、1秒後に元のサイズへ戻ります。", instruction: "ショートカットを押して試してください。" },
           focus: { title: "いつでもメモへ戻る", shortcutLabel: "フォーカスショートカット", body: "他のアプリからAlwaysMemoを呼び出し、そのまま本文へ入力できます。", instruction: "ショートカットを押して試してください。" },
         },
       },
@@ -424,6 +426,8 @@ const translations: Record<AppLanguage, Messages> = {
         lineSpacingRelaxed: "広い",
         wrapLabel: "折り返し",
         wrapDescription: "長い行を自動で折り返します",
+        spellCheckLabel: "スペルチェック",
+        spellCheckDescription: "メモ内のスペルミスを下線で表示します",
         previewTitle: "プレビュー:",
         previewLine1: "alwaysmemoの表示サンプルです。",
         previewLine2: "この文章は折り返し設定の確認用に、少し長めのテキストを表示しています。",
@@ -567,7 +571,7 @@ const translations: Record<AppLanguage, Messages> = {
         steps: {
           snap: { title: "Move the window instantly", shortcutLabel: "Window movement shortcut", body: "Use an arrow key to quickly move AlwaysMemo around the screen.", instruction: "Try the shortcut now." },
           alwaysOnTop: { title: "Keep your memo in front", shortcutLabel: "Always on top shortcut", body: "Keep AlwaysMemo visible while working in other apps.", instruction: "Try the shortcut now." },
-          fitContent: { title: "Fit the window to your memo", shortcutLabel: "Fit content shortcut", body: "Quickly resize the window to match the memo content.", instruction: "Try the shortcut now." },
+          fitContent: { title: "Fit the window to your memo", shortcutLabel: "Fit content shortcut", body: "Quickly resize the window to match the memo content. During onboarding, it returns to its previous size after one second.", instruction: "Try the shortcut now." },
           focus: { title: "Return to your memo anytime", shortcutLabel: "Focus shortcut", body: "Bring back AlwaysMemo from another app and type immediately.", instruction: "Try the shortcut now." },
         },
       },
@@ -654,6 +658,8 @@ const translations: Record<AppLanguage, Messages> = {
         lineSpacingRelaxed: "Relaxed",
         wrapLabel: "Wrap Text",
         wrapDescription: "Automatically wrap long lines",
+        spellCheckLabel: "Spell Check",
+        spellCheckDescription: "Underline spelling mistakes in memos",
         previewTitle: "Preview:",
         previewLine1: "This is a display sample for AlwaysMemo.",
         previewLine2: "This sentence is intentionally a little longer so you can check how wrapping looks.",
@@ -797,7 +803,7 @@ const translations: Record<AppLanguage, Messages> = {
         steps: {
           snap: { title: "Mueve la ventana al instante", shortcutLabel: "Atajo para mover la ventana", body: "Usa una flecha para mover AlwaysMemo rápidamente por la pantalla.", instruction: "Prueba el atajo ahora." },
           alwaysOnTop: { title: "Mantén el memo al frente", shortcutLabel: "Atajo siempre visible", body: "Mantén AlwaysMemo visible mientras trabajas en otras aplicaciones.", instruction: "Prueba el atajo ahora." },
-          fitContent: { title: "Ajusta la ventana al memo", shortcutLabel: "Atajo para ajustar el contenido", body: "Ajusta rápidamente la ventana al contenido del memo.", instruction: "Prueba el atajo ahora." },
+          fitContent: { title: "Ajusta la ventana al memo", shortcutLabel: "Atajo para ajustar el contenido", body: "Ajusta rápidamente la ventana al contenido del memo. Durante la introducción, vuelve al tamaño anterior después de un segundo.", instruction: "Prueba el atajo ahora." },
           focus: { title: "Vuelve al memo en cualquier momento", shortcutLabel: "Atajo para enfocar", body: "Abre AlwaysMemo desde otra aplicación y escribe de inmediato.", instruction: "Prueba el atajo ahora." },
         },
       },
@@ -884,6 +890,8 @@ const translations: Record<AppLanguage, Messages> = {
         lineSpacingRelaxed: "Amplio",
         wrapLabel: "Ajuste de texto",
         wrapDescription: "Ajusta automáticamente las líneas largas",
+        spellCheckLabel: "Corrector ortográfico",
+        spellCheckDescription: "Subraya las faltas de ortografía en las notas",
         previewTitle: "Vista previa:",
         previewLine1: "Este es un ejemplo de visualización de AlwaysMemo.",
         previewLine2: "Esta frase es un poco más larga a propósito para que puedas comprobar cómo se ve el ajuste de línea.",
@@ -1027,7 +1035,7 @@ const translations: Record<AppLanguage, Messages> = {
         steps: {
           snap: { title: "Mova a janela rapidamente", shortcutLabel: "Atalho para mover a janela", body: "Use uma seta para mover o AlwaysMemo rapidamente pela tela.", instruction: "Experimente o atalho agora." },
           alwaysOnTop: { title: "Mantenha o memo à frente", shortcutLabel: "Atalho sempre no topo", body: "Mantenha o AlwaysMemo visível enquanto usa outros aplicativos.", instruction: "Experimente o atalho agora." },
-          fitContent: { title: "Ajuste a janela ao memo", shortcutLabel: "Atalho para ajustar conteúdo", body: "Redimensione rapidamente a janela para o conteúdo do memo.", instruction: "Experimente o atalho agora." },
+          fitContent: { title: "Ajuste a janela ao memo", shortcutLabel: "Atalho para ajustar conteúdo", body: "Redimensione rapidamente a janela para o conteúdo do memo. Durante a introdução, ela volta ao tamanho anterior após um segundo.", instruction: "Experimente o atalho agora." },
           focus: { title: "Volte ao memo a qualquer momento", shortcutLabel: "Atalho para focar", body: "Abra o AlwaysMemo de outro aplicativo e digite imediatamente.", instruction: "Experimente o atalho agora." },
         },
       },
@@ -1114,6 +1122,8 @@ const translations: Record<AppLanguage, Messages> = {
         lineSpacingRelaxed: "Amplo",
         wrapLabel: "Quebra de texto",
         wrapDescription: "Quebre automaticamente linhas longas",
+        spellCheckLabel: "Verificação ortográfica",
+        spellCheckDescription: "Sublinha erros de ortografia nos memorandos",
         previewTitle: "Pré-visualização:",
         previewLine1: "Este é um exemplo de exibição do AlwaysMemo.",
         previewLine2: "Esta frase é um pouco mais longa de propósito para você verificar como a quebra de linha fica.",
@@ -1257,7 +1267,7 @@ const translations: Record<AppLanguage, Messages> = {
         steps: {
           snap: { title: "창을 빠르게 이동", shortcutLabel: "창 이동 단축키", body: "화살표 키로 AlwaysMemo를 화면의 원하는 위치로 빠르게 이동합니다.", instruction: "지금 단축키를 눌러 보세요." },
           alwaysOnTop: { title: "메모를 항상 위에 표시", shortcutLabel: "항상 위에 표시 단축키", body: "다른 앱을 사용하는 동안에도 AlwaysMemo를 앞에 표시합니다.", instruction: "지금 단축키를 눌러 보세요." },
-          fitContent: { title: "메모에 맞게 창 크기 조절", shortcutLabel: "내용 맞춤 단축키", body: "메모 내용에 맞게 창 크기를 빠르게 조절합니다.", instruction: "지금 단축키를 눌러 보세요." },
+          fitContent: { title: "메모에 맞게 창 크기 조절", shortcutLabel: "내용 맞춤 단축키", body: "메모 내용에 맞게 창 크기를 빠르게 조절합니다. 온보딩 중에는 1초 후 이전 창 크기로 돌아갑니다.", instruction: "지금 단축키를 눌러 보세요." },
           focus: { title: "언제든 메모로 돌아오기", shortcutLabel: "포커스 단축키", body: "다른 앱에서 AlwaysMemo를 불러와 바로 입력할 수 있습니다.", instruction: "지금 단축키를 눌러 보세요." },
         },
       },
@@ -1344,6 +1354,8 @@ const translations: Record<AppLanguage, Messages> = {
         lineSpacingRelaxed: "넓게",
         wrapLabel: "줄 바꿈",
         wrapDescription: "긴 줄을 자동으로 줄 바꿈합니다",
+        spellCheckLabel: "맞춤법 검사",
+        spellCheckDescription: "메모의 맞춤법 오류에 밑줄을 표시합니다",
         previewTitle: "미리 보기:",
         previewLine1: "AlwaysMemo 표시 예시입니다.",
         previewLine2: "이 문장은 줄 바꿈 설정을 확인할 수 있도록 일부러 조금 길게 작성했습니다.",

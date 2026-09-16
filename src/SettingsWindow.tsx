@@ -494,6 +494,26 @@ function SettingsWindow() {
                       <span />
                     </label>
                   </div>
+                  <div className="settings-field-row switch">
+                    <div>
+                      <strong>{messages.settings.formatting.spellCheckLabel}</strong>
+                      <small>{messages.settings.formatting.spellCheckDescription}</small>
+                    </div>
+                    <label className="modern-switch">
+                      <input
+                        type="checkbox"
+                        checked={snapshot.spellCheckEnabled}
+                        onChange={(event) => {
+                          const anchor = event.currentTarget.closest(".settings-field-row") as HTMLElement | null;
+                          const enabled = event.currentTarget.checked;
+                          keepSettingsViewport(anchor, async () => {
+                            await sendPatch({ spellCheckEnabled: enabled });
+                          });
+                        }}
+                      />
+                      <span />
+                    </label>
+                  </div>
                   <div
                     className="settings-preview"
                     data-wrap={snapshot.wrapAtRightEdge ? "on" : "off"}

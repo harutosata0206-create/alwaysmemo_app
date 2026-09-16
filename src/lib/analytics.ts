@@ -1,4 +1,9 @@
 import type { AppLanguage } from "./i18n";
+import {
+  clearAnalyticsPromptState,
+  recordAnalyticsPromptDeferral,
+  shouldShowDeferredAnalyticsPrompt,
+} from "./analyticsPrompt.ts";
 
 const CONSENT_KEY = "alwaysmemo-analytics-consent";
 const INSTALLATION_KEY = "alwaysmemo-analytics-installation";
@@ -96,8 +101,17 @@ export function getAnalyticsConsent(storage: Storage = window.localStorage): Ana
   try { return getConsent(storage); } catch { return "unset"; }
 }
 
-export function shouldShowAnalyticsPrompt(storage: Storage = window.localStorage): boolean {
-  return getAnalyticsConsent(storage) === "unset";
+export function shouldShowAnalyticsPrompt(
+  storage: Storage = window.localStorage,
+  now = Date.now(),
+): boolean {
+  try {
+    const consent = getConsent(storage);
+    if (consent === "unset") return true;
+    return consent === "deferred" && shouldShowDeferredAnalyticsPrompt(storage, now);
+  } catch {
+    return false;
+  }
 }
 
 export function captureAnalyticsInstallEvidence(
@@ -197,6 +211,7 @@ export function enableAnalytics(): void {
   if (!runtime) return;
   const evidence = getInstallEvidence(runtime.storage);
   runtime.storage.setItem(CONSENT_KEY, "enabled");
+  clearAnalyticsPromptState(runtime.storage);
   getInstallationId(runtime.storage);
   trackAnalyticsOnce("analytics_enabled", {
     name: "analytics_enabled",
@@ -208,8 +223,14 @@ export function enableAnalytics(): void {
   });
 }
 
-export function deferAnalytics(storage: Storage = window.localStorage): void {
-  try { storage.setItem(CONSENT_KEY, "deferred"); } catch { /* Keep the app usable. */ }
+export function deferAnalytics(
+  storage: Storage = window.localStorage,
+  now = Date.now(),
+): void {
+  try {
+    storage.setItem(CONSENT_KEY, "deferred");
+    recordAnalyticsPromptDeferral(storage, now);
+  } catch { /* Keep the app usable. */ }
 }
 
 export function disableAnalytics(storage: Storage = window.localStorage): void {
@@ -218,6 +239,7 @@ export function disableAnalytics(storage: Storage = window.localStorage): void {
     storage.removeItem(INSTALLATION_KEY);
     storage.removeItem(SESSION_KEY);
     storage.removeItem(QUEUE_KEY);
+    clearAnalyticsPromptState(storage);
   } catch { /* Keep the app usable. */ }
 }
 
@@ -230,6 +252,7 @@ export function resetAnalyticsForDevelopment(
     storage.removeItem(INSTALL_EVIDENCE_KEY);
     storage.removeItem(SESSION_KEY);
     storage.removeItem(QUEUE_KEY);
+    clearAnalyticsPromptState(storage);
   } catch { /* Keep the app usable. */ }
 }
 
