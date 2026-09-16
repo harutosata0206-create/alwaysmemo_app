@@ -3,10 +3,14 @@ use serde::{Deserialize, Serialize};
 use std::{ffi::OsStr, iter, os::windows::ffi::OsStrExt, ptr};
 use std::{
     fs,
-    io::{BufRead, BufReader, Read, Write},
+    fs::OpenOptions,
+    io::{self, BufRead, BufReader, Read, Write},
     net::{Shutdown, TcpListener, TcpStream},
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex,
+    },
     thread,
 };
 use tauri::Emitter;
@@ -19,6 +23,7 @@ const SINGLE_INSTANCE_ACK: &str = "alwaysmemo-single-instance-ok";
 const PENDING_OPEN_FILES_EVENT: &str = "alwaysmemo:pending-open-files";
 const STORE_REVIEW_URI: &str = "ms-windows-store://review/?ProductId=9N22TL7M39Q3";
 const DEFAULT_APPS_SETTINGS_URI: &str = "ms-settings:defaultapps";
+static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn has_allowed_text_extension(path: &Path) -> bool {
     path.extension()
@@ -94,6 +99,89 @@ fn read_validated_text_file(path: &Path) -> Result<OpenedFile, String> {
         path: canonical.to_string_lossy().into_owned(),
         contents,
     })
+}
+
+fn create_save_temp_file(parent: &Path) -> io::Result<(fs::File, PathBuf)> {
+    for _ in 0..16 {
+        let id = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let path = parent.join(format!(".alwaysmemo-save-{}-{id}.tmp", std::process::id(),));
+        match OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(file) => return Ok((file, path)),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    }
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        "unable to create a unique temporary file",
+    ))
+}
+
+#[cfg(target_os = "windows")]
+fn replace_file(replacement: &Path, destination: &Path) -> io::Result<()> {
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn ReplaceFileW(
+            replaced_file_name: *const u16,
+            replacement_file_name: *const u16,
+            backup_file_name: *const u16,
+            replace_flags: u32,
+            exclude: *mut std::ffi::c_void,
+            reserved: *mut std::ffi::c_void,
+        ) -> i32;
+    }
+
+    let destination: Vec<u16> = destination
+        .as_os_str()
+        .encode_wide()
+        .chain(iter::once(0))
+        .collect();
+    let replacement: Vec<u16> = replacement
+        .as_os_str()
+        .encode_wide()
+        .chain(iter::once(0))
+        .collect();
+    let result = unsafe {
+        ReplaceFileW(
+            destination.as_ptr(),
+            replacement.as_ptr(),
+            ptr::null(),
+            0,
+            ptr::null_mut(),
+            ptr::null_mut(),
+        )
+    };
+    if result != 0 {
+        Ok(())
+    } else {
+        Err(io::Error::last_os_error())
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn replace_file(replacement: &Path, destination: &Path) -> io::Result<()> {
+    fs::rename(replacement, destination)
+}
+
+fn write_text_file_safely(path: &Path, contents: &str) -> io::Result<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing parent directory"))?;
+    let (mut temporary_file, temporary_path) = create_save_temp_file(parent)?;
+    let result = (|| {
+        temporary_file.write_all(contents.as_bytes())?;
+        temporary_file.sync_all()?;
+        drop(temporary_file);
+        if path.exists() {
+            replace_file(&temporary_path, path)
+        } else {
+            fs::rename(&temporary_path, path)
+        }
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary_path);
+    }
+    result
 }
 
 #[tauri::command]
@@ -425,7 +513,8 @@ fn write_text_file(path: String, contents: String) -> Result<(), String> {
         return Err("file is too large".to_string());
     }
     let validated_path = validate_write_path(Path::new(&path))?;
-    fs::write(validated_path, contents).map_err(|_| "failed to write text file".to_string())
+    write_text_file_safely(&validated_path, &contents)
+        .map_err(|_| "failed to safely write text file".to_string())
 }
 
 #[tauri::command]
@@ -607,4 +696,70 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_directory(name: &str) -> PathBuf {
+        let id = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let path =
+            std::env::temp_dir().join(format!("alwaysmemo-{name}-{}-{id}", std::process::id(),));
+        fs::create_dir_all(&path).expect("test directory should be created");
+        path
+    }
+
+    fn assert_no_save_temp_files(directory: &Path) {
+        let has_temporary_file = fs::read_dir(directory)
+            .expect("test directory should be readable")
+            .filter_map(Result::ok)
+            .any(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".alwaysmemo-save-")
+            });
+        assert!(!has_temporary_file);
+    }
+
+    #[test]
+    fn safely_writes_a_new_file() {
+        let directory = create_test_directory("new-file");
+        let path = directory.join("memo.txt");
+
+        write_text_file_safely(&path, "new memo").expect("new file should be written");
+
+        assert_eq!(fs::read_to_string(&path).unwrap(), "new memo");
+        assert_no_save_temp_files(&directory);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn safely_replaces_an_existing_file() {
+        let directory = create_test_directory("replace-file");
+        let path = directory.join("memo.txt");
+        fs::write(&path, "previous memo").unwrap();
+
+        write_text_file_safely(&path, "updated memo").expect("existing file should be replaced");
+
+        assert_eq!(fs::read_to_string(&path).unwrap(), "updated memo");
+        assert_no_save_temp_files(&directory);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn oversized_content_does_not_change_an_existing_file() {
+        let directory = create_test_directory("oversized-file");
+        let path = directory.join("memo.txt");
+        fs::write(&path, "previous memo").unwrap();
+        let contents = "x".repeat(MAX_TEXT_FILE_BYTES as usize + 1);
+
+        let result = write_text_file(path.to_string_lossy().into_owned(), contents);
+
+        assert_eq!(result.unwrap_err(), "file is too large");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "previous memo");
+        assert_no_save_temp_files(&directory);
+        fs::remove_dir_all(directory).unwrap();
+    }
 }

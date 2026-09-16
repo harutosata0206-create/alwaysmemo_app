@@ -142,6 +142,11 @@ type Messages = {
       save: string;
       dontSave: string;
       cancel: string;
+      fileOpenFailedTitle: string;
+      fileOpenFailedBody: string;
+      fileSaveFailedTitle: string;
+      fileSaveFailedBody: string;
+      close: string;
     };
     statusBar: {
       lineColumn: (line: number, column: number) => string;
@@ -376,6 +381,11 @@ const translations: Record<AppLanguage, Messages> = {
         save: "保存",
         dontSave: "保存しない",
         cancel: "キャンセル",
+        fileOpenFailedTitle: "ファイルを開けませんでした",
+        fileOpenFailedBody: "ファイルが存在すること、対応形式（.txt / .md / .markdown）で1 MB以下であること、読み取り権限があることを確認して、もう一度お試しください。",
+        fileSaveFailedTitle: "ファイルを保存できませんでした",
+        fileSaveFailedBody: "保存先への書き込み権限と空き容量を確認して、もう一度お試しください。メモの内容はAlwaysMemo内に残っています。",
+        close: "閉じる",
       },
       statusBar: {
         lineColumn: (line, column) => `行 ${line}, 列 ${column}`,
@@ -608,6 +618,11 @@ const translations: Record<AppLanguage, Messages> = {
         save: "Save",
         dontSave: "Don't Save",
         cancel: "Cancel",
+        fileOpenFailedTitle: "Couldn't open the file",
+        fileOpenFailedBody: "Check that the file exists, is a supported .txt, .md, or .markdown file no larger than 1 MB, and that you have permission to read it, then try again.",
+        fileSaveFailedTitle: "Couldn't save the file",
+        fileSaveFailedBody: "Check the destination's write permission and available space, then try again. Your memo remains in AlwaysMemo.",
+        close: "Close",
       },
       statusBar: {
         lineColumn: (line, column) => `Ln ${line}, Col ${column}`,
@@ -840,6 +855,11 @@ const translations: Record<AppLanguage, Messages> = {
         save: "Guardar",
         dontSave: "No guardar",
         cancel: "Cancelar",
+        fileOpenFailedTitle: "No se pudo abrir el archivo",
+        fileOpenFailedBody: "Comprueba que el archivo exista, tenga formato .txt, .md o .markdown, no supere 1 MB y tengas permiso para leerlo. Después, inténtalo de nuevo.",
+        fileSaveFailedTitle: "No se pudo guardar el archivo",
+        fileSaveFailedBody: "Comprueba los permisos de escritura y el espacio disponible en el destino. El contenido de la nota permanece en AlwaysMemo.",
+        close: "Cerrar",
       },
       statusBar: {
         lineColumn: (line, column) => `Lín ${line}, Col ${column}`,
@@ -1072,6 +1092,11 @@ const translations: Record<AppLanguage, Messages> = {
         save: "Salvar",
         dontSave: "Não salvar",
         cancel: "Cancelar",
+        fileOpenFailedTitle: "Não foi possível abrir o arquivo",
+        fileOpenFailedBody: "Verifique se o arquivo existe, está no formato .txt, .md ou .markdown, tem no máximo 1 MB e pode ser lido. Depois, tente novamente.",
+        fileSaveFailedTitle: "Não foi possível salvar o arquivo",
+        fileSaveFailedBody: "Verifique a permissão de gravação e o espaço disponível no destino. O conteúdo da nota continua no AlwaysMemo.",
+        close: "Fechar",
       },
       statusBar: {
         lineColumn: (line, column) => `Lin ${line}, Col ${column}`,
@@ -1304,6 +1329,11 @@ const translations: Record<AppLanguage, Messages> = {
         save: "저장",
         dontSave: "저장하지 않음",
         cancel: "취소",
+        fileOpenFailedTitle: "파일을 열 수 없습니다",
+        fileOpenFailedBody: "파일이 존재하고, 1MB 이하의 .txt, .md 또는 .markdown 형식이며, 읽기 권한이 있는지 확인한 후 다시 시도해 주세요.",
+        fileSaveFailedTitle: "파일을 저장할 수 없습니다",
+        fileSaveFailedBody: "저장 위치의 쓰기 권한과 여유 공간을 확인한 후 다시 시도해 주세요. 메모 내용은 AlwaysMemo에 남아 있습니다.",
+        close: "닫기",
       },
       statusBar: {
         lineColumn: (line, column) => `줄 ${line}, 칸 ${column}`,

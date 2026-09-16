@@ -83,6 +83,7 @@ import {
   trackAnalytics,
   trackAnalyticsOnce,
   updateAnalyticsLanguage,
+  type SafeErrorCategory,
 } from "./lib/analytics";
 import {
   HELP_HINT_STORAGE_KEY,
@@ -193,6 +194,27 @@ type OpenedTextFile = {
   contents: string;
 };
 
+type FileOperationFailure = "open" | "save";
+
+function getFileErrorCategory(
+  error: unknown,
+  fallback: "read" | "write",
+): SafeErrorCategory {
+  const message = String(error).toLowerCase();
+  if (message.includes("dialog")) return "dialog";
+  if (message.includes("permission") || message.includes("access is denied")) {
+    return "permission";
+  }
+  if (
+    message.includes("not found") ||
+    message.includes("does not exist") ||
+    message.includes("unable to inspect")
+  ) {
+    return "not_found";
+  }
+  return fallback;
+}
+
 function App() {
   const [useGlobalShortcuts, setUseGlobalShortcuts] = useState(DEFAULT_USE_GLOBAL_SHORTCUTS);
   const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
@@ -253,6 +275,8 @@ function App() {
   const [fileOpenBehavior, setFileOpenBehavior] = useState<FileOpenBehavior>("existing");
   const [deletePromptTabId, setDeletePromptTabId] = useState<string | null>(null);
   const [windowClosePromptOpen, setWindowClosePromptOpen] = useState(false);
+  const [fileOperationFailure, setFileOperationFailure] =
+    useState<FileOperationFailure | null>(null);
   const [closingTabIds, setClosingTabIds] = useState<string[]>([]);
   const [hoveredTabCloseId, setHoveredTabCloseId] = useState<string | null>(null);
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
@@ -743,7 +767,11 @@ function App() {
 
   const setPathMap = useCallback(
     (next: Record<string, string>) => {
-      window.localStorage.setItem(pathsKey, JSON.stringify(next));
+      try {
+        window.localStorage.setItem(pathsKey, JSON.stringify(next));
+      } catch (error) {
+        console.error("Failed to persist file paths", error);
+      }
     },
     [pathsKey],
   );
@@ -789,14 +817,16 @@ function App() {
         try {
           const opened = await invoke<OpenedTextFile | null>("open_text_file_by_path", { path });
           if (!opened) {
-            trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: "read" } });
+            setFileOperationFailure("open");
+            trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: "not_found" } });
             continue;
           }
           appendOpenedFileTab(opened);
           trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "success" } });
         } catch (error) {
-          trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: "read" } });
-          throw error;
+          console.error(error);
+          setFileOperationFailure("open");
+          trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: getFileErrorCategory(error, "read") } });
         }
       }
     },
@@ -842,7 +872,6 @@ function App() {
         trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "cancelled" } });
         return;
       }
-      trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "success" } });
       if (fileOpenBehavior === "new_window") {
         const label = `alwaysmemo-${crypto.randomUUID()}`;
         const size = await windowHandle.outerSize();
@@ -857,6 +886,7 @@ function App() {
           title: messages.app.windowTitles.main,
         });
         newWindow.once("tauri://created", async () => {
+          trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "success" } });
           try {
             await newWindow.show();
             await newWindow.setFocus();
@@ -869,15 +899,19 @@ function App() {
         });
         newWindow.once("tauri://error", (error) => {
           console.error("Failed to create new window", error);
+          setFileOperationFailure("open");
+          trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: "window" } });
         });
         closeMenus();
         return;
       }
       appendOpenedFileTab(opened);
+      trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "success" } });
       closeMenus();
     } catch (error) {
       console.error(error);
-      trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: "read" } });
+      setFileOperationFailure("open");
+      trackAnalytics({ name: "file_operation", properties: { operation: "open", outcome: "failure", error_category: getFileErrorCategory(error, "read") } });
     }
   }, [
     appendOpenedFileTab,
@@ -924,7 +958,8 @@ function App() {
       return true;
     } catch (error) {
       console.error(error);
-      trackAnalytics({ name: "file_operation", properties: { operation: "save_as", outcome: "failure", error_category: "write" } });
+      setFileOperationFailure("save");
+      trackAnalytics({ name: "file_operation", properties: { operation: "save_as", outcome: "failure", error_category: getFileErrorCategory(error, "write") } });
       return false;
     }
   }, [
@@ -978,7 +1013,8 @@ function App() {
       return true;
     } catch (error) {
       console.error(error);
-      trackAnalytics({ name: "file_operation", properties: { operation: "save", outcome: "failure", error_category: "write" } });
+      setFileOperationFailure("save");
+      trackAnalytics({ name: "file_operation", properties: { operation: "save", outcome: "failure", error_category: getFileErrorCategory(error, "write") } });
       return false;
     }
   }, [
@@ -1022,7 +1058,8 @@ function App() {
       closeMenus();
     } catch (error) {
       console.error(error);
-      trackAnalytics({ name: "file_operation", properties: { operation: "save_all", outcome: "failure", error_category: "write" } });
+      setFileOperationFailure("save");
+      trackAnalytics({ name: "file_operation", properties: { operation: "save_all", outcome: "failure", error_category: getFileErrorCategory(error, "write") } });
     }
   }, [closeMenus, htmlToText, persistState, tabs]);
 
@@ -3810,6 +3847,38 @@ function App() {
                 onClick={() => setDeletePromptTabId(null)}
               >
                 {messages.app.dialogs.cancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {fileOperationFailure ? (
+        <div className="format-choice-overlay file-error-overlay" role="presentation">
+          <div
+            className="delete-choice-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="file-error-title"
+            aria-describedby="file-error-desc"
+          >
+            <h2 id="file-error-title">
+              {fileOperationFailure === "open"
+                ? messages.app.dialogs.fileOpenFailedTitle
+                : messages.app.dialogs.fileSaveFailedTitle}
+            </h2>
+            <p id="file-error-desc">
+              {fileOperationFailure === "open"
+                ? messages.app.dialogs.fileOpenFailedBody
+                : messages.app.dialogs.fileSaveFailedBody}
+            </p>
+            <div className="delete-choice-actions">
+              <button
+                type="button"
+                className="delete-choice primary"
+                autoFocus
+                onClick={() => setFileOperationFailure(null)}
+              >
+                {messages.app.dialogs.close}
               </button>
             </div>
           </div>

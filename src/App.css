@@ -3161,6 +3161,10 @@ button:active {
   background: rgba(15, 23, 42, 0.55);
 }
 
+.file-error-overlay {
+  z-index: 320;
+}
+
 .format-choice-dialog {
   width: min(520px, 90vw);
   border-radius: 12px;
