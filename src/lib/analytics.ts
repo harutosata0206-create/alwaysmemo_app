@@ -5,7 +5,8 @@ import {
   shouldShowDeferredAnalyticsPrompt,
 } from "./analyticsPrompt.ts";
 
-const CONSENT_KEY = "alwaysmemo-analytics-consent";
+export const ANALYTICS_CONSENT_STORAGE_KEY = "alwaysmemo-analytics-consent";
+const CONSENT_KEY = ANALYTICS_CONSENT_STORAGE_KEY;
 const INSTALLATION_KEY = "alwaysmemo-analytics-installation";
 const INSTALL_EVIDENCE_KEY = "alwaysmemo-analytics-install-evidence";
 const SESSION_KEY = "alwaysmemo-analytics-session";
@@ -84,7 +85,9 @@ type AnalyticsRuntime = {
 
 let runtime: AnalyticsRuntime | null = null;
 let flushTimer: number | null = null;
+let flushTimerDueAt: number | null = null;
 let flushPromise: Promise<void> | null = null;
+let activeRequest: { controller: AbortController; storage: Storage } | null = null;
 let listenersInstalled = false;
 
 function parseJson<T>(value: string | null): T | null {
@@ -169,18 +172,65 @@ function writeQueue(storage: Storage, queue: QueuedEvent[]): void {
   else storage.setItem(QUEUE_KEY, JSON.stringify(bounded));
 }
 
+function clearFlushTimer(): void {
+  if (flushTimer !== null) window.clearTimeout(flushTimer);
+  flushTimer = null;
+  flushTimerDueAt = null;
+}
+
 function scheduleFlush(delay = 2_000): void {
-  if (!runtime?.endpoint || flushTimer !== null) return;
+  if (
+    !runtime?.endpoint ||
+    getConsent(runtime.storage) !== "enabled"
+  ) return;
+  const dueAt = Date.now() + Math.max(0, delay);
+  if (flushTimer !== null) {
+    if (flushTimerDueAt !== null && flushTimerDueAt <= dueAt) return;
+    clearFlushTimer();
+  }
+  flushTimerDueAt = dueAt;
   flushTimer = window.setTimeout(() => {
     flushTimer = null;
+    flushTimerDueAt = null;
     void flushAnalytics();
   }, delay);
+}
+
+function retryQueuedEventsNow(): void {
+  if (!runtime || getConsent(runtime.storage) !== "enabled") return;
+  try {
+    const now = Date.now();
+    const queue = readQueue(runtime.storage);
+    if (queue.length === 0) return;
+    writeQueue(
+      runtime.storage,
+      queue.map((item) => ({ ...item, nextAttemptAt: now })),
+    );
+    scheduleFlush(0);
+  } catch { /* Keep the app usable. */ }
+}
+
+function stopPendingAnalytics(storage: Storage): void {
+  if (runtime?.storage !== storage) return;
+  clearFlushTimer();
+  if (activeRequest?.storage === storage) activeRequest.controller.abort();
+}
+
+function handleConsentStorageChange(event: StorageEvent): void {
+  if (
+    event.key === CONSENT_KEY &&
+    event.newValue !== "enabled" &&
+    runtime
+  ) {
+    stopPendingAnalytics(runtime.storage);
+  }
 }
 
 function installFlushListeners(): void {
   if (listenersInstalled) return;
   listenersInstalled = true;
-  window.addEventListener("online", () => scheduleFlush(0));
+  window.addEventListener("online", retryQueuedEventsNow);
+  window.addEventListener("storage", handleConsentStorageChange);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") scheduleFlush(0);
   });
@@ -236,6 +286,7 @@ export function deferAnalytics(
 export function disableAnalytics(storage: Storage = window.localStorage): void {
   try {
     storage.setItem(CONSENT_KEY, "disabled");
+    stopPendingAnalytics(storage);
     storage.removeItem(INSTALLATION_KEY);
     storage.removeItem(SESSION_KEY);
     storage.removeItem(QUEUE_KEY);
@@ -247,6 +298,7 @@ export function resetAnalyticsForDevelopment(
   storage: Storage = window.localStorage,
 ): void {
   try {
+    stopPendingAnalytics(storage);
     storage.removeItem(CONSENT_KEY);
     storage.removeItem(INSTALLATION_KEY);
     storage.removeItem(INSTALL_EVIDENCE_KEY);
@@ -260,23 +312,45 @@ function enqueue(event: AnalyticsEvent, onceKey?: string): void {
   if (!runtime || getConsent(runtime.storage) !== "enabled") return;
   try {
     const now = Date.now();
+    const previousSession = parseJson<Partial<SessionRecord>>(
+      runtime.storage.getItem(SESSION_KEY),
+    );
     const session = readSession(runtime.storage, now);
     if (onceKey && session.onceKeys.includes(onceKey)) return;
     if (onceKey) session.onceKeys = [...session.onceKeys, onceKey].slice(-50);
     runtime.storage.setItem(SESSION_KEY, JSON.stringify(session));
-    const storedEvent: StoredEvent = {
-      ...event,
+    const installationId = getInstallationId(runtime.storage);
+    const common = {
       schema_version: SCHEMA_VERSION,
-      event_id: crypto.randomUUID(),
       occurred_at: new Date(now).toISOString(),
-      installation_id: getInstallationId(runtime.storage),
+      installation_id: installationId,
       session_id: session.id,
       app_version: runtime.appVersion,
       ui_language: runtime.language,
       environment: runtime.environment,
     };
     const queue = readQueue(runtime.storage);
-    queue.push({ event: storedEvent, attempts: 0, nextAttemptAt: now });
+    if (
+      event.name !== "session_started" &&
+      typeof previousSession?.id === "string" &&
+      previousSession.id !== session.id
+    ) {
+      queue.push({
+        event: {
+          name: "session_started",
+          properties: { install_evidence: getInstallEvidence(runtime.storage) },
+          ...common,
+          event_id: crypto.randomUUID(),
+        },
+        attempts: 0,
+        nextAttemptAt: now,
+      });
+    }
+    queue.push({
+      event: { ...event, ...common, event_id: crypto.randomUUID() },
+      attempts: 0,
+      nextAttemptAt: now,
+    });
     writeQueue(runtime.storage, queue);
     scheduleFlush();
   } catch (error) {
@@ -290,13 +364,23 @@ export function trackAnalyticsOnce(onceKey: string, event: AnalyticsEvent): void
 export async function flushAnalytics(): Promise<void> {
   if (flushPromise) return flushPromise;
   if (!runtime?.endpoint || getConsent(runtime.storage) !== "enabled") return;
+  clearFlushTimer();
+  let nextFlushDelay: number | null = null;
   flushPromise = (async () => {
     const activeRuntime = runtime!;
     const queue = readQueue(activeRuntime.storage);
     const now = Date.now();
     const ready = queue.filter((item) => item.nextAttemptAt <= now).slice(0, MAX_BATCH_SIZE);
-    if (ready.length === 0) return;
+    if (ready.length === 0) {
+      const next = queue.reduce(
+        (minimum, item) => Math.min(minimum, item.nextAttemptAt),
+        Number.POSITIVE_INFINITY,
+      );
+      if (Number.isFinite(next)) nextFlushDelay = Math.max(1_000, next - now);
+      return;
+    }
     const controller = new AbortController();
+    activeRequest = { controller, storage: activeRuntime.storage };
     const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(activeRuntime.endpoint, {
@@ -308,7 +392,13 @@ export async function flushAnalytics(): Promise<void> {
       if (!response.ok) throw new Error();
       const sentIds = new Set(ready.map((item) => item.event.event_id));
       const latestQueue = readQueue(activeRuntime.storage);
-      writeQueue(activeRuntime.storage, latestQueue.filter((item) => !sentIds.has(item.event.event_id)));
+      const remaining = latestQueue.filter((item) => !sentIds.has(item.event.event_id));
+      writeQueue(activeRuntime.storage, remaining);
+      const next = remaining.reduce(
+        (minimum, item) => Math.min(minimum, item.nextAttemptAt),
+        Number.POSITIVE_INFINITY,
+      );
+      if (Number.isFinite(next)) nextFlushDelay = Math.max(0, next - Date.now());
     } catch {
       const attemptedIds = new Set(ready.map((item) => item.event.event_id));
       const updated = readQueue(activeRuntime.storage).flatMap((item) => {
@@ -319,10 +409,14 @@ export async function flushAnalytics(): Promise<void> {
       });
       writeQueue(activeRuntime.storage, updated);
       const next = updated.reduce((minimum, item) => Math.min(minimum, item.nextAttemptAt), Number.POSITIVE_INFINITY);
-      if (Number.isFinite(next)) scheduleFlush(Math.max(1_000, next - Date.now()));
+      if (Number.isFinite(next)) nextFlushDelay = Math.max(1_000, next - Date.now());
     } finally {
       window.clearTimeout(timeout);
+      if (activeRequest?.controller === controller) activeRequest = null;
     }
-  })().finally(() => { flushPromise = null; });
+  })().finally(() => {
+    flushPromise = null;
+    if (nextFlushDelay !== null) scheduleFlush(nextFlushDelay);
+  });
   return flushPromise;
 }

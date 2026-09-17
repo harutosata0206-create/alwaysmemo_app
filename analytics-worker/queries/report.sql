@@ -3,7 +3,7 @@
 SELECT COUNT(DISTINCT installation_id) AS participants_30d
 FROM analytics_events
 WHERE environment = 'production'
-  AND occurred_at >= datetime('now', '-30 days');
+  AND datetime(occurred_at) >= datetime('now', '-30 days');
 
 -- First-24-hour reach. Denominator: installations that opted in during the period.
 WITH cohort AS (
@@ -11,7 +11,7 @@ WITH cohort AS (
   FROM analytics_events
   WHERE environment = 'production'
     AND event_name = 'analytics_enabled'
-    AND occurred_at >= datetime('now', '-30 days')
+    AND datetime(occurred_at) >= datetime('now', '-30 days')
   GROUP BY installation_id
 ),
 reach AS (
@@ -23,8 +23,8 @@ reach AS (
   LEFT JOIN analytics_events e
     ON e.installation_id = c.installation_id
    AND e.environment = 'production'
-   AND e.occurred_at >= c.opted_at
-   AND e.occurred_at < datetime(c.opted_at, '+1 day')
+   AND datetime(e.occurred_at) >= datetime(c.opted_at)
+   AND datetime(e.occurred_at) < datetime(c.opted_at, '+1 day')
   GROUP BY c.installation_id
 )
 SELECT COUNT(*) AS opted_in,
@@ -41,7 +41,7 @@ WITH shown AS (
   WHERE environment = 'production'
     AND event_name = 'onboarding_event'
     AND json_extract(properties_json, '$.action') = 'shown'
-    AND occurred_at >= datetime('now', '-30 days')
+    AND datetime(occurred_at) >= datetime('now', '-30 days')
   GROUP BY installation_id
 ),
 outcomes AS (
@@ -60,7 +60,7 @@ SELECT COUNT(*) AS shown,
   ROUND(100.0 * SUM(completed) / NULLIF(COUNT(*), 0), 1) AS completion_pct,
   SUM(skipped) AS skipped,
   ROUND(100.0 * SUM(skipped) / NULLIF(COUNT(*), 0), 1) AS skip_pct,
-  SUM(shown_at <= datetime('now', '-1 day') AND completed = 0 AND skipped = 0)
+  SUM(datetime(shown_at) <= datetime('now', '-1 day') AND completed = 0 AND skipped = 0)
     AS interrupted_after_24h
 FROM outcomes;
 
@@ -74,14 +74,15 @@ FROM analytics_events
 WHERE environment = 'production'
   AND event_name = 'onboarding_event'
   AND json_extract(properties_json, '$.step') IS NOT NULL
-  AND occurred_at >= datetime('now', '-30 days')
+  AND datetime(occurred_at) >= datetime('now', '-30 days')
 GROUP BY step;
 
 -- Core-feature usage. Denominator: all participants in the same period.
 WITH participants AS (
   SELECT COUNT(DISTINCT installation_id) AS total
   FROM analytics_events
-  WHERE environment = 'production' AND occurred_at >= datetime('now', '-30 days')
+  WHERE environment = 'production'
+    AND datetime(occurred_at) >= datetime('now', '-30 days')
 )
 SELECT json_extract(properties_json, '$.action') AS action,
   COUNT(DISTINCT installation_id) AS users,
@@ -90,7 +91,7 @@ FROM analytics_events, participants
 WHERE environment = 'production'
   AND event_name = 'core_action_succeeded'
   AND json_extract(properties_json, '$.context') = 'normal'
-  AND occurred_at >= datetime('now', '-30 days')
+  AND datetime(occurred_at) >= datetime('now', '-30 days')
 GROUP BY action, participants.total
 ORDER BY users DESC;
 
@@ -138,7 +139,7 @@ SELECT json_extract(properties_json, '$.prompt') AS prompt,
 FROM analytics_events
 WHERE environment = 'production'
   AND event_name = 'prompt_event'
-  AND occurred_at >= datetime('now', '-30 days')
+  AND datetime(occurred_at) >= datetime('now', '-30 days')
 GROUP BY prompt, action;
 
 -- Version/language trend.
@@ -147,7 +148,8 @@ SELECT app_version, ui_language,
   COUNT(DISTINCT session_id) AS sessions,
   COUNT(*) AS events
 FROM analytics_events
-WHERE environment = 'production' AND occurred_at >= datetime('now', '-30 days')
+WHERE environment = 'production'
+  AND datetime(occurred_at) >= datetime('now', '-30 days')
 GROUP BY app_version, ui_language
 ORDER BY users DESC;
 
@@ -162,5 +164,5 @@ SELECT json_extract(properties_json, '$.operation') AS operation,
 FROM analytics_events
 WHERE environment = 'production'
   AND event_name = 'file_operation'
-  AND occurred_at >= datetime('now', '-30 days')
+  AND datetime(occurred_at) >= datetime('now', '-30 days')
 GROUP BY operation;

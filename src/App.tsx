@@ -73,6 +73,7 @@ import {
 } from "./lib/defaultAppPrompt";
 import { markReviewSessionError, startReviewPromptSession } from "./lib/reviewPrompt";
 import {
+  ANALYTICS_CONSENT_STORAGE_KEY,
   captureAnalyticsInstallEvidence,
   deferAnalytics,
   disableAnalytics,
@@ -1740,6 +1741,15 @@ function App() {
   useEffect(() => {
     updateAnalyticsLanguage(language);
   }, [language]);
+
+  useEffect(() => {
+    const syncAnalyticsConsent = (event: StorageEvent) => {
+      if (event.key !== ANALYTICS_CONSENT_STORAGE_KEY) return;
+      setAnalyticsEnabled(event.newValue === "enabled");
+    };
+    window.addEventListener("storage", syncAnalyticsConsent);
+    return () => window.removeEventListener("storage", syncAnalyticsConsent);
+  }, []);
 
   useEffect(() => {
     try {
