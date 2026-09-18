@@ -40,6 +40,7 @@ type Messages = {
     numberedMemo: (index: number) => string;
     defaultSaveName: string;
     textFileFilter: string;
+    allFilesFilter: string;
     renameTabPrompt: string;
     tabCloseAria: {
       unsaved: string;
@@ -263,7 +264,8 @@ const translations: Record<AppLanguage, Messages> = {
       untitledTab: "タイトルなし",
       numberedMemo: (index) => `メモ ${index}`,
       defaultSaveName: "memo",
-      textFileFilter: "テキスト",
+      textFileFilter: "テキスト ドキュメント",
+      allFilesFilter: "すべてのファイル",
       renameTabPrompt: "タブ名を変更",
       tabCloseAria: {
         unsaved: "未保存",
@@ -382,7 +384,7 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenFailedTitle: "ファイルを開けませんでした",
         fileOpenFailedBody: "ファイルが存在すること、対応形式（.txt / .md / .markdown）で1 MB以下であること、読み取り権限があることを確認して、もう一度お試しください。",
         fileSaveFailedTitle: "ファイルを保存できませんでした",
-        fileSaveFailedBody: "保存先への書き込み権限と空き容量を確認して、もう一度お試しください。メモの内容はAlwaysMemo内に残っています。",
+        fileSaveFailedBody: "保存名の拡張子（通常は .txt）、書き込み権限と空き容量を確認して、もう一度お試しください。メモの内容はAlwaysMemo内に残っています。",
         close: "閉じる",
       },
       statusBar: {
@@ -498,7 +500,8 @@ const translations: Record<AppLanguage, Messages> = {
       untitledTab: "Untitled",
       numberedMemo: (index) => `Memo ${index}`,
       defaultSaveName: "memo",
-      textFileFilter: "Text",
+      textFileFilter: "Text Document",
+      allFilesFilter: "All Files",
       renameTabPrompt: "Rename tab",
       tabCloseAria: {
         unsaved: "Unsaved",
@@ -617,7 +620,7 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenFailedTitle: "Couldn't open the file",
         fileOpenFailedBody: "Check that the file exists, is a supported .txt, .md, or .markdown file no larger than 1 MB, and that you have permission to read it, then try again.",
         fileSaveFailedTitle: "Couldn't save the file",
-        fileSaveFailedBody: "Check the destination's write permission and available space, then try again. Your memo remains in AlwaysMemo.",
+        fileSaveFailedBody: "Check the file extension (normally .txt), the destination's write permission and available space, then try again. Your memo remains in AlwaysMemo.",
         close: "Close",
       },
       statusBar: {
@@ -733,7 +736,8 @@ const translations: Record<AppLanguage, Messages> = {
       untitledTab: "Sin título",
       numberedMemo: (index) => `Memo ${index}`,
       defaultSaveName: "memo",
-      textFileFilter: "Texto",
+      textFileFilter: "Documento de texto",
+      allFilesFilter: "Todos los archivos",
       renameTabPrompt: "Renombrar pestaña",
       tabCloseAria: {
         unsaved: "Sin guardar",
@@ -852,7 +856,7 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenFailedTitle: "No se pudo abrir el archivo",
         fileOpenFailedBody: "Comprueba que el archivo exista, tenga formato .txt, .md o .markdown, no supere 1 MB y tengas permiso para leerlo. Después, inténtalo de nuevo.",
         fileSaveFailedTitle: "No se pudo guardar el archivo",
-        fileSaveFailedBody: "Comprueba los permisos de escritura y el espacio disponible en el destino. El contenido de la nota permanece en AlwaysMemo.",
+        fileSaveFailedBody: "Comprueba la extensión del archivo (normalmente .txt), los permisos de escritura y el espacio disponible. El contenido de la nota permanece en AlwaysMemo.",
         close: "Cerrar",
       },
       statusBar: {
@@ -968,7 +972,8 @@ const translations: Record<AppLanguage, Messages> = {
       untitledTab: "Sem título",
       numberedMemo: (index) => `Memo ${index}`,
       defaultSaveName: "memo",
-      textFileFilter: "Texto",
+      textFileFilter: "Documento de texto",
+      allFilesFilter: "Todos os arquivos",
       renameTabPrompt: "Renomear aba",
       tabCloseAria: {
         unsaved: "Não salvo",
@@ -1087,7 +1092,7 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenFailedTitle: "Não foi possível abrir o arquivo",
         fileOpenFailedBody: "Verifique se o arquivo existe, está no formato .txt, .md ou .markdown, tem no máximo 1 MB e pode ser lido. Depois, tente novamente.",
         fileSaveFailedTitle: "Não foi possível salvar o arquivo",
-        fileSaveFailedBody: "Verifique a permissão de gravação e o espaço disponível no destino. O conteúdo da nota continua no AlwaysMemo.",
+        fileSaveFailedBody: "Verifique a extensão do arquivo (normalmente .txt), a permissão de gravação e o espaço disponível. O conteúdo da nota continua no AlwaysMemo.",
         close: "Fechar",
       },
       statusBar: {
@@ -1203,7 +1208,8 @@ const translations: Record<AppLanguage, Messages> = {
       untitledTab: "제목 없음",
       numberedMemo: (index) => `메모 ${index}`,
       defaultSaveName: "memo",
-      textFileFilter: "텍스트",
+      textFileFilter: "텍스트 문서",
+      allFilesFilter: "모든 파일",
       renameTabPrompt: "탭 이름 바꾸기",
       tabCloseAria: {
         unsaved: "저장되지 않음",
@@ -1322,7 +1328,7 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenFailedTitle: "파일을 열 수 없습니다",
         fileOpenFailedBody: "파일이 존재하고, 1MB 이하의 .txt, .md 또는 .markdown 형식이며, 읽기 권한이 있는지 확인한 후 다시 시도해 주세요.",
         fileSaveFailedTitle: "파일을 저장할 수 없습니다",
-        fileSaveFailedBody: "저장 위치의 쓰기 권한과 여유 공간을 확인한 후 다시 시도해 주세요. 메모 내용은 AlwaysMemo에 남아 있습니다.",
+        fileSaveFailedBody: "파일 확장자(일반적으로 .txt), 저장 위치의 쓰기 권한과 여유 공간을 확인한 후 다시 시도해 주세요. 메모 내용은 AlwaysMemo에 남아 있습니다.",
         close: "닫기",
       },
       statusBar: {

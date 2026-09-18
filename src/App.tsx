@@ -119,6 +119,18 @@ type Tab = {
   filePath?: string | null;
 };
 
+const getTabLabel = (tab: Tab, untitledTitle: string) => {
+  if (!isUntitledTitle(tab.title)) return tab.title;
+  const trimmed = trustedHtmlToText(tab.content).trimStart();
+  if (!trimmed) return untitledTitle;
+  const firstLine = trimmed.split(/\r?\n/)[0] ?? "";
+  const maxLength = 20;
+  if (firstLine.length > maxLength) {
+    return `${firstLine.slice(0, maxLength)}...`;
+  }
+  return firstLine || untitledTitle;
+};
+
 type SnapPosition = "left" | "right" | "top" | "bottom" | null;
 type SessionBehavior = "restore" | "new";
 type FileOpenBehavior = "existing" | "new_window";
@@ -722,11 +734,14 @@ function App() {
   }, []);
 
   const pickSavePath = useCallback(async (suggested: string) => {
-    const withExt = ensureTextFileExtension(suggested);
+    const withExt = ensureTextFileExtension(suggested.replace(/\.(md|markdown)$/i, ".txt"));
     const defaultPath = withExt;
     let resolvedPath: string | null = null;
     let dialogFailed = false;
-    const filters = [{ name: messages.app.textFileFilter, extensions: ["txt", "md", "markdown"] }];
+    const filters = [
+      { name: messages.app.textFileFilter, extensions: ["txt"] },
+      { name: messages.app.allFilesFilter, extensions: ["*"] },
+    ];
     try {
       const picked = await save({
         defaultPath,
@@ -744,12 +759,18 @@ function App() {
     }
     if (!resolvedPath && dialogFailed) {
       resolvedPath = await invoke<string | null>("save_text_file_dialog", {
-        default_name: defaultPath,
+        defaultName: defaultPath,
+        textFilterName: messages.app.textFileFilter,
+        allFilesFilterName: messages.app.allFilesFilter,
       });
     }
     if (!resolvedPath) return null;
+    const selectedName = resolvedPath.split(/[\\/]/).pop() ?? "";
+    if (selectedName.includes(".") && !FILE_PATH_PATTERN.test(selectedName)) {
+      throw new Error("unsupported file type");
+    }
     return ensureTextFileExtension(resolvedPath);
-  }, [messages.app.textFileFilter]);
+  }, [messages.app.allFilesFilter, messages.app.textFileFilter]);
 
   const pathsKey = useMemo(() => `${storageKey}-paths`, [storageKey]);
   const getPathMap = useCallback((): Record<string, string> => {
@@ -920,10 +941,18 @@ function App() {
 
   const saveTabAs = useCallback(async (tab: Tab) => {
     try {
-      const suggested = isUntitledTitle(tab.title)
+      const tabLabel = getTabLabel(tab, messages.app.untitledTab);
+      const suggested = isUntitledTitle(tab.title) && !trustedHtmlToText(tab.content).trim()
         ? messages.app.defaultSaveName
-        : (tab.title.trim() || messages.app.defaultSaveName);
-      const resolvedPath = await pickSavePath(suggested);
+        : tabLabel;
+      const safeSuggested = suggested
+        .replace(/[<>:"/\\|?*\x00-\x1f]/g, "_")
+        .replace(/[. ]+$/g, "")
+        .trim();
+      const saveName = /^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(safeSuggested)
+        ? `_${safeSuggested}`
+        : safeSuggested || messages.app.defaultSaveName;
+      const resolvedPath = await pickSavePath(saveName);
       if (!resolvedPath) {
         trackAnalytics({ name: "file_operation", properties: { operation: "save_as", outcome: "cancelled" } });
         return false;
@@ -964,6 +993,7 @@ function App() {
     htmlToText,
     getPathMap,
     messages.app.defaultSaveName,
+    messages.app.untitledTab,
     pickSavePath,
     persistState,
     setPathMap,
@@ -3145,18 +3175,6 @@ function App() {
     };
   }, []);
 
-  const getTabLabel = (tab: Tab) => {
-    if (!isUntitledTitle(tab.title)) return tab.title;
-    const trimmed = trustedHtmlToText(tab.content).trimStart();
-    if (!trimmed) return messages.app.untitledTab;
-    const firstLine = trimmed.split(/\r?\n/)[0] ?? "";
-    const maxLength = 20;
-    if (firstLine.length > maxLength) {
-      return `${firstLine.slice(0, maxLength)}...`;
-    }
-    return firstLine || messages.app.untitledTab;
-  };
-
   return (
     <div className={`app theme-${effectiveTheme} ${isWindowMaximized ? "window-maximized" : ""}`}>
       <div className="titlebar">
@@ -3205,7 +3223,7 @@ function App() {
                       moveTab(draggedTabId, tab.id);
                     }}
                   >
-                    <span className="tab-title">{getTabLabel(tab)}</span>
+                    <span className="tab-title">{getTabLabel(tab, messages.app.untitledTab)}</span>
                     <span
                       className={`tab-close ${isTabDirty(tab) ? "dirty" : ""}`}
                       onPointerEnter={() => setHoveredTabCloseId(tab.id)}

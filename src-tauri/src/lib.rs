@@ -82,7 +82,7 @@ fn validate_write_path(path: &Path) -> Result<PathBuf, String> {
 }
 
 fn ensure_text_extension(path: PathBuf) -> PathBuf {
-    if has_allowed_text_extension(&path) {
+    if path.extension().is_some() {
         return path;
     }
 
@@ -476,6 +476,8 @@ fn take_pending_open_files(
 fn save_text_file_dialog(
     window: tauri::WebviewWindow,
     default_name: Option<String>,
+    text_filter_name: String,
+    all_files_filter_name: String,
 ) -> Result<Option<String>, String> {
     let (tx, rx) = std::sync::mpsc::channel();
     let was_on_top = window
@@ -490,7 +492,9 @@ fn save_text_file_dialog(
             let _ = window_clone.set_focus();
             let _ = window_clone.show();
             let mut dialog = rfd::FileDialog::new();
-            dialog = dialog.add_filter("Text", &["txt", "md", "markdown"]);
+            dialog = dialog
+                .add_filter(text_filter_name, &["txt"])
+                .add_filter(all_files_filter_name, &["*"]);
             if let Some(name) = default_name {
                 dialog = dialog.set_file_name(&name);
             }
@@ -721,6 +725,40 @@ mod tests {
                     .starts_with(".alwaysmemo-save-")
             });
         assert!(!has_temporary_file);
+    }
+
+    #[test]
+    fn markdown_file_remains_readable() {
+        let directory = create_test_directory("markdown-read");
+        let path = directory.join("memo.md");
+        fs::write(&path, "# memo").unwrap();
+
+        assert_eq!(read_validated_text_file(&path).unwrap().contents, "# memo");
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn missing_save_extension_defaults_to_txt() {
+        assert_eq!(
+            ensure_text_extension(PathBuf::from("memo")),
+            PathBuf::from("memo.txt")
+        );
+        assert_eq!(
+            ensure_text_extension(PathBuf::from("memo.md")),
+            PathBuf::from("memo.md")
+        );
+        assert_eq!(
+            ensure_text_extension(PathBuf::from("memo.pdf")),
+            PathBuf::from("memo.pdf")
+        );
+    }
+
+    #[test]
+    fn unsupported_save_extension_is_rejected() {
+        assert_eq!(
+            validate_write_path(Path::new("memo.pdf")).unwrap_err(),
+            "unsupported file type"
+        );
     }
 
     #[test]
