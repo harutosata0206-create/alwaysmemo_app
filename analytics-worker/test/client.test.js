@@ -223,7 +223,9 @@ test("disabling during a request aborts it and keeps local analytics data delete
   assert.equal(storage.getItem("alwaysmemo-analytics-queue"), null);
 });
 
-test("disabling cancels an offline retry and online events cannot restart it", async () => {
+test("disabling cancels an offline retry and online events cannot restart it", async (t) => {
+  const fixedNow = Date.UTC(2026, 8, 18);
+  t.mock.method(Date, "now", () => fixedNow);
   const analytics = await loadFreshAnalytics();
   const storage = new MemoryStorage();
   const timers = new Map();
@@ -253,7 +255,14 @@ test("disabling cancels an offline retry and online events cannot restart it", a
   globalThis.fetch = async () => { throw new Error("offline"); };
   analytics.enableAnalytics();
   await analytics.flushAnalytics();
-  assert.ok([...timers.values()].some((timer) => timer.delay >= 60_000));
+  const queued = JSON.parse(storage.getItem("alwaysmemo-analytics-queue"));
+  assert.equal(queued.length, 2);
+  assert.ok(queued.every((item) =>
+    item.attempts === 1 &&
+    item.nextAttemptAt === fixedNow + 60_000,
+  ));
+  assert.equal(timers.size, 1);
+  assert.equal([...timers.values()][0].delay, 60_000);
 
   analytics.disableAnalytics(storage);
   listeners.get("online")();

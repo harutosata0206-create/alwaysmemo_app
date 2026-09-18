@@ -105,3 +105,59 @@ test("the first-day reach query compares ISO timestamps as dates", () => {
   assert.equal(result.edit_reach_pct, 100);
   database.close();
 });
+
+test("the first-day reach excludes incomplete 24-hour cohorts", () => {
+  const database = new DatabaseSync(":memory:");
+  database.exec(readFileSync(new URL("../migrations/0001_initial.sql", import.meta.url), "utf8"));
+  const report = readFileSync(new URL("../queries/report.sql", import.meta.url), "utf8");
+  const now = Date.now();
+  const sessionId = "33333333-3333-4333-8333-333333333333";
+  insertEvent(database, {
+    eventId: "55555555-5555-4555-8555-555555555555",
+    occurredAt: new Date(now - 25 * 60 * 60 * 1000).toISOString(),
+    installationId: "66666666-6666-4666-8666-666666666666",
+    sessionId,
+    eventName: "analytics_enabled",
+    properties: { install_evidence: "unknown" },
+  });
+  insertEvent(database, {
+    eventId: "77777777-7777-4777-8777-777777777777",
+    occurredAt: new Date(now - 60 * 60 * 1000).toISOString(),
+    installationId: "88888888-8888-4888-8888-888888888888",
+    sessionId,
+    eventName: "analytics_enabled",
+    properties: { install_evidence: "unknown" },
+  });
+  insertEvent(database, {
+    eventId: "99999999-9999-4999-8999-999999999999",
+    occurredAt: new Date(now - 30 * 60 * 1000).toISOString(),
+    installationId: "88888888-8888-4888-8888-888888888888",
+    sessionId,
+    eventName: "memo_first_edited",
+    properties: { became_non_empty: true },
+  });
+  insertEvent(database, {
+    eventId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    occurredAt: new Date(now - 20 * 60 * 1000).toISOString(),
+    installationId: "88888888-8888-4888-8888-888888888888",
+    sessionId,
+    eventName: "core_action_succeeded",
+    properties: { action: "always_on_top", context: "normal", trigger: "menu" },
+  });
+
+  const reachQuery = report.split(";")[1];
+  const result = database.prepare(reachQuery).get();
+
+  assert.equal(result.opted_in, 1);
+  assert.equal(result.edited, 0);
+  assert.equal(result.edit_reach_pct, 0);
+  assert.equal(result.used_core, 0);
+  assert.equal(result.core_reach_pct, 0);
+  database.prepare("DELETE FROM analytics_events WHERE installation_id = ?")
+    .run("66666666-6666-4666-8666-666666666666");
+  const incompleteOnly = database.prepare(reachQuery).get();
+  assert.equal(incompleteOnly.opted_in, 0);
+  assert.equal(incompleteOnly.edit_reach_pct, null);
+  assert.equal(incompleteOnly.core_reach_pct, null);
+  database.close();
+});

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test:app": "node --experimental-strip-types --test test/*.test.js",
     "test:analytics": "node --experimental-strip-types --test analytics-worker/test/*.test.js",
     "preview": "vite preview",
     "tauri": "tauri"

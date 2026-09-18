@@ -147,6 +147,10 @@ type Messages = {
       fileOpenFailedBody: string;
       fileSaveFailedTitle: string;
       fileSaveFailedBody: string;
+      fileConflictTitle: string;
+      fileConflictBody: string;
+      localRecoveryFailedTitle: string;
+      localRecoveryFailedBody: string;
       close: string;
     };
     statusBar: {
@@ -385,6 +389,10 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenFailedBody: "ファイルが存在すること、対応形式（.txt / .md / .markdown）で1 MB以下であること、読み取り権限があることを確認して、もう一度お試しください。",
         fileSaveFailedTitle: "ファイルを保存できませんでした",
         fileSaveFailedBody: "保存名の拡張子（通常は .txt）、書き込み権限と空き容量を確認して、もう一度お試しください。メモの内容はAlwaysMemo内に残っています。",
+        fileConflictTitle: "ファイルが変更されています",
+        fileConflictBody: "別のタブやアプリによる変更を検出したため、上書きしませんでした。内容を確認し、必要なら別名で保存してください。",
+        localRecoveryFailedTitle: "自動復元用の保存に失敗しました",
+        localRecoveryFailedBody: "再起動後に編集内容を復元できない可能性があります。アプリを閉じる前に、必要なメモを .txt ファイルに保存してください。",
         close: "閉じる",
       },
       statusBar: {
@@ -621,6 +629,10 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenFailedBody: "Check that the file exists, is a supported .txt, .md, or .markdown file no larger than 1 MB, and that you have permission to read it, then try again.",
         fileSaveFailedTitle: "Couldn't save the file",
         fileSaveFailedBody: "Check the file extension (normally .txt), the destination's write permission and available space, then try again. Your memo remains in AlwaysMemo.",
+        fileConflictTitle: "The file has changed",
+        fileConflictBody: "A change from another tab or app was detected, so the file was not overwritten. Review the contents and use Save As if needed.",
+        localRecoveryFailedTitle: "Couldn't save the recovery copy",
+        localRecoveryFailedBody: "Your edits may not be restored after a restart. Save important notes to a .txt file before closing the app.",
         close: "Close",
       },
       statusBar: {
@@ -857,6 +869,10 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenFailedBody: "Comprueba que el archivo exista, tenga formato .txt, .md o .markdown, no supere 1 MB y tengas permiso para leerlo. Después, inténtalo de nuevo.",
         fileSaveFailedTitle: "No se pudo guardar el archivo",
         fileSaveFailedBody: "Comprueba la extensión del archivo (normalmente .txt), los permisos de escritura y el espacio disponible. El contenido de la nota permanece en AlwaysMemo.",
+        fileConflictTitle: "El archivo ha cambiado",
+        fileConflictBody: "Se detectó un cambio desde otra pestaña o aplicación y no se sobrescribió el archivo. Revisa el contenido y usa Guardar como si es necesario.",
+        localRecoveryFailedTitle: "No se pudo guardar la copia de recuperación",
+        localRecoveryFailedBody: "Es posible que los cambios no se restauren tras reiniciar. Guarda las notas importantes en un archivo .txt antes de cerrar la aplicación.",
         close: "Cerrar",
       },
       statusBar: {
@@ -1093,6 +1109,10 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenFailedBody: "Verifique se o arquivo existe, está no formato .txt, .md ou .markdown, tem no máximo 1 MB e pode ser lido. Depois, tente novamente.",
         fileSaveFailedTitle: "Não foi possível salvar o arquivo",
         fileSaveFailedBody: "Verifique a extensão do arquivo (normalmente .txt), a permissão de gravação e o espaço disponível. O conteúdo da nota continua no AlwaysMemo.",
+        fileConflictTitle: "O arquivo foi alterado",
+        fileConflictBody: "Foi detectada uma alteração de outra aba ou aplicativo; o arquivo não foi sobrescrito. Confira o conteúdo e use Salvar como, se necessário.",
+        localRecoveryFailedTitle: "Não foi possível salvar a cópia de recuperação",
+        localRecoveryFailedBody: "As alterações podem não ser restauradas após reiniciar. Salve as notas importantes em um arquivo .txt antes de fechar o aplicativo.",
         close: "Fechar",
       },
       statusBar: {
@@ -1329,6 +1349,10 @@ const translations: Record<AppLanguage, Messages> = {
         fileOpenFailedBody: "파일이 존재하고, 1MB 이하의 .txt, .md 또는 .markdown 형식이며, 읽기 권한이 있는지 확인한 후 다시 시도해 주세요.",
         fileSaveFailedTitle: "파일을 저장할 수 없습니다",
         fileSaveFailedBody: "파일 확장자(일반적으로 .txt), 저장 위치의 쓰기 권한과 여유 공간을 확인한 후 다시 시도해 주세요. 메모 내용은 AlwaysMemo에 남아 있습니다.",
+        fileConflictTitle: "파일이 변경되었습니다",
+        fileConflictBody: "다른 탭이나 앱에서 변경한 내용이 감지되어 덮어쓰지 않았습니다. 내용을 확인하고 필요하면 다른 이름으로 저장하세요.",
+        localRecoveryFailedTitle: "복구용 사본을 저장하지 못했습니다",
+        localRecoveryFailedBody: "재시작 후 편집 내용이 복구되지 않을 수 있습니다. 앱을 닫기 전에 중요한 메모를 .txt 파일로 저장하세요.",
         close: "닫기",
       },
       statusBar: {

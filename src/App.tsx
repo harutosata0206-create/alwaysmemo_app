@@ -91,6 +91,7 @@ import {
   ONBOARDING_STORAGE_KEY,
   resetDevelopmentState,
 } from "./lib/developmentTools";
+import { getDirtyTabIds, getRestoredDirtyTabIds, writeLocalState } from "./lib/tabPersistence";
 import "./App.css";
 
 const MIN_WINDOW_WIDTH = 300;
@@ -117,6 +118,7 @@ type Tab = {
   title: string;
   content: string;
   filePath?: string | null;
+  fileRevision?: string | null;
 };
 
 const getTabLabel = (tab: Tab, untitledTitle: string) => {
@@ -160,6 +162,7 @@ const ONBOARDING_KEY_LABELS: Record<string, string> = {
 
 type PersistedState = {
   tabs: Tab[];
+  dirtyTabIds?: string[];
   activeTabId: string | null;
   alwaysOnTop: boolean;
   snap: SnapPosition;
@@ -204,9 +207,15 @@ type PastePerformanceState = {
 type OpenedTextFile = {
   path: string;
   contents: string;
+  revision: string;
 };
 
-type FileOperationFailure = "open" | "save";
+type FileOperationFailure = "open" | "save" | "conflict" | "local_recovery";
+
+function isSaveConflict(error: unknown): boolean {
+  return String(error).includes("file changed since opening") ||
+    String(error).includes("file version unknown");
+}
 
 function getFileErrorCategory(
   error: unknown,
@@ -243,6 +252,7 @@ function App() {
   const activeTabIdRef = useRef<string>("initial");
   const tabHistoryRef = useRef<string[]>([]);
   const persistStateTimerRef = useRef<number | null>(null);
+  const storageFailureNotifiedRef = useRef(false);
   const pendingRevealTabIdRef = useRef<string | null>(null);
   const tabsWheelTargetRef = useRef<number | null>(null);
   const tabsWheelRafRef = useRef<number | null>(null);
@@ -628,6 +638,7 @@ function App() {
       const startedAt = performance.now();
       const state: PersistedState = {
         tabs: nextTabs,
+        dirtyTabIds: getDirtyTabIds(nextTabs, savedTabsRef.current),
         activeTabId: nextActiveId,
         alwaysOnTop,
         snap,
@@ -641,7 +652,19 @@ function App() {
         themeMode,
         languagePreference,
       };
-      window.localStorage.setItem(storageKey, JSON.stringify(state));
+      let persisted = false;
+      try {
+        persisted = writeLocalState(window.localStorage, storageKey, state);
+      } catch {
+        // Storage access itself can fail when the WebView profile is unavailable.
+      }
+      if (!persisted) {
+        if (!storageFailureNotifiedRef.current) {
+          storageFailureNotifiedRef.current = true;
+          window.setTimeout(() => setFileOperationFailure("local_recovery"), 0);
+        }
+        return;
+      }
       recordPastePerformanceStep("persist-state", performance.now() - startedAt);
     },
     [
@@ -811,7 +834,7 @@ function App() {
       };
       setSavedVersion((prev) => prev + 1);
       setTabs((prev) => {
-        const next = [...prev, { id, title, content, filePath: opened.path }];
+        const next = [...prev, { id, title, content, filePath: opened.path, fileRevision: opened.revision }];
         persistState(next, id);
         return next;
       });
@@ -957,33 +980,37 @@ function App() {
         trackAnalytics({ name: "file_operation", properties: { operation: "save_as", outcome: "cancelled" } });
         return false;
       }
-      await invoke("write_text_file", {
+      const contents = htmlToText(tab.content);
+      const revision = await invoke<string>("write_text_file", {
         path: resolvedPath,
-        contents: htmlToText(tab.content),
+        contents,
+        expectedRevision: tab.fileRevision ?? null,
+        saveAs: true,
+        originalPath: tab.filePath ?? null,
       });
       const nextTitle = getFileNameFromPath(resolvedPath);
       const pathMap = getPathMap();
       setPathMap({ ...pathMap, [tab.id]: resolvedPath });
+      savedTabsRef.current = {
+        ...savedTabsRef.current,
+        [tab.id]: { title: nextTitle, content: tab.content },
+      };
       setTabs((prev) => {
         const nextTabs = prev.map((item) =>
           item.id === tab.id
-            ? { ...item, title: nextTitle, filePath: resolvedPath }
+            ? { ...item, title: nextTitle, filePath: resolvedPath, fileRevision: revision }
             : item,
         );
         persistState(nextTabs);
         return nextTabs;
       });
-      savedTabsRef.current = {
-        ...savedTabsRef.current,
-        [tab.id]: { title: nextTitle, content: tab.content },
-      };
       setSavedVersion((prev) => prev + 1);
       trackAnalytics({ name: "file_operation", properties: { operation: "save_as", outcome: "success" } });
       closeMenus();
       return true;
     } catch (error) {
       console.error(error);
-      setFileOperationFailure("save");
+      setFileOperationFailure(isSaveConflict(error) ? "conflict" : "save");
       trackAnalytics({ name: "file_operation", properties: { operation: "save_as", outcome: "failure", error_category: getFileErrorCategory(error, "write") } });
       return false;
     }
@@ -1014,9 +1041,12 @@ function App() {
       return await saveTabAs(tab);
     }
     try {
-      await invoke("write_text_file", {
+      const revision = await invoke<string>("write_text_file", {
         path: resolvedPath,
         contents: htmlToText(tab.content),
+        expectedRevision: tab.fileRevision ?? null,
+        saveAs: false,
+        originalPath: null,
       });
       const pathMap = getPathMap();
       if (!pathMap[tab.id]) {
@@ -1031,15 +1061,16 @@ function App() {
       };
       setSavedVersion((prev) => prev + 1);
       setTabs((prev) => {
-        persistState(prev);
-        return prev;
+        const next = prev.map((item) => item.id === tab.id ? { ...item, fileRevision: revision } : item);
+        persistState(next);
+        return next;
       });
       trackAnalytics({ name: "file_operation", properties: { operation: "save", outcome: "success" } });
       closeMenus();
       return true;
     } catch (error) {
       console.error(error);
-      setFileOperationFailure("save");
+      setFileOperationFailure(isSaveConflict(error) ? "conflict" : "save");
       trackAnalytics({ name: "file_operation", properties: { operation: "save", outcome: "failure", error_category: getFileErrorCategory(error, "write") } });
       return false;
     }
@@ -1058,34 +1089,55 @@ function App() {
   }, [activeTab, saveTab]);
 
   const saveAllTabs = useCallback(async () => {
-    const tabsWithPath = tabs.filter((tab) => tab.filePath);
+    const dirtyIds = new Set(getDirtyTabIds(tabs, savedTabsRef.current));
+    const tabsWithPath = tabs.filter((tab) => tab.filePath && dirtyIds.has(tab.id));
     if (tabsWithPath.length === 0) {
       closeMenus();
       return;
     }
-    try {
-      await Promise.all(
-        tabsWithPath.map((tab) =>
-          invoke("write_text_file", {
-            path: tab.filePath,
-            contents: htmlToText(tab.content),
-          }),
-        ),
-      );
+    const savedRevisions = new Map<string, string>();
+    let failure: unknown = null;
+    let failed = false;
+    for (const tab of tabsWithPath) {
+      try {
+        const revision = await invoke<string>("write_text_file", {
+          path: tab.filePath,
+          contents: htmlToText(tab.content),
+          expectedRevision: tab.fileRevision ?? null,
+          saveAs: false,
+          originalPath: null,
+        });
+        savedRevisions.set(tab.id, revision);
+      } catch (error) {
+        failure = error;
+        failed = true;
+        break;
+      }
+    }
+    if (savedRevisions.size > 0) {
       savedTabsRef.current = {
         ...savedTabsRef.current,
         ...Object.fromEntries(
-          tabsWithPath.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
+          tabsWithPath.filter((tab) => savedRevisions.has(tab.id))
+            .map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
         ),
       };
       setSavedVersion((prev) => prev + 1);
-      persistState(tabs);
+      setTabs((prev) => {
+        const next = prev.map((tab) => savedRevisions.has(tab.id)
+          ? { ...tab, fileRevision: savedRevisions.get(tab.id) }
+          : tab);
+        persistState(next);
+        return next;
+      });
+    }
+    if (failed) {
+      console.error(failure);
+      setFileOperationFailure(isSaveConflict(failure) ? "conflict" : "save");
+      trackAnalytics({ name: "file_operation", properties: { operation: "save_all", outcome: "failure", error_category: getFileErrorCategory(failure, "write") } });
+    } else {
       trackAnalytics({ name: "file_operation", properties: { operation: "save_all", outcome: "success" } });
       closeMenus();
-    } catch (error) {
-      console.error(error);
-      setFileOperationFailure("save");
-      trackAnalytics({ name: "file_operation", properties: { operation: "save_all", outcome: "failure", error_category: getFileErrorCategory(error, "write") } });
     }
   }, [closeMenus, htmlToText, persistState, tabs]);
 
@@ -1592,7 +1644,8 @@ function App() {
           setWrapAtRightEdge(nextWrapAtRightEdge);
           const pathMap = getPathMap();
           const shouldRestoreTabs = nextSessionBehavior === "restore";
-          const restoredTabs = ((shouldRestoreTabs && parsed.tabs.length)
+          const hasRestoredTabs = shouldRestoreTabs && parsed.tabs.length > 0;
+          const restoredTabs = (hasRestoredTabs
             ? parsed.tabs
             : [{ id: "initial", title: messages.app.untitledTab, content: "" }]
           ).map((tab) => ({
@@ -1600,8 +1653,26 @@ function App() {
             content: normalizeHtml(tab.content),
             filePath: tab.filePath ?? pathMap[tab.id] ?? null,
           }));
+          const dirtyTabIds = hasRestoredTabs
+            ? getRestoredDirtyTabIds(restoredTabs, parsed.dirtyTabIds)
+            : new Set<string>();
+          if (hasRestoredTabs && !Array.isArray(parsed.dirtyTabIds)) {
+            for (const tab of restoredTabs) {
+              if (!tab.filePath) continue;
+              try {
+                const opened = await invoke<OpenedTextFile | null>("open_text_file_by_path", { path: tab.filePath });
+                if (opened && normalizePlainText(opened.contents) === htmlToText(tab.content)) {
+                  tab.fileRevision = opened.revision;
+                  if (textToHtml(opened.contents) === tab.content) dirtyTabIds.delete(tab.id);
+                }
+              } catch {
+                // Preserve the recovered content as unsaved if the file cannot be checked.
+              }
+            }
+          }
           savedTabsRef.current = Object.fromEntries(
-            restoredTabs.map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
+            restoredTabs.filter((tab) => !dirtyTabIds.has(tab.id))
+              .map((tab) => [tab.id, { title: tab.title, content: tab.content }]),
           );
           setTabs(restoredTabs);
           const validActive =
@@ -3878,12 +3949,20 @@ function App() {
             <h2 id="file-error-title">
               {fileOperationFailure === "open"
                 ? messages.app.dialogs.fileOpenFailedTitle
-                : messages.app.dialogs.fileSaveFailedTitle}
+                : fileOperationFailure === "conflict"
+                  ? messages.app.dialogs.fileConflictTitle
+                  : fileOperationFailure === "local_recovery"
+                    ? messages.app.dialogs.localRecoveryFailedTitle
+                    : messages.app.dialogs.fileSaveFailedTitle}
             </h2>
             <p id="file-error-desc">
               {fileOperationFailure === "open"
                 ? messages.app.dialogs.fileOpenFailedBody
-                : messages.app.dialogs.fileSaveFailedBody}
+                : fileOperationFailure === "conflict"
+                  ? messages.app.dialogs.fileConflictBody
+                  : fileOperationFailure === "local_recovery"
+                    ? messages.app.dialogs.localRecoveryFailedBody
+                    : messages.app.dialogs.fileSaveFailedBody}
             </p>
             <div className="delete-choice-actions">
               <button

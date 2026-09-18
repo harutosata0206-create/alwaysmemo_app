@@ -24,6 +24,14 @@ const PENDING_OPEN_FILES_EVENT: &str = "alwaysmemo:pending-open-files";
 const STORE_REVIEW_URI: &str = "ms-windows-store://review/?ProductId=9N22TL7M39Q3";
 const DEFAULT_APPS_SETTINGS_URI: &str = "ms-settings:defaultapps";
 static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
+static SAVE_MUTEX: Mutex<()> = Mutex::new(());
+
+fn content_revision(contents: &[u8]) -> String {
+    let hash = contents.iter().fold(0xcbf29ce484222325_u64, |hash, byte| {
+        (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
+    });
+    format!("{hash:016x}-{:x}", contents.len())
+}
 
 fn has_allowed_text_extension(path: &Path) -> bool {
     path.extension()
@@ -97,6 +105,7 @@ fn read_validated_text_file(path: &Path) -> Result<OpenedFile, String> {
         fs::read_to_string(&canonical).map_err(|_| "failed to read text file".to_string())?;
     Ok(OpenedFile {
         path: canonical.to_string_lossy().into_owned(),
+        revision: content_revision(contents.as_bytes()),
         contents,
     })
 }
@@ -317,6 +326,7 @@ fn snap_bottom(window: tauri::WebviewWindow) -> Result<(), String> {
 struct OpenedFile {
     path: String,
     contents: String,
+    revision: String,
 }
 
 struct PendingOpenFiles(Arc<Mutex<Vec<String>>>);
@@ -512,13 +522,35 @@ fn save_text_file_dialog(
 }
 
 #[tauri::command]
-fn write_text_file(path: String, contents: String) -> Result<(), String> {
+fn write_text_file(
+    path: String,
+    contents: String,
+    expected_revision: Option<String>,
+    save_as: bool,
+    original_path: Option<String>,
+) -> Result<String, String> {
     if contents.len() as u64 > MAX_TEXT_FILE_BYTES {
         return Err("file is too large".to_string());
     }
+    let _save_guard = SAVE_MUTEX
+        .lock()
+        .map_err(|_| "failed to lock file saves".to_string())?;
     let validated_path = validate_write_path(Path::new(&path))?;
+    let same_original_file = original_path
+        .as_deref()
+        .and_then(|original| validate_write_path(Path::new(original)).ok())
+        .is_some_and(|original| original == validated_path);
+    if !save_as || same_original_file {
+        let expected = expected_revision.ok_or_else(|| "file version unknown".to_string())?;
+        let current =
+            fs::read(&validated_path).map_err(|_| "file changed since opening".to_string())?;
+        if content_revision(&current) != expected {
+            return Err("file changed since opening".to_string());
+        }
+    }
     write_text_file_safely(&validated_path, &contents)
-        .map_err(|_| "failed to safely write text file".to_string())
+        .map_err(|_| "failed to safely write text file".to_string())?;
+    Ok(content_revision(contents.as_bytes()))
 }
 
 #[tauri::command]
@@ -793,10 +825,142 @@ mod tests {
         fs::write(&path, "previous memo").unwrap();
         let contents = "x".repeat(MAX_TEXT_FILE_BYTES as usize + 1);
 
-        let result = write_text_file(path.to_string_lossy().into_owned(), contents);
+        let result = write_text_file(
+            path.to_string_lossy().into_owned(),
+            contents,
+            None,
+            true,
+            None,
+        );
 
         assert_eq!(result.unwrap_err(), "file is too large");
         assert_eq!(fs::read_to_string(&path).unwrap(), "previous memo");
+        assert_no_save_temp_files(&directory);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn stale_file_revision_does_not_overwrite_newer_content() {
+        let directory = create_test_directory("stale-revision");
+        let path = directory.join("memo.txt");
+        fs::write(&path, "original").unwrap();
+        let revision = read_validated_text_file(&path).unwrap().revision;
+
+        let updated_revision = write_text_file(
+            path.to_string_lossy().into_owned(),
+            "first edit".to_string(),
+            Some(revision.clone()),
+            false,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            updated_revision,
+            read_validated_text_file(&path).unwrap().revision
+        );
+        let stale = write_text_file(
+            path.to_string_lossy().into_owned(),
+            "second edit".to_string(),
+            Some(revision),
+            false,
+            None,
+        );
+
+        assert_eq!(stale.unwrap_err(), "file changed since opening");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "first edit");
+        assert_no_save_temp_files(&directory);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn unknown_revision_does_not_overwrite_an_existing_file() {
+        let directory = create_test_directory("unknown-revision");
+        let path = directory.join("memo.txt");
+        fs::write(&path, "original").unwrap();
+
+        let result = write_text_file(
+            path.to_string_lossy().into_owned(),
+            "new content".to_string(),
+            None,
+            false,
+            None,
+        );
+
+        assert_eq!(result.unwrap_err(), "file version unknown");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "original");
+        assert_no_save_temp_files(&directory);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn save_as_returns_the_new_file_revision() {
+        let directory = create_test_directory("save-as-revision");
+        let path = directory.join("memo.txt");
+
+        let revision = write_text_file(
+            path.to_string_lossy().into_owned(),
+            "new memo".to_string(),
+            None,
+            true,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(fs::read_to_string(&path).unwrap(), "new memo");
+        assert_eq!(revision, read_validated_text_file(&path).unwrap().revision);
+        assert_no_save_temp_files(&directory);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn save_as_to_the_original_file_still_checks_its_revision() {
+        let directory = create_test_directory("save-as-original");
+        let path = directory.join("memo.txt");
+        fs::write(&path, "original").unwrap();
+        let previous_revision = read_validated_text_file(&path).unwrap().revision;
+        fs::write(&path, "changed elsewhere").unwrap();
+        let path_string = path.to_string_lossy().into_owned();
+
+        let result = write_text_file(
+            path_string.clone(),
+            "my draft".to_string(),
+            Some(previous_revision),
+            true,
+            Some(path_string),
+        );
+
+        assert_eq!(result.unwrap_err(), "file changed since opening");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "changed elsewhere");
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn simultaneous_saves_with_one_revision_only_write_once() {
+        let directory = create_test_directory("simultaneous-revision");
+        let path = directory.join("memo.txt");
+        fs::write(&path, "original").unwrap();
+        let revision = read_validated_text_file(&path).unwrap().revision;
+        let handles: Vec<_> = ["first edit", "second edit"]
+            .into_iter()
+            .map(|contents| {
+                let path = path.to_string_lossy().into_owned();
+                let revision = revision.clone();
+                thread::spawn(move || {
+                    write_text_file(path, contents.to_string(), Some(revision), false, None)
+                })
+            })
+            .collect();
+        let results: Vec<_> = handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .collect();
+
+        assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+        assert_eq!(results.iter().filter(|result| result.is_err()).count(), 1);
+        assert!(matches!(
+            fs::read_to_string(&path).unwrap().as_str(),
+            "first edit" | "second edit"
+        ));
         assert_no_save_temp_files(&directory);
         fs::remove_dir_all(directory).unwrap();
     }

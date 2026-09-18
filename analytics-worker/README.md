@@ -41,8 +41,9 @@ needed.
 - Session: the shared installation session continues until 30 minutes without
   a recorded event. Settings and memo windows share the same ID and session.
 - Participant: a distinct installation with a production event in the period.
-- Initial reach: events within 24 hours after `analytics_enabled`; existing
-  users are marked `preexisting`, otherwise installation status is `unknown`.
+- Initial reach: events within 24 hours after `analytics_enabled`, among
+  installations whose full 24-hour window has elapsed. Existing users are
+  marked `preexisting`, otherwise installation status is `unknown`.
 - W2 and W4: activity on days 8-14 and 22-28 after opt-in. Incomplete cohorts
   are excluded, never counted as zero-retention users.
 - No edit event means only that no edit was observed; read-only use remains

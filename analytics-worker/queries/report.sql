@@ -5,13 +5,15 @@ FROM analytics_events
 WHERE environment = 'production'
   AND datetime(occurred_at) >= datetime('now', '-30 days');
 
--- First-24-hour reach. Denominator: installations that opted in during the period.
+-- First-24-hour reach. Denominator: installations that opted in during the period
+-- and have completed the full 24-hour observation window.
 WITH cohort AS (
   SELECT installation_id, MIN(occurred_at) AS opted_at
   FROM analytics_events
   WHERE environment = 'production'
     AND event_name = 'analytics_enabled'
     AND datetime(occurred_at) >= datetime('now', '-30 days')
+    AND julianday(occurred_at) <= julianday('now', '-1 day')
   GROUP BY installation_id
 ),
 reach AS (
