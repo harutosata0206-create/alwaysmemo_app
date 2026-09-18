@@ -197,8 +197,6 @@ type Messages = {
       lineSpacingRelaxed: string;
       wrapLabel: string;
       wrapDescription: string;
-      spellCheckLabel: string;
-      spellCheckDescription: string;
       previewTitle: string;
       previewLine1: string;
       previewLine2: string;
@@ -436,8 +434,6 @@ const translations: Record<AppLanguage, Messages> = {
         lineSpacingRelaxed: "広い",
         wrapLabel: "折り返し",
         wrapDescription: "長い行を自動で折り返します",
-        spellCheckLabel: "スペルチェック",
-        spellCheckDescription: "メモ内のスペルミスを下線で表示します",
         previewTitle: "プレビュー:",
         previewLine1: "alwaysmemoの表示サンプルです。",
         previewLine2: "この文章は折り返し設定の確認用に、少し長めのテキストを表示しています。",
@@ -673,8 +669,6 @@ const translations: Record<AppLanguage, Messages> = {
         lineSpacingRelaxed: "Relaxed",
         wrapLabel: "Wrap Text",
         wrapDescription: "Automatically wrap long lines",
-        spellCheckLabel: "Spell Check",
-        spellCheckDescription: "Underline spelling mistakes in memos",
         previewTitle: "Preview:",
         previewLine1: "This is a display sample for AlwaysMemo.",
         previewLine2: "This sentence is intentionally a little longer so you can check how wrapping looks.",
@@ -910,8 +904,6 @@ const translations: Record<AppLanguage, Messages> = {
         lineSpacingRelaxed: "Amplio",
         wrapLabel: "Ajuste de texto",
         wrapDescription: "Ajusta automáticamente las líneas largas",
-        spellCheckLabel: "Corrector ortográfico",
-        spellCheckDescription: "Subraya las faltas de ortografía en las notas",
         previewTitle: "Vista previa:",
         previewLine1: "Este es un ejemplo de visualización de AlwaysMemo.",
         previewLine2: "Esta frase es un poco más larga a propósito para que puedas comprobar cómo se ve el ajuste de línea.",
@@ -1147,8 +1139,6 @@ const translations: Record<AppLanguage, Messages> = {
         lineSpacingRelaxed: "Amplo",
         wrapLabel: "Quebra de texto",
         wrapDescription: "Quebre automaticamente linhas longas",
-        spellCheckLabel: "Verificação ortográfica",
-        spellCheckDescription: "Sublinha erros de ortografia nos memorandos",
         previewTitle: "Pré-visualização:",
         previewLine1: "Este é um exemplo de exibição do AlwaysMemo.",
         previewLine2: "Esta frase é um pouco mais longa de propósito para você verificar como a quebra de linha fica.",
@@ -1384,8 +1374,6 @@ const translations: Record<AppLanguage, Messages> = {
         lineSpacingRelaxed: "넓게",
         wrapLabel: "줄 바꿈",
         wrapDescription: "긴 줄을 자동으로 줄 바꿈합니다",
-        spellCheckLabel: "맞춤법 검사",
-        spellCheckDescription: "메모의 맞춤법 오류에 밑줄을 표시합니다",
         previewTitle: "미리 보기:",
         previewLine1: "AlwaysMemo 표시 예시입니다.",
         previewLine2: "이 문장은 줄 바꿈 설정을 확인할 수 있도록 일부러 조금 길게 작성했습니다.",

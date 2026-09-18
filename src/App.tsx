@@ -154,7 +154,6 @@ type PersistedState = {
   useGlobalShortcuts: boolean;
   showStatusBar?: boolean;
   wrapAtRightEdge?: boolean;
-  spellCheckEnabled?: boolean;
   sessionBehavior?: SessionBehavior;
   fileOpenBehavior?: FileOpenBehavior;
   editorFontSizePx?: number;
@@ -264,7 +263,6 @@ function App() {
   const [viewMenuStyle, setViewMenuStyle] = useState<CSSProperties | undefined>(undefined);
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [wrapAtRightEdge, setWrapAtRightEdge] = useState(true);
-  const [spellCheckEnabled, setSpellCheckEnabled] = useState(true);
   const [editorFontSizePx, setEditorFontSizePx] = useState(14);
   const [, setEditorFontSizeInput] = useState("14");
   const [lineSpacing, setLineSpacing] = useState<LineSpacing>("standard");
@@ -288,7 +286,6 @@ function App() {
     useGlobalShortcuts: DEFAULT_USE_GLOBAL_SHORTCUTS,
     showStatusBar: true,
     wrapAtRightEdge: true,
-    spellCheckEnabled: true,
     editorFontSizePx: 14,
     lineSpacing: "standard",
     themeMode: "system",
@@ -625,7 +622,6 @@ function App() {
         useGlobalShortcuts,
         showStatusBar,
         wrapAtRightEdge,
-        spellCheckEnabled,
         sessionBehavior,
         fileOpenBehavior,
         editorFontSizePx,
@@ -647,7 +643,6 @@ function App() {
       sessionBehavior,
       showStatusBar,
       snap,
-      spellCheckEnabled,
       storageKey,
       themeMode,
       useGlobalShortcuts,
@@ -1156,7 +1151,6 @@ function App() {
     useGlobalShortcuts,
     showStatusBar,
     wrapAtRightEdge,
-    spellCheckEnabled,
     editorFontSizePx,
     lineSpacing,
     themeMode,
@@ -1173,7 +1167,6 @@ function App() {
     lineSpacing,
     sessionBehavior,
     showStatusBar,
-    spellCheckEnabled,
     themeMode,
     useGlobalShortcuts,
     wrapAtRightEdge,
@@ -1214,10 +1207,6 @@ function App() {
     if (patch.wrapAtRightEdge !== undefined) {
       setWrapAtRightEdge(patch.wrapAtRightEdge);
       nextSnapshot = { ...nextSnapshot, wrapAtRightEdge: patch.wrapAtRightEdge };
-    }
-    if (patch.spellCheckEnabled !== undefined) {
-      setSpellCheckEnabled(patch.spellCheckEnabled);
-      nextSnapshot = { ...nextSnapshot, spellCheckEnabled: patch.spellCheckEnabled };
     }
     if (patch.showStatusBar !== undefined) {
       setShowStatusBar(patch.showStatusBar);
@@ -1563,7 +1552,6 @@ function App() {
           const nextLanguagePreference = parsed.languagePreference ?? "system";
           const nextShowStatusBar = parsed.showStatusBar ?? true;
           const nextWrapAtRightEdge = parsed.wrapAtRightEdge ?? true;
-          const nextSpellCheckEnabled = parsed.spellCheckEnabled ?? true;
           setSessionBehavior(nextSessionBehavior);
           setFileOpenBehavior(nextFileOpenBehavior);
           setEditorFontSizePx(nextEditorFontSizePx);
@@ -1572,7 +1560,6 @@ function App() {
           setLanguagePreference(nextLanguagePreference);
           setShowStatusBar(nextShowStatusBar);
           setWrapAtRightEdge(nextWrapAtRightEdge);
-          setSpellCheckEnabled(nextSpellCheckEnabled);
           const pathMap = getPathMap();
           const shouldRestoreTabs = nextSessionBehavior === "restore";
           const restoredTabs = ((shouldRestoreTabs && parsed.tabs.length)
@@ -1620,7 +1607,6 @@ function App() {
           setUseGlobalShortcuts(DEFAULT_USE_GLOBAL_SHORTCUTS);
           setShowStatusBar(true);
           setWrapAtRightEdge(true);
-          setSpellCheckEnabled(true);
           const nextAlwaysOnTop = forceAlwaysOnTopDefined
             ? forceAlwaysOnTop
             : current;
@@ -3733,7 +3719,7 @@ function App() {
             className="editor-body"
             data-wrap={wrapAtRightEdge ? "on" : "off"}
             data-line-spacing={lineSpacing}
-            spellCheck={spellCheckEnabled}
+            spellCheck={false}
             style={{
               fontSize: `${editorFontSizePx}px`,
               lineHeight: editorLineHeight,

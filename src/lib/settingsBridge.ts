@@ -9,7 +9,6 @@ export type SettingsSnapshot = {
   useGlobalShortcuts: boolean;
   showStatusBar: boolean;
   wrapAtRightEdge: boolean;
-  spellCheckEnabled: boolean;
   editorFontSizePx: number;
   lineSpacing: LineSpacing;
   themeMode: ThemeMode;
